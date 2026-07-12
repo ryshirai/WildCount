@@ -45,10 +45,11 @@ const localMeta = computed(() => {
     return { isGameOver: false, winnerName: null as string | null }
   }
   const r = activeResult.value
+  // Prefer the frozen result snapshot — live game flags can flip when peers act
   return {
     isGameOver:
       r.isGameOver ||
-      (isOnline.value ? onlineGame.isGameOver : isGameOver.value),
+      (!isOnline.value && isGameOver.value),
     winnerName: r.winnerName,
   }
 })
@@ -190,8 +191,13 @@ const confettiDensity = computed(() =>
   localMeta.value.isGameOver ? ('lg' as const) : ('md' as const),
 )
 
+// Restart calc only when the challenge identity changes (not peer view noise)
 watch(
-  result,
+  () => {
+    const r = result.value
+    if (!r) return null
+    return `${r.round}:${r.bidValue}:${r.challengerName}:${r.finalTotal}:${r.lifeLostName}`
+  },
   () => {
     runCalcSequence()
   },

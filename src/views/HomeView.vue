@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import AppLogo from '@/components/common/AppLogo.vue'
 import HelpModal from '@/components/common/HelpModal.vue'
@@ -142,7 +142,10 @@ async function resumeLastRoom() {
       name: playerName.value,
     })
     if (!ok) {
-      showToast('復帰に失敗しました（ルームが消えた可能性があります）')
+      const msg =
+        onlineGame.lastError ||
+        '復帰に失敗しました（ルームが解散されたか、すでに終了しています）'
+      showToast(msg)
       clearResumeToken(code)
       refreshResumable()
       return
@@ -158,6 +161,7 @@ async function resumeLastRoom() {
     }
   } catch (e) {
     showToast(e instanceof Error ? e.message : '復帰に失敗しました')
+    clearResumeToken(code)
     refreshResumable()
   } finally {
     resumeBusy.value = false
@@ -173,6 +177,23 @@ function dismissResumable() {
 onMounted(() => {
   refreshResumable()
 })
+
+// Host dissolve / purge while guest lands on home
+watch(
+  () => onlineGame.lastErrorCode,
+  (code) => {
+    if (code === 'ROOM_CLOSED') {
+      refreshResumable()
+    }
+  },
+)
+
+watch(
+  () => onlineGame.roomCode,
+  () => {
+    refreshResumable()
+  },
+)
 </script>
 
 <template>

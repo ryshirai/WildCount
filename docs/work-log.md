@@ -2089,6 +2089,144 @@
 
 ---
 
+## 2026-07-12 — 切断・退出による終了 UI（結果画面誘導をやめる）
+
+### 背景・目的
+- 切断タイムアウト／意図的退出で sole survivor になると `isGameOver` になり、「結果画面で勝者を確認」と出るが、コヨーテ結果は無い
+
+### 実施内容
+1. チャレンジ無しの game_over は **退出終了パネル**（勝者・説明・もう一度遊ぶ／退出）
+2. イベントログも「退出・切断」と分かる文言に
+3. モバイルにも同パネルを追加
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/views/GameView.vue` | forfeit end UI |
+| `worker/GameRoom.ts` | GAME_ENDED 文言 |
+
+---
+
+## 2026-07-12 — Connected to room 診断イベントを非表示
+
+### 背景・目的
+- WS 接続時の英語メッセージ `Connected to room …. Send join to enter.` がイベントログ／ステータスに出ていた
+
+### 実施内容
+1. Worker: upgrade 時の `CONNECTED` イベント送信を削除（クライアントは open 後に join するだけ）
+2. クライアント: `CONNECTED` / 空メッセージの event は lastEvent・ログに載せない
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `worker/GameRoom.ts` | welcome event 削除 |
+| `src/stores/onlineGame.ts` | event フィルタ |
+
+---
+
+## 2026-07-12 — ルーム解散後のゲスト再接続 / worker メッセージ修正
+
+### 背景・目的
+- ホスト解散後もゲストが再接続できそうに見え、押すと `npm run worker:dev` 系の文言が出る
+
+### 実施内容
+1. close code 4001/4002（purge / host end）を `room_closed` 相当として処理（メッセージ欠落時も）
+2. resume 失敗時はトークン破棄・`ROOM_CLOSED` 文言（dev の worker ヒントは新規作成時のみ）
+3. 再接続 UI は `canAttemptResume` のときだけ表示
+4. ホームの「前回のルーム」は解散検知で消す
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/stores/onlineGame.ts` | applyRoomClosed / close code / resume 失敗 |
+| `src/views/GameView.vue` / `LobbyView.vue` / `HomeView.vue` | 再接続導線 |
+| `tests/stores/onlineGame.test.ts` | 解散・close code テスト |
+
+### 確認結果
+- `npm test -- tests/stores/onlineGame.test.ts` 12 tests 成功
+- 全テスト・build 成功
+
+---
+
+## 2026-07-12 — カード公開 PC 見出しの改行崩れ修正
+
+### 背景・目的
+- PC のカード公開で「→ 数字（プレイヤー名）」が改行して見える
+
+### 実施内容
+1. 原因: `<p>` 内に `PlayerAvatar`（block の `div`）があり、ブラウザが段落を途中で閉じて後続テキストが別行になる
+2. 見出しを `flex` の `div` に変更し、「→ 数字（名）」を `whitespace-nowrap` で一塊に
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/views/GameView.vue` | カード公開サブタイトルのマークアップ |
+
+### 確認結果
+- マークアップ修正（見た目はブラウザ幅で確認）
+
+---
+
+## 2026-07-12 — 結果画面を他プレイヤー操作から隔離
+
+### 背景・目的
+- 結果表示中に他プレイヤーの dismiss / 切断などで `view` が更新されると、`pendingResult` が毎回再生成され計算演出がやり直されるなど、自分の画面が揺れていた
+
+### 実施内容
+1. `onlineGame`: チャレンジ単位で `heldResultView` を固定。同一 round/bid/challenger では再マップしない
+2. ロビー/rematch（`status===open`）時のみ hold をクリア。サーバが pending を消しても閲覧中は維持
+3. `ResultView` / `GameView`: 演出 watch をチャレンジ identity キーに変更
+4. テスト: peer view noise でも `pendingResult` 参照が不変
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/stores/onlineGame.ts` | frozen result hold |
+| `src/views/ResultView.vue` | identity watch / isGameOver はスナップ優先 |
+| `src/views/GameView.vue` | cut-in identity watch |
+| `tests/stores/onlineGame.test.ts` | 安定性テスト |
+
+### 明示的にやっていないこと
+- 結果中のチャット/スタンプ表示追加
+- サーバ側プロトコル変更（ACK ゲートはそのまま）
+
+### 確認結果
+- `npm test -- tests/stores/onlineGame.test.ts` 10 tests 成功
+- `npm run build` 成功
+
+### 次に考えられる作業
+1. 結果画面に「他○人が確認中」程度の軽い共有ステータス（任意）
+
+---
+
+## 2026-07-12 — モバイル「プレイヤー」タブ削除
+
+### 背景・目的
+- スマホ下部ナビの「プレイヤー」は席一覧ではなく、チャット/ログを閉じるだけの擬似タブだった
+- 席・札は常時 `MobilePlayerCarousel` に出るため、タブとして不要
+
+### 実施内容
+1. 下部ナビを **スタンプ / チャット / ログ** の 3 項目に整理
+2. `mobileTab` を `'chat' | 'log' | null` に変更（`null` = プレイ画面）
+3. ログ開閉を `toggleMobileLog` に統一。閉じるはシート「閉じる」＋背景タップ
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/views/GameView.vue` | プレイヤータブ削除・状態型整理 |
+
+### 明示的にやっていないこと
+- カルーセル自体の変更
+- デスクトップ右レールのタブ構成
+
+### 確認結果
+- `npm run build` 成功
+
+### 次に考えられる作業
+1. 実機・狭い幅でのナビ余白確認
+
+---
+
 ## ログの書き方
 
 **正規のルールは `AGENTS.md` を参照。** 変更のあったセッションでは、このファイルに日付見出しで **追記** する（過去エントリは消さない）。

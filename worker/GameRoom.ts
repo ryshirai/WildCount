@@ -144,19 +144,12 @@ export class GameRoom {
     const server = pair[1]
 
     this.state.acceptWebSocket(server)
-    // Attachment empty until join
+    // Attachment empty until join — client sends `join` on open (no welcome event)
     server.serializeAttachment({} satisfies WsAttachment)
 
     room.lastActivityAt = Date.now()
     await this.saveRoom(room)
     await this.scheduleNextAlarm(room)
-
-    this.send(server, {
-      type: 'event',
-      level: 'info',
-      message: `Connected to room ${room.roomCode}. Send join to enter.`,
-      code: 'CONNECTED',
-    })
 
     return new Response(null, { status: 101, webSocket: client })
   }
@@ -336,10 +329,15 @@ export class GameRoom {
         })
       }
       if (room.game?.phase === 'game_over') {
+        const wName = room.game.winnerId
+          ? room.players.find((p) => p.id === room.game!.winnerId)?.displayName
+          : null
         this.broadcast(room, {
           type: 'event',
           level: 'info',
-          message: 'ゲーム終了',
+          message: wName
+            ? `ゲーム終了 — ${wName} の勝利（退出・切断）`
+            : 'ゲーム終了（退出・切断）',
           code: 'GAME_ENDED',
         })
       }
@@ -670,10 +668,15 @@ export class GameRoom {
       code: forfeited ? 'PLAYER_FORFEIT' : 'PLAYER_LEFT',
     })
     if (room.game?.phase === 'game_over') {
+      const wName = room.game.winnerId
+        ? room.players.find((p) => p.id === room.game!.winnerId)?.displayName
+        : null
       this.broadcast(room, {
         type: 'event',
         level: 'info',
-        message: 'ゲーム終了',
+        message: wName
+          ? `ゲーム終了 — ${wName} の勝利（退出）`
+          : 'ゲーム終了（退出）',
         code: 'GAME_ENDED',
       })
     }

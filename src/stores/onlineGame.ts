@@ -30,8 +30,13 @@ import {
   saveDisplayName,
   saveResumeToken,
 } from '@/online/resumeStorage'
+import { isDevBuild } from '@/config/runtime'
 import { roomWebSocketUrl, roomsCreateUrl } from '@/online/workerUrl'
 import type { EventLogItem } from '@/types/game'
+
+/** Server close codes from teardownRoom (host end / idle purge). */
+const WS_CLOSE_ROOM_PURGED = 4001
+const WS_CLOSE_HOST_ENDED = 4002
 
 /** Short-lived floating chat / stamp on screen (not persisted). */
 export interface FloatingReaction {
@@ -79,11 +84,13 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
   const floatingReactions = ref<FloatingReaction[]>([])
   /**
    * Client-side dismiss of result cut-in / ResultView.
-   * Server may clear `view.pendingResult` when the next player bids;
-   * we keep a local hold so slower clients can still finish the reveal.
+   * Frozen local hold so other players' dismiss / disconnect / view
+   * broadcasts do not rebuild the result UI mid-animation.
    */
   const resultDismissed = ref(false)
   const heldPendingResult = ref<PendingResultSnapshot | null>(null)
+  /** Stable ResultViewModel for the current challenge (identity-stable). */
+  const heldResultView = ref<ResultViewModel | null>(null)
   /** True while an automatic or manual reconnect is in flight */
   const reconnecting = ref(false)
   const reconnectAttempt = ref(0)
@@ -128,17 +135,55 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
       (connection.value === 'connecting' && reconnecting.value),
   )
 
+  /** Room was dissolved / purged — do not offer reconnect. */
+  const isRoomClosed = computed(() => lastErrorCode.value === 'ROOM_CLOSED')
+
+  /** True when a resume token still exists for the current (or last) room. */
+  const canAttemptResume = computed(() => {
+    if (isRoomClosed.value) return false
+    const code = roomCode.value ?? loadLastRoomCode()
+    return code != null && loadResumeToken(code) != null
+  })
+
   const gameView = computed<GameViewModel | null>(() => {
     if (!view.value?.game) return null
     return onlineToGameView(view.value, eventLog.value)
   })
 
   const pendingResult = computed<ResultViewModel | null>(() => {
-    if (!view.value || resultDismissed.value || !heldPendingResult.value) {
-      return null
-    }
-    return onlineToResultView(view.value, heldPendingResult.value)
+    if (resultDismissed.value || !heldResultView.value) return null
+    return heldResultView.value
   })
+
+  function clearResultHold(): void {
+    heldPendingResult.value = null
+    heldResultView.value = null
+  }
+
+  /** Same challenge snapshot (round + bid + challenger) — ignore roster churn. */
+  function isSameChallenge(
+    a: PendingResultSnapshot,
+    b: PendingResultSnapshot,
+  ): boolean {
+    return (
+      a.round === b.round &&
+      a.outcome.challengerId === b.outcome.challengerId &&
+      a.outcome.bid === b.outcome.bid
+    )
+  }
+
+  function captureResultHold(
+    playerView: PlayerView,
+    snap: PendingResultSnapshot,
+  ): void {
+    const prev = heldPendingResult.value
+    const isNew = !prev || !isSameChallenge(prev, snap)
+    heldPendingResult.value = snap
+    if (isNew || !heldResultView.value) {
+      resultDismissed.value = false
+      heldResultView.value = onlineToResultView(playerView, snap)
+    }
+  }
 
   const awaitingResultView = computed(() => pendingResult.value != null)
 
@@ -266,10 +311,19 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
       await connectAndJoin(code, displayName.value || 'プレイヤー', {
         clearView: view.value == null,
         preserveOnFail: true,
+        resumeAttempt: true,
       })
       reconnectAttempt.value = 0
       return connection.value === 'open'
     } catch {
+      // Room gone / token dead — drop home “前回のルーム” banner
+      if (
+        lastErrorCode.value === 'ROOM_CLOSED' ||
+        lastErrorCode.value === 'ROOM_NOT_FOUND' ||
+        lastErrorCode.value === 'INVALID_TOKEN'
+      ) {
+        clearResumeToken(code)
+      }
       return false
     } finally {
       reconnecting.value = false
@@ -278,9 +332,16 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
 
   /** Manual reconnect (disconnect banner). Keeps last view when possible. */
   async function reconnect(): Promise<void> {
+    if (lastErrorCode.value === 'ROOM_CLOSED') {
+      setError('ROOM_CLOSED', lastError.value ?? 'ルームが閉じられました')
+      throw new Error(lastError.value!)
+    }
     const code = roomCode.value ?? loadLastRoomCode()
-    if (!code) {
-      setError(null, '復帰するルームがありません')
+    if (!code || !loadResumeToken(code)) {
+      setError(
+        'ROOM_CLOSED',
+        '復帰できるルームがありません。解散されたか、セッションが終了しています',
+      )
       throw new Error(lastError.value!)
     }
     clearReconnectTimer()
@@ -290,20 +351,100 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
       await connectAndJoin(code, displayName.value || 'プレイヤー', {
         clearView: false,
         preserveOnFail: true,
+        resumeAttempt: true,
       })
       reconnectAttempt.value = 0
+    } catch (e) {
+      if (
+        lastErrorCode.value === 'ROOM_CLOSED' ||
+        lastErrorCode.value === 'ROOM_NOT_FOUND' ||
+        lastErrorCode.value === 'INVALID_TOKEN' ||
+        connection.value === 'error'
+      ) {
+        // Stale resume after dissolve: stop offering reconnect
+        clearResumeToken(code)
+        if (lastErrorCode.value !== 'ROOM_CLOSED') {
+          setError(
+            'ROOM_CLOSED',
+            'ルームに接続できませんでした。解散されたか、すでに終了している可能性があります',
+          )
+        }
+        roomCode.value = null
+        resumeToken.value = null
+      }
+      throw e
     } finally {
       reconnecting.value = false
     }
   }
 
+  /**
+   * Room gone (host dissolve / idle purge). No reconnect; drop resume token.
+   */
+  function applyRoomClosed(reason: string | null | undefined): void {
+    if (lastErrorCode.value === 'ROOM_CLOSED' && intentionalClose) {
+      // Idempotent (room_closed message + close code 4001/4002)
+      clearReconnectTimer()
+      closeSocketOnly()
+      return
+    }
+    intentionalClose = true
+    clearReconnectTimer()
+    reconnecting.value = false
+    reconnectAttempt.value = 0
+    const code = roomCode.value
+    if (code) clearResumeToken(code)
+    setError('ROOM_CLOSED', formatRoomClosedReason(reason))
+    roomCode.value = null
+    playerId.value = null
+    resumeToken.value = null
+    isHost.value = false
+    revision.value = 0
+    view.value = null
+    clearResultHold()
+    resultDismissed.value = false
+    eventLog.value = []
+    chatMessages.value = []
+    floatingReactions.value = []
+    setLastEvent(null)
+    connection.value = 'closed'
+    closeSocketOnly()
+  }
+
+  function wsOpenFailMessage(isResumeAttempt: boolean): string {
+    if (isResumeAttempt) {
+      return 'ルームに接続できませんでした。解散されたか、すでに終了している可能性があります'
+    }
+    if (isDevBuild) {
+      return 'WebSocket エラー（npm run worker:dev を確認してください）'
+    }
+    return 'サーバーに接続できませんでした。通信環境を確認してください'
+  }
+
+  function wsTimeoutMessage(isResumeAttempt: boolean): string {
+    if (isResumeAttempt) {
+      return 'ルームへの再接続がタイムアウトしました。解散された可能性があります'
+    }
+    if (isDevBuild) {
+      return '接続がタイムアウトしました（Worker は起動していますか？）'
+    }
+    return '接続がタイムアウトしました。しばらくしてから再試行してください'
+  }
+
   async function connectAndJoin(
     code: string,
     name: string,
-    opts?: { clearView?: boolean; preserveOnFail?: boolean },
+    opts?: {
+      clearView?: boolean
+      preserveOnFail?: boolean
+      /** Resume / auto-reconnect — avoid dev-only worker hints on failure */
+      resumeAttempt?: boolean
+    },
   ): Promise<void> {
     const clearView = opts?.clearView !== false
     const preserveOnFail = opts?.preserveOnFail === true
+    const resumeAttempt =
+      opts?.resumeAttempt === true || loadResumeToken(code) != null
 
     // Drop prior socket first (bumps socketGen so its handlers no-op), then
     // reject any in-flight join Promise so callers do not hang forever.
@@ -324,7 +465,7 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
       playerId.value = null
       eventLog.value = []
       resultDismissed.value = false
-      heldPendingResult.value = null
+      clearResultHold()
       logSeq = 0
     }
 
@@ -365,7 +506,7 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
 
       const openTimer = setTimeout(() => {
         if (myGen !== socketGen) return
-        fail(new Error('接続がタイムアウトしました（Worker は起動していますか？）'))
+        fail(new Error(wsTimeoutMessage(resumeAttempt)))
         try {
           if (myGen === socketGen) ws?.close()
         } catch {
@@ -408,10 +549,36 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
         onMessage(String(ev.data))
       })
 
-      ws.addEventListener('close', () => {
+      ws.addEventListener('close', (ev) => {
         if (myGen !== socketGen) return
         clearTimeout(openTimer)
         ws = null
+        const closeCode = typeof ev?.code === 'number' ? ev.code : 0
+        const closeReason =
+          typeof ev?.reason === 'string' ? ev.reason : ''
+
+        // Teardown may close sockets even if room_closed message was lost
+        if (
+          closeCode === WS_CLOSE_ROOM_PURGED ||
+          closeCode === WS_CLOSE_HOST_ENDED ||
+          /host ended|room purged|room closed/i.test(closeReason)
+        ) {
+          applyRoomClosed(
+            closeCode === WS_CLOSE_HOST_ENDED ||
+              /host ended/i.test(closeReason)
+              ? 'Host ended the room'
+              : closeReason || 'Room closed due to inactivity',
+          )
+          const closedErr = new Error(
+            lastError.value ?? 'ルームが閉じられました',
+          )
+          // Unblock in-flight connectAndJoin without double-settling
+          if (helloWait || !settled) {
+            fail(closedErr)
+          }
+          return
+        }
+
         if (helloWait) {
           clearHelloWait(new Error('接続が切断されました'))
         } else if (!settled) {
@@ -421,6 +588,7 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
           connection.value = 'idle'
           return
         }
+        if (lastErrorCode.value === 'ROOM_CLOSED') return
         connection.value = 'closed'
         if (!lastError.value) {
           setError('CONNECTION', '接続が切断されました')
@@ -432,27 +600,27 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
         if (myGen !== socketGen) return
         clearTimeout(openTimer)
         if (connection.value === 'connecting') {
-          fail(
-            new Error(
-              'WebSocket エラー（npm run worker:dev を確認してください）',
-            ),
-          )
+          fail(new Error(wsOpenFailMessage(resumeAttempt)))
         }
       })
     })
   }
 
   function scheduleReconnect(): void {
-    if (intentionalClose) return
+    if (intentionalClose || lastErrorCode.value === 'ROOM_CLOSED') return
     const code = roomCode.value
     if (!code || !loadResumeToken(code)) return
     if (reconnectTimer) return
     if (reconnectAttempt.value >= MAX_RECONNECT_ATTEMPTS) {
+      // Likely dissolved while we were offline — drop stale resume affordance
+      clearResumeToken(code)
       setError(
-        'CONNECTION',
-        '再接続に失敗しました。「再接続」を押すか、ホームから復帰してください',
+        'ROOM_CLOSED',
+        'ルームに再接続できませんでした。解散されたか、すでに終了している可能性があります',
       )
       reconnecting.value = false
+      roomCode.value = null
+      resumeToken.value = null
       return
     }
 
@@ -463,7 +631,11 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     reconnectTimer = setTimeout(() => {
       reconnectTimer = null
       void (async () => {
-        if (intentionalClose || !roomCode.value) {
+        if (
+          intentionalClose ||
+          !roomCode.value ||
+          lastErrorCode.value === 'ROOM_CLOSED'
+        ) {
           reconnecting.value = false
           return
         }
@@ -471,13 +643,21 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
           await connectAndJoin(
             roomCode.value,
             displayName.value || 'プレイヤー',
-            { clearView: false, preserveOnFail: true },
+            {
+              clearView: false,
+              preserveOnFail: true,
+              resumeAttempt: true,
+            },
           )
           reconnectAttempt.value = 0
           reconnecting.value = false
           clearError()
           pushLog('再接続しました', 'RESUME')
         } catch {
+          if (lastErrorCode.value === 'ROOM_CLOSED') {
+            reconnecting.value = false
+            return
+          }
           scheduleReconnect()
         }
       })()
@@ -520,28 +700,45 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
           playerId.value = msg.view.selfPlayerId
         }
         isHost.value = msg.view.hostId === playerId.value
-        // Capture challenge snapshots locally. Do not drop hold when server
-        // clears pendingResult on the next PLACE_BID (slow client still viewing).
+        // Freeze challenge UI so peer dismiss / disconnect does not rebuild
+        // ResultView or cut-in. Only drop hold when the room truly left result
+        // for this seat (rematch, or reconnected after peers finished).
         if (msg.view.pendingResult) {
-          const next = msg.view.pendingResult
-          const prev = heldPendingResult.value
-          const isNewChallenge =
-            !prev ||
-            prev.round !== next.round ||
-            prev.outcome.challengerId !== next.outcome.challengerId ||
-            prev.outcome.bid !== next.outcome.bid
-          heldPendingResult.value = next
-          if (isNewChallenge) {
-            resultDismissed.value = false
-          }
+          captureResultHold(msg.view, msg.view.pendingResult)
+        } else if (
+          msg.view.status === 'open' ||
+          msg.view.phase === 'lobby'
+        ) {
+          resultDismissed.value = false
+          clearResultHold()
+        } else if (
+          heldResultView.value &&
+          msg.view.phase !== 'result'
+        ) {
+          // e.g. resume after disconnect while peers already advanced
+          resultDismissed.value = false
+          clearResultHold()
         }
         break
       }
-      case 'event':
+      case 'event': {
+        // Wire/diagnostic noise (legacy CONNECTED welcome, etc.) — never surface in UI
+        if (msg.code === 'CONNECTED' || !msg.message?.trim()) break
         setLastEvent(msg.message)
         pushLog(msg.message, msg.code)
         break
+      }
       case 'error': {
+        // Dissolved room: DO storage gone → join/upgrade paths surface ROOM_NOT_FOUND
+        if (msg.code === 'ROOM_NOT_FOUND' && (helloWait || reconnecting.value)) {
+          applyRoomClosed(msg.message || 'Room not found')
+          if (helloWait) {
+            clearHelloWait(
+              new Error(lastError.value ?? 'ルームが見つかりません'),
+            )
+          }
+          break
+        }
         const friendly = formatServerError(msg.code, msg.message)
         setError(msg.code, msg.message)
         // Soft action errors (revision / illegal): keep session open; toast only
@@ -553,29 +750,7 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
         break
       }
       case 'room_closed': {
-        // Room is gone — do not reconnect; keep Japanese reason for Home UI
-        intentionalClose = true
-        clearReconnectTimer()
-        reconnecting.value = false
-        reconnectAttempt.value = 0
-        const code = roomCode.value
-        if (code) clearResumeToken(code)
-        setError('ROOM_CLOSED', formatRoomClosedReason(msg.reason))
-        roomCode.value = null
-        playerId.value = null
-        resumeToken.value = null
-        isHost.value = false
-        revision.value = 0
-        view.value = null
-        heldPendingResult.value = null
-        resultDismissed.value = false
-        eventLog.value = []
-        chatMessages.value = []
-        floatingReactions.value = []
-        setLastEvent(null)
-        connection.value = 'closed'
-        // Close local socket if server has not yet (avoid leave race)
-        closeSocketOnly()
+        applyRoomClosed(msg.reason)
         break
       }
       case 'pong':
@@ -725,7 +900,7 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
    */
   function clearPendingResult(): void {
     resultDismissed.value = true
-    heldPendingResult.value = null
+    clearResultHold()
     if (ws && ws.readyState === WebSocket.OPEN) {
       send({ type: 'dismiss_result' })
     }
@@ -735,7 +910,7 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
   function requestRematch(): void {
     clearError()
     resultDismissed.value = true
-    heldPendingResult.value = null
+    clearResultHold()
     send({ type: 'rematch' })
   }
 
@@ -805,7 +980,7 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     chatMessages.value = []
     floatingReactions.value = []
     resultDismissed.value = false
-    heldPendingResult.value = null
+    clearResultHold()
   }
 
   /**
@@ -869,6 +1044,8 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     reconnectAttempt,
     isOnlineSession,
     isDisconnected,
+    isRoomClosed,
+    canAttemptResume,
     phase,
     players,
     canStart,

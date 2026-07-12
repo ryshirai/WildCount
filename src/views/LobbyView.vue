@@ -114,6 +114,7 @@ const connectionLabel = computed(() => {
 const showDisconnectBanner = computed(
   () =>
     isOnline.value &&
+    !onlineGame.isRoomClosed &&
     (onlineGame.connection === 'closed' ||
       onlineGame.connection === 'error' ||
       (onlineGame.reconnecting && onlineGame.connection !== 'open')),
@@ -426,6 +427,7 @@ watch(
           }}
         </p>
         <button
+          v-if="onlineGame.canAttemptResume"
           type="button"
           class="btn-ghost shrink-0 text-xs"
           :disabled="resumeBusy || onlineGame.reconnecting"

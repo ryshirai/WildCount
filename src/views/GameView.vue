@@ -75,7 +75,8 @@ const statusMessage = computed(() => {
 
 const toast = ref<string | null>(null)
 const helpOpen = ref(false)
-const mobileTab = ref<'chat' | 'players' | 'log'>('players')
+/** Mobile overlay: null = play table (no drawer) */
+const mobileTab = ref<'chat' | 'log' | null>(null)
 /** Mobile quick stamp sheet (no full chat) */
 const stampSheetOpen = ref(false)
 /** Desktop right rail: event log or chat */
@@ -90,16 +91,21 @@ function openHelp() {
 function onHeaderChat() {
   desktopSideTab.value = 'chat'
   stampSheetOpen.value = false
-  mobileTab.value = mobileTab.value === 'chat' ? 'players' : 'chat'
+  mobileTab.value = mobileTab.value === 'chat' ? null : 'chat'
 }
 
 function toggleMobileChat() {
   stampSheetOpen.value = false
-  mobileTab.value = mobileTab.value === 'chat' ? 'players' : 'chat'
+  mobileTab.value = mobileTab.value === 'chat' ? null : 'chat'
+}
+
+function toggleMobileLog() {
+  stampSheetOpen.value = false
+  mobileTab.value = mobileTab.value === 'log' ? null : 'log'
 }
 
 function closeMobileDrawer() {
-  mobileTab.value = 'players'
+  mobileTab.value = null
 }
 
 function onSendChat(text: string) {
@@ -125,7 +131,7 @@ function openStampSheet() {
     return
   }
   // Prefer stamps over full-screen chat on small screens
-  mobileTab.value = 'players'
+  mobileTab.value = null
   stampSheetOpen.value = true
 }
 
@@ -212,6 +218,40 @@ const isGameOver = computed(() => {
   return gameView.value?.isGameOver ?? false
 })
 
+/**
+ * Game ended without a challenge result (leave / disconnect forfeit / sole survivor).
+ * Not the coyote card-reveal path — no ResultView.
+ */
+const showForfeitEnd = computed(
+  () => isGameOver.value && !awaitingResultView.value,
+)
+
+const forfeitWinner = computed(() => {
+  const id = gameView.value?.winnerId
+  if (!id || !room.value) return null
+  const p = room.value.players.find((x) => x.id === id)
+  if (!p) return null
+  return { id: p.id, name: p.name, isSelf: p.isSelf }
+})
+
+const forfeitEndTitle = computed(() => {
+  const w = forfeitWinner.value
+  if (w?.isSelf) return 'あなたの勝利'
+  if (w) return `${w.name} の勝利`
+  return 'ゲーム終了'
+})
+
+const forfeitEndDetail = computed(() => {
+  const w = forfeitWinner.value
+  if (w?.isSelf) {
+    return '他のプレイヤーの退出・切断により、生き残りました'
+  }
+  if (w) {
+    return '退出・切断により対戦が終了しました（コヨーテ結果画面はありません）'
+  }
+  return '退出・切断により対戦が終了しました'
+})
+
 const waitingForResultPeers = computed(() => {
   if (useMock.value || awaitingResultView.value) return false
   // After dismiss: engine stays at round_end until all connected peers close result
@@ -220,6 +260,9 @@ const waitingForResultPeers = computed(() => {
 
 const paceHint = computed(() => {
   if (useMock.value) return null
+  if (showForfeitEnd.value) {
+    return forfeitEndTitle.value
+  }
   if (awaitingResultView.value) {
     if (cutInVisible.value) return statusMessage.value ?? 'コヨーテ！'
     if (!cardsRevealDone.value) return 'カードを公開しています…'
@@ -312,18 +355,21 @@ function resetPostChallengeUi() {
   mockCutIn.value = null
 }
 
-/** Fire cut-in when a (new) challenge result becomes pending */
+/** Fire cut-in only for a new challenge identity (not peer view broadcasts) */
 watch(
-  pendingResult,
-  (r, prev) => {
-    if (r && r !== prev) {
-      // New snapshot (including first challenge after dismiss)
+  () => {
+    const r = pendingResult.value
+    if (!r) return null
+    return `${r.round}:${r.bidValue}:${r.challengerName}:${r.finalTotal}`
+  },
+  (key, prevKey) => {
+    if (key && key !== prevKey) {
       cutInVisible.value = true
       cutInPlayed.value = true
       revealedCount.value = 0
       cardsRevealDone.value = false
     }
-    if (!r) {
+    if (!key) {
       resetPostChallengeUi()
     }
   },
@@ -504,6 +550,32 @@ function confirmEndRoom() {
   void router.push({ name: 'home' })
 }
 
+/** After forfeit / disconnect win — rematch (online) or local restart. */
+async function playAgainFromForfeit() {
+  if (useMock.value) return
+  if (isOnline.value) {
+    onlineGame.requestRematch()
+    return
+  }
+  await store.restartLastGame()
+  draftBid.value = gameView.value?.draftBid ?? minBid.value
+}
+
+// Online rematch from forfeit end → lobby
+watch(
+  () => onlineGame.view?.status,
+  (status) => {
+    if (!isOnline.value) return
+    if (status === 'open' && showForfeitEnd.value) {
+      const code = onlineGame.roomCode
+      void router.replace({
+        name: 'lobby',
+        query: { online: '1', ...(code ? { code } : {}) },
+      })
+    }
+  },
+)
+
 // Server dissolved room (host end / idle purge) while still on game screen
 watch(
   () => onlineGame.lastErrorCode,
@@ -518,6 +590,7 @@ watch(
 const showOnlineDisconnect = computed(
   () =>
     isOnline.value &&
+    !onlineGame.isRoomClosed &&
     (onlineGame.connection === 'closed' ||
       onlineGame.connection === 'error' ||
       onlineGame.reconnecting),
@@ -602,7 +675,7 @@ async function onChallenge() {
       </p>
       <div class="flex flex-wrap items-center justify-center gap-2">
         <button
-          v-if="onlineGame.connection !== 'open'"
+          v-if="onlineGame.connection !== 'open' && onlineGame.canAttemptResume"
           type="button"
           class="btn-teal text-sm"
           :disabled="onlineGame.reconnecting"
@@ -610,7 +683,9 @@ async function onChallenge() {
         >
           再接続
         </button>
-        <button type="button" class="btn-ghost" @click="requestLeaveGame">退出</button>
+        <button type="button" class="btn-ghost" @click="requestLeaveGame">
+          {{ onlineGame.isRoomClosed ? 'ホームへ' : '退出' }}
+        </button>
       </div>
       <MockBadge />
     </div>
@@ -630,6 +705,7 @@ async function onChallenge() {
             }}
           </span>
           <button
+            v-if="onlineGame.canAttemptResume"
             type="button"
             class="btn-ghost shrink-0 text-xs"
             :disabled="onlineGame.reconnecting"
@@ -694,8 +770,11 @@ async function onChallenge() {
             <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-sand-dim">
               カード公開
             </p>
-            <p class="max-w-sm text-sm leading-relaxed text-sand-dim">
-              <span class="inline-flex items-center gap-1 font-medium text-sand">
+            <!-- div not p: PlayerAvatar is a block; p+div breaks the line in some browsers -->
+            <div
+              class="flex max-w-full flex-wrap items-center justify-center gap-x-1.5 gap-y-1 text-sm text-sand-dim"
+            >
+              <span class="inline-flex items-center gap-1.5 font-medium text-sand">
                 <PlayerAvatar
                   :avatar="coyoteBanner.challengerAvatar"
                   :avatar-src="coyoteBanner.challengerAvatarSrc"
@@ -705,10 +784,14 @@ async function onChallenge() {
                 />
                 {{ coyoteBanner.challengerName }}
               </span>
-              →
-              <span class="font-display font-bold text-gold-200">{{ coyoteBanner.bid }}</span>
-              （{{ coyoteBanner.bidderName }}）
-            </p>
+              <span class="inline-flex items-baseline gap-1 whitespace-nowrap">
+                <span aria-hidden="true">→</span>
+                <span class="font-display font-bold text-gold-200">{{
+                  coyoteBanner.bid
+                }}</span>
+                <span>（{{ coyoteBanner.bidderName }}）</span>
+              </span>
+            </div>
 
             <ul
               class="grid w-full gap-2.5"
@@ -800,10 +883,31 @@ async function onChallenge() {
             </div>
 
             <div
-              v-if="isGameOver && !awaitingResultView"
-              class="mx-4 mb-2 shrink-0 rounded-xl border border-gold-400/30 bg-night-900/90 px-4 py-3 text-center text-sm text-gold-100"
+              v-if="showForfeitEnd"
+              class="mx-4 mb-2 shrink-0 rounded-xl border border-gold-400/30 bg-night-900/90 px-4 py-3 text-center"
             >
-              ゲーム終了 — 結果画面で勝者を確認してください
+              <p class="font-display text-base font-bold text-gold-100">
+                {{ forfeitEndTitle }}
+              </p>
+              <p class="mt-1 text-xs leading-relaxed text-sand-dim">
+                {{ forfeitEndDetail }}
+              </p>
+              <div class="mt-3 flex flex-col gap-2 sm:flex-row sm:justify-center">
+                <button
+                  type="button"
+                  class="btn-gold sm:min-w-[10rem]"
+                  @click="playAgainFromForfeit"
+                >
+                  もう一度遊ぶ
+                </button>
+                <button
+                  type="button"
+                  class="btn-ghost sm:min-w-[8rem]"
+                  @click="requestLeaveGame"
+                >
+                  退出
+                </button>
+              </div>
             </div>
             <div
               v-else-if="waitingForResultPeers"
@@ -814,7 +918,7 @@ async function onChallenge() {
 
             <div class="shrink-0">
               <BidControls
-                v-if="!awaitingResultView && !waitingForResultPeers"
+                v-if="!awaitingResultView && !waitingForResultPeers && !showForfeitEnd"
                 v-model="draftBid"
                 :min-bid="minBid"
                 :can-declare="canDeclare"
@@ -896,6 +1000,7 @@ async function onChallenge() {
             }}
           </span>
           <button
+            v-if="onlineGame.canAttemptResume"
             type="button"
             class="btn-ghost shrink-0 !px-2 !py-1 text-[10px]"
             :disabled="onlineGame.reconnecting"
@@ -1070,7 +1175,35 @@ async function onChallenge() {
             </main>
 
             <div
-              v-show="mobileTab !== 'chat' && mobileTab !== 'log'"
+              v-if="showForfeitEnd"
+              class="mx-3 mb-2 shrink-0 rounded-xl border border-gold-400/30 bg-night-900/90 px-3 py-3 text-center"
+            >
+              <p class="font-display text-sm font-bold text-gold-100">
+                {{ forfeitEndTitle }}
+              </p>
+              <p class="mt-1 text-[11px] leading-relaxed text-sand-dim">
+                {{ forfeitEndDetail }}
+              </p>
+              <div class="mt-2.5 flex flex-col gap-2">
+                <button
+                  type="button"
+                  class="btn-gold w-full !py-2.5 text-sm"
+                  @click="playAgainFromForfeit"
+                >
+                  もう一度遊ぶ
+                </button>
+                <button
+                  type="button"
+                  class="btn-ghost w-full !py-2 text-sm"
+                  @click="requestLeaveGame"
+                >
+                  退出
+                </button>
+              </div>
+            </div>
+
+            <div
+              v-show="mobileTab !== 'chat' && mobileTab !== 'log' && !showForfeitEnd"
               class="shrink-0"
             >
               <BidControls
@@ -1220,27 +1353,8 @@ async function onChallenge() {
             <button
               type="button"
               class="flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] transition"
-              :class="
-                mobileTab === 'players' && !stampSheetOpen
-                  ? 'text-gold-200'
-                  : 'text-sand-dim'
-              "
-              @click="
-                stampSheetOpen = false;
-                mobileTab = 'players'
-              "
-            >
-              <span class="text-base">👥</span>
-              プレイヤー
-            </button>
-            <button
-              type="button"
-              class="flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] transition"
               :class="mobileTab === 'log' ? 'text-gold-200' : 'text-sand-dim'"
-              @click="
-                stampSheetOpen = false;
-                mobileTab = mobileTab === 'log' ? 'players' : 'log'
-              "
+              @click="toggleMobileLog"
             >
               <span class="text-base">☰</span>
               ログ
