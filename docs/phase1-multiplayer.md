@@ -36,6 +36,7 @@
 | 項目 | 内容 |
 |------|------|
 | ルームチャット（UX-6） | ロビー・対戦中。`chat` / `chat_history`。revision 非連動。履歴最大 50・本文 120 字・クールダウン 800ms |
+| スタンプリアクション（UX-7） | 固定 10 種。`reaction` → chat log（`kind: 'stamp'`）+ クライアント浮遊表示。チャットと同一クールダウン |
 
 ---
 
@@ -100,6 +101,7 @@ type ClientMessage =
   | { type: 'dismiss_result' }                  // 結果 UI を閉じた ACK（サーバが全員まで保持）
   | { type: 'rematch' }                         // game_over 後: 同席のままロビーへ
   | { type: 'chat'; text: string }              // UX-6 ルームチャット（join 後）
+  | { type: 'reaction'; stampId: StampId }      // UX-7 固定スタンプ（join 後）
   | { type: 'leave' }                           // 意図的退出（ロビー: 席削除 / 対戦中: 切断）
 
 /** domain GameAction のうちプレイヤー操作分（START_GAME は start メッセージ） */
@@ -111,12 +113,18 @@ type ClientGameAction =
 ### 4.2 Server → Client
 
 ```ts
+type StampId =
+  | 'thumbs' | 'laugh' | 'fire' | 'shock' | 'clap'
+  | 'cry' | 'think' | 'party' | 'skull' | 'coyote'
+
 type ChatMessage = {
   id: string
   playerId: string
   displayName: string
-  text: string
+  text: string              // 本文、または stamp 時は絵文字
   ts: number // epoch ms
+  kind?: 'text' | 'stamp'   // omit / text = 通常。stamp 時は stampId 必須
+  stampId?: StampId
 }
 
 type ServerMessage =

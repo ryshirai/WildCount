@@ -5,7 +5,10 @@ import AppLogo from '@/components/common/AppLogo.vue'
 import HelpModal from '@/components/common/HelpModal.vue'
 import MockBadge from '@/components/common/MockBadge.vue'
 import ChatPanel from '@/components/game/ChatPanel.vue'
+import ReactionOverlay from '@/components/game/ReactionOverlay.vue'
+import StampPickerSheet from '@/components/game/StampPickerSheet.vue'
 import PlayerAvatar from '@/components/game/PlayerAvatar.vue'
+import type { StampId } from '@/online/stamps'
 import { allowLocalPlay } from '@/config/runtime'
 import { mockLobby } from '@/data/mockLobby'
 import { AVATAR_ASSETS, avatarSrc } from '@/localGame/avatarCatalog'
@@ -21,6 +24,7 @@ const onlineGame = useOnlineGameStore()
 
 const toast = ref<string | null>(null)
 const helpOpen = ref(false)
+const stampSheetOpen = ref(false)
 const copied = ref(false)
 const starting = ref(false)
 const resumeBusy = ref(false)
@@ -300,6 +304,12 @@ function onSendChat(text: string) {
   onlineGame.sendChat(text)
 }
 
+function onSendReaction(stampId: StampId) {
+  if (!isOnline.value) return
+  onlineGame.sendReaction(stampId)
+  stampSheetOpen.value = false
+}
+
 function applyDisplayName() {
   if (!isOnline.value) return
   const next = nameDraft.value.trim().replace(/\s+/g, ' ').slice(0, 12)
@@ -524,19 +534,38 @@ watch(
         </p>
       </section>
 
+      <!-- Quick stamp (mobile-friendly; floats on screen) -->
+      <section
+        v-if="isOnline"
+        class="mb-3 flex items-center justify-between gap-2 rounded-2xl border border-gold-400/20 bg-night-900/60 px-3 py-2.5 sm:hidden"
+        aria-label="スタンプ"
+      >
+        <p class="text-xs text-sand-dim">チャットを開かずスタンプ送信</p>
+        <button
+          type="button"
+          class="btn-teal !px-3 !py-2 text-xs"
+          :disabled="onlineGame.connection !== 'open'"
+          @click="stampSheetOpen = true"
+        >
+          😀 スタンプ
+        </button>
+      </section>
+
       <!-- Room chat (online) -->
       <section
         v-if="isOnline"
-        class="mb-6 h-64 min-h-[14rem] sm:h-72"
+        class="mb-6 h-56 min-h-[12rem] sm:h-64"
         aria-label="ルームチャット"
       >
         <ChatPanel
           class="h-full"
+          compact
           :messages="onlineGame.chatMessages"
           :self-player-id="onlineGame.playerId"
           :avatar-for-player="lobbyChatAvatar"
           :disabled="onlineGame.connection !== 'open'"
           @send="onSendChat"
+          @reaction="onSendReaction"
         />
       </section>
 
@@ -598,6 +627,18 @@ watch(
     </Transition>
 
     <HelpModal :open="helpOpen" @close="helpOpen = false" />
+
+    <ReactionOverlay
+      v-if="isOnline"
+      :reactions="onlineGame.floatingReactions"
+    />
+
+    <StampPickerSheet
+      :open="stampSheetOpen"
+      :disabled="!isOnline || onlineGame.connection !== 'open'"
+      @close="stampSheetOpen = false"
+      @pick="onSendReaction"
+    />
 
     <MockBadge />
   </div>

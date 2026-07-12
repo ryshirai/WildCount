@@ -52,24 +52,25 @@ function onChallenge() {
 <template>
   <div
     class="border-t border-gold-400/15 bg-night-900/85 backdrop-blur-md"
-    :class="mobile ? 'px-3 py-2.5' : 'px-5 py-3 sm:py-4'"
+    :class="mobile ? 'px-2.5 py-1.5' : 'px-4 py-2.5 sm:py-3'"
   >
-    <p v-if="!mobile" class="mb-2 text-sm text-sand-dim sm:mb-3">
+    <p v-if="!mobile" class="mb-1.5 text-xs text-sand-dim sm:mb-2">
       次の宣言を選択してください
     </p>
-    <p v-else class="mb-1.5 text-center text-xs text-sand-dim">次の宣言を選択</p>
+    <p v-else class="mb-1 text-center text-[10px] text-sand-dim">次の宣言</p>
 
     <div
-      class="flex flex-wrap items-center gap-2"
+      class="flex flex-wrap items-center gap-1.5"
       :class="mobile ? 'justify-center' : 'justify-start'"
     >
       <!-- Stepper -->
       <div
-        class="flex items-center gap-1 rounded-xl border border-gold-400/25 bg-night-800/80 p-1"
+        class="flex items-center gap-0.5 rounded-lg border border-gold-400/25 bg-night-800/80 p-0.5"
       >
         <button
           type="button"
-          class="btn-ghost !h-10 !w-10 !p-0 text-lg active:scale-95"
+          class="btn-ghost !p-0 active:scale-95"
+          :class="mobile ? '!h-8 !w-8 text-base' : '!h-9 !w-9 text-lg'"
           aria-label="1減らす"
           @click="adjust(-1)"
         >
@@ -77,13 +78,15 @@ function onChallenge() {
         </button>
         <span
           :key="tickKey"
-          class="bid-step-tick min-w-[3rem] text-center font-display text-2xl font-bold text-gold-100 tabular-nums"
+          class="bid-step-tick text-center font-display font-bold text-gold-100 tabular-nums"
+          :class="mobile ? 'min-w-[2.25rem] text-xl' : 'min-w-[2.75rem] text-2xl'"
         >
           {{ bid }}
         </span>
         <button
           type="button"
-          class="btn-ghost !h-10 !w-10 !p-0 text-lg active:scale-95"
+          class="btn-ghost !p-0 active:scale-95"
+          :class="mobile ? '!h-8 !w-8 text-base' : '!h-9 !w-9 text-lg'"
           aria-label="1増やす"
           @click="adjust(1)"
         >
@@ -93,27 +96,32 @@ function onChallenge() {
 
       <button
         type="button"
-        class="btn-ghost !px-3 !py-2.5 font-semibold active:scale-95"
+        class="btn-ghost font-semibold active:scale-95"
+        :class="mobile ? '!px-2 !py-1.5 text-xs' : '!px-2.5 !py-2 text-sm'"
         @click="adjust(1)"
       >
         +1
       </button>
       <button
         type="button"
-        class="btn-ghost !px-3 !py-2.5 font-semibold active:scale-95"
+        class="btn-ghost font-semibold active:scale-95"
+        :class="mobile ? '!px-2 !py-1.5 text-xs' : '!px-2.5 !py-2 text-sm'"
         @click="adjust(5)"
       >
         +5
       </button>
 
       <div
-        class="flex flex-1 flex-wrap gap-2"
-        :class="mobile ? 'w-full basis-full' : 'min-w-[16rem] justify-end'"
+        class="flex flex-1 flex-wrap gap-1.5"
+        :class="mobile ? 'w-full basis-full' : 'min-w-[14rem] justify-end'"
       >
         <button
           type="button"
           class="btn-gold flex-1 sm:flex-none"
-          :class="declareFlash ? 'btn-fx-press' : ''"
+          :class="[
+            declareFlash ? 'btn-fx-press' : '',
+            mobile ? '!py-2 text-sm' : '',
+          ]"
           :disabled="canDeclare === false"
           @click="onDeclare"
         >
@@ -123,12 +131,15 @@ function onChallenge() {
         <button
           type="button"
           class="btn-teal flex-1 sm:flex-none"
-          :class="challengeFlash ? 'btn-fx-press' : ''"
+          :class="[
+            challengeFlash ? 'btn-fx-press' : '',
+            mobile ? '!py-2 text-sm' : '',
+          ]"
           :disabled="canChallenge === false"
           @click="onChallenge"
         >
           <span aria-hidden="true">🐾</span>
-          <template v-if="mobile">コヨーテ！（チャレンジ）</template>
+          <template v-if="mobile">コヨーテ！</template>
           <template v-else>コヨーテ！</template>
         </button>
       </div>

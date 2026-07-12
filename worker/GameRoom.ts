@@ -14,6 +14,7 @@ import {
   allConnectedHaveResultAck,
   allPlayersReady,
   appendChatMessage,
+  appendStampReaction,
   applyDueHostTransfer,
   applyResultDismiss,
   buildPlayerView,
@@ -235,6 +236,9 @@ export class GameRoom {
         return
       case 'chat':
         await this.handleChat(ws, room, msg.text)
+        return
+      case 'reaction':
+        await this.handleReaction(ws, room, msg.stampId)
         return
       case 'leave':
         await this.handleLeave(ws, room)
@@ -511,6 +515,46 @@ export class GameRoom {
     }
 
     const result = appendChatMessage(room, player, text)
+    if (!result.ok) {
+      this.send(ws, {
+        type: 'error',
+        code: result.code,
+        message: result.message,
+      })
+      return
+    }
+
+    await this.saveRoom(room)
+    await this.scheduleNextAlarm(room)
+    this.broadcast(room, { type: 'chat', message: result.message })
+  }
+
+  /** Fixed stamp reaction (UX-7): chat log + client-side float. */
+  private async handleReaction(
+    ws: WebSocket,
+    room: RoomState,
+    stampId: string,
+  ): Promise<void> {
+    const playerId = this.playerIdOf(ws)
+    if (!playerId) {
+      this.send(ws, {
+        type: 'error',
+        code: 'UNAUTHORIZED',
+        message: 'Join first',
+      })
+      return
+    }
+    const player = room.players.find((p) => p.id === playerId)
+    if (!player) {
+      this.send(ws, {
+        type: 'error',
+        code: 'BAD_REQUEST',
+        message: 'Player not found',
+      })
+      return
+    }
+
+    const result = appendStampReaction(room, player, stampId)
     if (!result.ok) {
       this.send(ws, {
         type: 'error',

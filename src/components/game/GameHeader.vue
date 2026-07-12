@@ -10,6 +10,7 @@ defineProps<{
 const emit = defineEmits<{
   help: []
   chat: []
+  stamp: []
 }>()
 
 const connectionLabel: Record<string, string> = {
@@ -71,6 +72,15 @@ const connectionLabel: Record<string, string> = {
       <button
         type="button"
         class="btn-ghost !p-2"
+        title="スタンプ"
+        aria-label="スタンプ"
+        @click="emit('stamp')"
+      >
+        😀
+      </button>
+      <button
+        type="button"
+        class="btn-ghost !p-2"
         title="チャット"
         aria-label="チャット"
         @click="emit('chat')"
@@ -110,15 +120,26 @@ const connectionLabel: Record<string, string> = {
       </div>
       <h1 class="font-display text-lg font-bold text-gold-200">Wild Count</h1>
     </div>
-    <button
-      type="button"
-      class="btn-ghost !p-2 text-base"
-      title="チャット"
-      aria-label="チャット"
-      @click="emit('chat')"
-    >
-      💬
-    </button>
+    <div class="flex items-center gap-0.5">
+      <button
+        type="button"
+        class="btn-ghost !p-2 text-base"
+        title="スタンプ"
+        aria-label="スタンプ"
+        @click="emit('stamp')"
+      >
+        😀
+      </button>
+      <button
+        type="button"
+        class="btn-ghost !p-2 text-base"
+        title="チャット"
+        aria-label="チャット"
+        @click="emit('chat')"
+      >
+        💬
+      </button>
+    </div>
   </header>
 
   <div

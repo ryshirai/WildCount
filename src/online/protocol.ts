@@ -3,13 +3,22 @@
  * Keep in sync with worker/types.ts, worker/maskedView.ts, docs/phase1-multiplayer.md
  */
 
+import type { StampId } from './stamps'
+
+export type { StampId } from './stamps'
+
 export interface ChatMessage {
   id: string
   playerId: string
   displayName: string
+  /** Body text, or the stamp emoji when kind === 'stamp' */
   text: string
   /** epoch ms */
   ts: number
+  /** Default / omit = normal text. Stamp lines also set stampId. */
+  kind?: 'text' | 'stamp'
+  /** Allowlisted stamp id when kind === 'stamp' */
+  stampId?: StampId
 }
 
 export type ClientMessage =
@@ -27,6 +36,7 @@ export type ClientMessage =
   | { type: 'dismiss_result' }
   | { type: 'rematch' }
   | { type: 'chat'; text: string }
+  | { type: 'reaction'; stampId: StampId }
   | { type: 'leave' }
 
 export type ClientGameAction =

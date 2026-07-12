@@ -70,20 +70,20 @@ const display = computed(() =>
 <template>
   <div class="relative flex flex-col items-center text-center">
     <p
-      class="font-medium tracking-[0.15em] text-gold-300/90"
-      :class="compact ? 'text-xs' : 'text-sm'"
+      class="font-medium tracking-[0.12em] text-gold-300/90"
+      :class="compact ? 'text-[10px]' : 'text-xs'"
     >
       現在の宣言
     </p>
 
-    <div class="relative mt-1 sm:mt-2">
+    <div class="relative mt-0.5 sm:mt-1">
       <!-- Soft glow ring on pop -->
       <div
         v-if="popClass"
         :key="`glow-${popKey}`"
         class="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full"
         :class="[
-          compact ? 'h-20 w-20' : 'h-28 w-28 sm:h-36 sm:w-36',
+          compact ? 'h-14 w-14' : 'h-20 w-20 sm:h-24 sm:w-24',
           popClass.includes('down') ? 'bid-glow--down' : 'bid-glow--up',
         ]"
         aria-hidden="true"
@@ -94,11 +94,11 @@ const display = computed(() =>
         class="bid-num font-display font-bold leading-none text-gold-100 tabular-nums"
         :class="[
           compact
-            ? 'text-5xl sm:text-6xl'
-            : 'text-5xl sm:text-7xl xl:text-8xl',
+            ? 'text-3xl sm:text-4xl'
+            : 'text-4xl sm:text-5xl xl:text-6xl',
           popClass,
         ]"
-        style="text-shadow: 0 0 48px rgba(201, 168, 76, 0.4), 0 0 12px rgba(201, 168, 76, 0.25)"
+        style="text-shadow: 0 0 28px rgba(201, 168, 76, 0.35), 0 0 8px rgba(201, 168, 76, 0.2)"
       >
         {{ display }}
       </p>
@@ -109,7 +109,7 @@ const display = computed(() =>
         :key="d.id"
         class="bid-delta pointer-events-none absolute left-1/2 top-0 font-display font-bold tabular-nums"
         :class="[
-          compact ? 'text-lg' : 'text-xl sm:text-2xl',
+          compact ? 'text-sm' : 'text-base sm:text-lg',
           d.sign === 'up' ? 'bid-delta--up' : 'bid-delta--down',
         ]"
         aria-hidden="true"
@@ -120,8 +120,8 @@ const display = computed(() =>
 
     <p
       v-if="showTurnsHint && turnsUntilSelf != null"
-      class="mt-3 rounded-full border border-gold-400/25 bg-night-800/70 px-3.5 py-1 text-sand-dim shadow-sm backdrop-blur-sm"
-      :class="compact ? 'text-xs' : 'text-sm'"
+      class="mt-2 rounded-full border border-gold-400/25 bg-night-800/70 px-2.5 py-0.5 text-sand-dim shadow-sm backdrop-blur-sm"
+      :class="compact ? 'text-[10px]' : 'text-xs'"
     >
       あなたまであと
       <span class="font-semibold text-gold-200">{{ turnsUntilSelf }}人</span>

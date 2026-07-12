@@ -8,6 +8,7 @@ import {
   allConnectedHaveResultAck,
   allPlayersReady,
   appendChatMessage,
+  appendStampReaction,
   applyDueHostTransfer,
   applyResultDismiss,
   buildPlayerView,
@@ -28,7 +29,7 @@ import {
   type RoomPlayer,
   type RoomState,
 } from './roomLogic'
-import { CHAT_COOLDOWN_MS, MAX_CHAT_TEXT_LENGTH } from './types'
+import { CHAT_COOLDOWN_MS, MAX_CHAT_TEXT_LENGTH, STAMP_CATALOG } from './types'
 import type { PendingResultSnapshot } from './maskedView'
 
 function player(
@@ -69,6 +70,13 @@ describe('roomLogic', () => {
     })
     expect(parseClientMessage({ type: 'chat' })).toMatchObject({
       error: expect.stringContaining('text'),
+    })
+    expect(parseClientMessage({ type: 'reaction', stampId: 'thumbs' })).toEqual({
+      type: 'reaction',
+      stampId: 'thumbs',
+    })
+    expect(parseClientMessage({ type: 'reaction', stampId: 'nope' })).toMatchObject({
+      error: expect.stringContaining('stampId'),
     })
     expect(parseClientMessage({ type: 'leave' })).toEqual({ type: 'leave' })
     expect(parseClientMessage({ type: 'nope' })).toMatchObject({
@@ -130,6 +138,51 @@ describe('roomLogic', () => {
       'next',
       1000 + CHAT_COOLDOWN_MS,
       'c3',
+    )
+    expect(r2.ok).toBe(true)
+    expect(room.chatLog).toHaveLength(2)
+  })
+
+  it('appends stamp reactions with allowlist and shared rate limit', () => {
+    const room = createEmptyRoom('STAMP1')
+    const p = player({ id: 'p1', joinedAt: 1, displayName: 'Alice' })
+    room.players = [p]
+
+    const r1 = appendStampReaction(room, p, 'coyote', 1000, 's1')
+    expect(r1.ok).toBe(true)
+    if (r1.ok) {
+      expect(r1.message.kind).toBe('stamp')
+      expect(r1.message.stampId).toBe('coyote')
+      expect(r1.message.text).toBe(
+        STAMP_CATALOG.find((s) => s.id === 'coyote')!.emoji,
+      )
+    }
+    expect(room.revision).toBe(0)
+
+    const limited = appendStampReaction(room, p, 'thumbs', 1000 + 100, 's2')
+    expect(limited.ok).toBe(false)
+    if (!limited.ok) expect(limited.code).toBe('RATE_LIMITED')
+
+    // Chat and stamp share cooldown
+    const limitedChat = appendChatMessage(
+      room,
+      p,
+      'hi',
+      1000 + 200,
+      'c1',
+    )
+    expect(limitedChat.ok).toBe(false)
+
+    const bad = appendStampReaction(room, p, 'not-a-stamp', 1000 + CHAT_COOLDOWN_MS, 's3')
+    expect(bad.ok).toBe(false)
+    if (!bad.ok) expect(bad.code).toBe('CHAT_REJECTED')
+
+    const r2 = appendStampReaction(
+      room,
+      p,
+      'fire',
+      1000 + CHAT_COOLDOWN_MS,
+      's4',
     )
     expect(r2.ok).toBe(true)
     expect(room.chatLog).toHaveLength(2)

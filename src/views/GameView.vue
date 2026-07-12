@@ -11,7 +11,10 @@ import PlayerCircle from '@/components/game/PlayerCircle.vue'
 import CurrentBidDisplay from '@/components/game/CurrentBidDisplay.vue'
 import EventLog from '@/components/game/EventLog.vue'
 import ChatPanel from '@/components/game/ChatPanel.vue'
+import ReactionOverlay from '@/components/game/ReactionOverlay.vue'
+import StampPickerSheet from '@/components/game/StampPickerSheet.vue'
 import BidControls from '@/components/game/BidControls.vue'
+import type { StampId } from '@/online/stamps'
 import MobilePlayerCarousel from '@/components/game/MobilePlayerCarousel.vue'
 import CoyoteCutIn from '@/components/game/CoyoteCutIn.vue'
 import RevealCardTile from '@/components/game/RevealCardTile.vue'
@@ -72,6 +75,8 @@ const statusMessage = computed(() => {
 const toast = ref<string | null>(null)
 const helpOpen = ref(false)
 const mobileTab = ref<'chat' | 'players' | 'log'>('players')
+/** Mobile quick stamp sheet (no full chat) */
+const stampSheetOpen = ref(false)
 /** Desktop right rail: event log or chat */
 const desktopSideTab = ref<'log' | 'chat'>('log')
 const draftBid = ref(0)
@@ -83,7 +88,17 @@ function openHelp() {
 
 function onHeaderChat() {
   desktopSideTab.value = 'chat'
-  mobileTab.value = 'chat'
+  stampSheetOpen.value = false
+  mobileTab.value = mobileTab.value === 'chat' ? 'players' : 'chat'
+}
+
+function toggleMobileChat() {
+  stampSheetOpen.value = false
+  mobileTab.value = mobileTab.value === 'chat' ? 'players' : 'chat'
+}
+
+function closeMobileDrawer() {
+  mobileTab.value = 'players'
 }
 
 function onSendChat(text: string) {
@@ -92,6 +107,25 @@ function onSendChat(text: string) {
     return
   }
   onlineGame.sendChat(text)
+}
+
+function onSendReaction(stampId: StampId) {
+  if (!isOnline.value) {
+    showToast('オンライン対戦でのみ利用できます')
+    return
+  }
+  onlineGame.sendReaction(stampId)
+  stampSheetOpen.value = false
+}
+
+function openStampSheet() {
+  if (!isOnline.value) {
+    showToast('オンライン対戦でのみ利用できます')
+    return
+  }
+  // Prefer stamps over full-screen chat on small screens
+  mobileTab.value = 'players'
+  stampSheetOpen.value = true
 }
 
 function chatAvatarForPlayer(playerId: string) {
@@ -562,6 +596,7 @@ async function onChallenge() {
             :round="room.round"
             @help="openHelp"
             @chat="onHeaderChat"
+            @stamp="openStampSheet"
           />
         </div>
 
@@ -779,11 +814,13 @@ async function onChallenge() {
             <ChatPanel
               v-else
               class="min-h-0 flex-1"
+              compact
               :messages="isOnline ? onlineGame.chatMessages : []"
               :self-player-id="onlineGame.playerId"
               :avatar-for-player="chatAvatarForPlayer"
               :disabled="!isOnline || onlineGame.connection !== 'open'"
               @send="onSendChat"
+              @reaction="onSendReaction"
             />
           </div>
         </div>
@@ -820,6 +857,7 @@ async function onChallenge() {
             :connection-status="room.connectionStatus"
             @help="openHelp"
             @chat="onHeaderChat"
+            @stamp="openStampSheet"
           />
         </div>
 
@@ -926,57 +964,198 @@ async function onChallenge() {
 
         <!-- Normal mobile play -->
         <template v-else>
-          <div class="shrink-0">
-            <MobilePlayerCarousel :players="room.players" />
-          </div>
+          <!-- Play column: bid stays; chat/log slide up into its free space -->
+          <div class="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+            <div class="shrink-0">
+              <MobilePlayerCarousel :players="room.players" />
+            </div>
 
-          <div
-            class="flex shrink-0 items-center justify-between gap-2 border-b border-gold-400/10 bg-night-950/30 px-4 py-1.5 text-xs text-sand-dim"
-          >
-            <span class="chip !px-2 !py-0.5 !text-[10px]">
-              {{ room.players.filter((p) => p.hasDeclared).length }}/{{ room.playerCount }} 宣言
-            </span>
-            <span>
-              あなたまであと
-              <span class="font-semibold text-gold-200">{{ room.turnsUntilSelf }}人</span>
-            </span>
-            <span class="text-[10px] text-sand-dim/80">自分の札は？</span>
-          </div>
+            <div
+              class="flex shrink-0 items-center justify-between gap-2 border-b border-gold-400/10 bg-night-950/30 px-4 py-1.5 text-xs text-sand-dim"
+            >
+              <span class="chip !px-2 !py-0.5 !text-[10px]">
+                {{ room.players.filter((p) => p.hasDeclared).length }}/{{
+                  room.playerCount
+                }}
+                宣言
+              </span>
+              <span>
+                あなたまであと
+                <span class="font-semibold text-gold-200"
+                  >{{ room.turnsUntilSelf }}人</span
+                >
+              </span>
+              <span class="text-[10px] text-sand-dim/80">自分の札は？</span>
+            </div>
 
-          <main
-            class="flex min-h-0 flex-1 flex-col items-center justify-center overflow-hidden px-4 py-3"
-          >
-            <div class="panel w-full max-w-sm px-5 py-5 shadow-panel sm:px-6 sm:py-8">
-              <CurrentBidDisplay
-                compact
-                :show-turns-hint="false"
-                :current-bid="room.currentBid"
+            <main
+              class="flex min-h-0 flex-1 flex-col items-center overflow-hidden px-3"
+              :class="
+                mobileTab === 'chat' || mobileTab === 'log'
+                  ? 'justify-start pt-2 pb-1'
+                  : 'justify-center py-2'
+              "
+            >
+              <div
+                class="panel w-full max-w-[12rem] px-4 py-2.5 shadow-panel transition-transform duration-300"
+                :class="
+                  mobileTab === 'chat' || mobileTab === 'log'
+                    ? 'scale-90 opacity-90'
+                    : ''
+                "
+              >
+                <CurrentBidDisplay
+                  compact
+                  :show-turns-hint="false"
+                  :current-bid="room.currentBid"
+                />
+              </div>
+            </main>
+
+            <div
+              v-show="mobileTab !== 'chat' && mobileTab !== 'log'"
+              class="shrink-0"
+            >
+              <BidControls
+                v-if="!awaitingResultView"
+                v-model="draftBid"
+                mobile
+                :min-bid="minBid"
+                :can-declare="canDeclare"
+                :can-challenge="canChallenge"
+                @declare="onDeclare"
+                @challenge="onChallenge"
               />
             </div>
-          </main>
 
-          <div class="shrink-0">
-            <BidControls
-              v-if="!awaitingResultView"
-              v-model="draftBid"
-              mobile
-              :min-bid="minBid"
-              :can-declare="canDeclare"
-              :can-challenge="canChallenge"
-              @declare="onDeclare"
-              @challenge="onChallenge"
-            />
+            <!-- Soft scrim (tap to close); bid still peeking above the sheet -->
+            <Transition
+              enter-active-class="transition duration-200 ease-out"
+              enter-from-class="opacity-0"
+              enter-to-class="opacity-100"
+              leave-active-class="transition duration-150 ease-in"
+              leave-from-class="opacity-100"
+              leave-to-class="opacity-0"
+            >
+              <button
+                v-if="mobileTab === 'chat' || mobileTab === 'log'"
+                type="button"
+                class="absolute inset-0 z-[15] bg-night-950/25"
+                aria-label="閉じる"
+                @click="closeMobileDrawer"
+              />
+            </Transition>
+
+            <!-- Chat: bottom sheet using bid-area free space -->
+            <Transition
+              enter-active-class="transition duration-300 ease-out"
+              enter-from-class="translate-y-full"
+              enter-to-class="translate-y-0"
+              leave-active-class="transition duration-200 ease-in"
+              leave-from-class="translate-y-0"
+              leave-to-class="translate-y-full"
+            >
+              <div
+                v-if="mobileTab === 'chat'"
+                class="absolute inset-x-0 bottom-0 z-20 flex h-[min(58%,22rem)] max-h-[24rem] flex-col overflow-hidden rounded-t-2xl border border-b-0 border-gold-400/30 bg-night-900/98 shadow-[0_-12px_40px_rgba(0,0,0,0.5)] backdrop-blur-md"
+                role="dialog"
+                aria-label="チャット"
+                @click.stop
+              >
+                <div
+                  class="flex shrink-0 items-center justify-between gap-2 px-3 pb-1 pt-2"
+                >
+                  <div
+                    class="pointer-events-none absolute left-1/2 top-1.5 h-1 w-9 -translate-x-1/2 rounded-full bg-gold-400/35"
+                    aria-hidden="true"
+                  />
+                  <p class="pt-1 text-xs font-semibold text-gold-200">チャット</p>
+                  <button
+                    type="button"
+                    class="btn-ghost !px-2 !py-0.5 text-[11px]"
+                    @click="closeMobileDrawer"
+                  >
+                    閉じる
+                  </button>
+                </div>
+                <ChatPanel
+                  class="min-h-0 flex-1 !rounded-none !border-0 !shadow-none"
+                  compact
+                  embedded
+                  hide-header
+                  :messages="isOnline ? onlineGame.chatMessages : []"
+                  :self-player-id="onlineGame.playerId"
+                  :avatar-for-player="chatAvatarForPlayer"
+                  :disabled="!isOnline || onlineGame.connection !== 'open'"
+                  @send="onSendChat"
+                  @reaction="onSendReaction"
+                />
+              </div>
+            </Transition>
+
+            <!-- Log: same bottom-sheet pattern -->
+            <Transition
+              enter-active-class="transition duration-300 ease-out"
+              enter-from-class="translate-y-full"
+              enter-to-class="translate-y-0"
+              leave-active-class="transition duration-200 ease-in"
+              leave-from-class="translate-y-0"
+              leave-to-class="translate-y-full"
+            >
+              <div
+                v-if="mobileTab === 'log'"
+                class="absolute inset-x-0 bottom-0 z-20 flex h-[min(58%,22rem)] max-h-[24rem] flex-col overflow-hidden rounded-t-2xl border border-b-0 border-gold-400/30 bg-night-900/98 shadow-[0_-12px_40px_rgba(0,0,0,0.5)] backdrop-blur-md"
+                role="dialog"
+                aria-label="イベントログ"
+                @click.stop
+              >
+                <div
+                  class="flex shrink-0 items-center justify-between gap-2 px-3 pb-1 pt-2"
+                >
+                  <div
+                    class="pointer-events-none absolute left-1/2 top-1.5 h-1 w-9 -translate-x-1/2 rounded-full bg-gold-400/35"
+                    aria-hidden="true"
+                  />
+                  <p class="pt-1 text-xs font-semibold text-gold-200">
+                    イベントログ
+                  </p>
+                  <button
+                    type="button"
+                    class="btn-ghost !px-2 !py-0.5 text-[11px]"
+                    @click="closeMobileDrawer"
+                  >
+                    閉じる
+                  </button>
+                </div>
+                <EventLog
+                  :items="room.eventLog"
+                  class="min-h-0 flex-1"
+                  compact
+                  embedded
+                  hide-header
+                />
+              </div>
+            </Transition>
           </div>
 
           <nav
-            class="flex shrink-0 border-t border-gold-400/15 bg-night-950/95 safe-bottom"
+            class="relative z-30 flex shrink-0 border-t border-gold-400/15 bg-night-950/95 safe-bottom"
             aria-label="モバイルメニュー"
           >
             <button
               type="button"
               class="flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] transition"
+              :class="stampSheetOpen ? 'text-gold-200' : 'text-sand-dim'"
+              @click="openStampSheet"
+            >
+              <span class="text-base">😀</span>
+              スタンプ
+            </button>
+            <button
+              type="button"
+              class="flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] transition"
               :class="mobileTab === 'chat' ? 'text-gold-200' : 'text-sand-dim'"
-              @click="mobileTab = mobileTab === 'chat' ? 'players' : 'chat'"
+              @click="toggleMobileChat"
             >
               <span class="text-base">💬</span>
               チャット
@@ -984,64 +1163,32 @@ async function onChallenge() {
             <button
               type="button"
               class="flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] transition"
-              :class="mobileTab === 'players' ? 'text-gold-200' : 'text-sand-dim'"
-              @click="mobileTab = 'players'"
+              :class="
+                mobileTab === 'players' && !stampSheetOpen
+                  ? 'text-gold-200'
+                  : 'text-sand-dim'
+              "
+              @click="
+                stampSheetOpen = false;
+                mobileTab = 'players'
+              "
             >
               <span class="text-base">👥</span>
-              プレイヤー一覧
+              プレイヤー
             </button>
             <button
               type="button"
               class="flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] transition"
               :class="mobileTab === 'log' ? 'text-gold-200' : 'text-sand-dim'"
-              @click="mobileTab = mobileTab === 'log' ? 'players' : 'log'"
+              @click="
+                stampSheetOpen = false;
+                mobileTab = mobileTab === 'log' ? 'players' : 'log'
+              "
             >
               <span class="text-base">☰</span>
-              イベントログ
+              ログ
             </button>
           </nav>
-
-          <!-- Full-area overlay between header band and bottom chrome -->
-          <div
-            v-if="mobileTab === 'log'"
-            class="absolute inset-0 z-20 flex flex-col bg-night-950/95 p-3 pt-14 safe-bottom"
-          >
-            <div class="mb-2 flex shrink-0 items-center justify-between gap-2">
-              <p class="text-xs font-semibold text-gold-200">イベントログ</p>
-              <button
-                type="button"
-                class="btn-ghost !px-2 !py-1 text-[11px]"
-                @click="mobileTab = 'players'"
-              >
-                閉じる
-              </button>
-            </div>
-            <EventLog :items="room.eventLog" class="min-h-0 flex-1" />
-          </div>
-
-          <div
-            v-if="mobileTab === 'chat'"
-            class="absolute inset-0 z-20 flex flex-col bg-night-950/95 p-3 pt-14 safe-bottom"
-          >
-            <div class="mb-2 flex shrink-0 items-center justify-between gap-2">
-              <p class="text-xs font-semibold text-gold-200">チャット</p>
-              <button
-                type="button"
-                class="btn-ghost !px-2 !py-1 text-[11px]"
-                @click="mobileTab = 'players'"
-              >
-                閉じる
-              </button>
-            </div>
-            <ChatPanel
-              class="min-h-0 flex-1"
-              :messages="isOnline ? onlineGame.chatMessages : []"
-              :self-player-id="onlineGame.playerId"
-              :avatar-for-player="chatAvatarForPlayer"
-              :disabled="!isOnline || onlineGame.connection !== 'open'"
-              @send="onSendChat"
-            />
-          </div>
         </template>
       </div>
     </template>
@@ -1090,6 +1237,18 @@ async function onChallenge() {
     </nav>
 
     <HelpModal :open="helpOpen" @close="helpOpen = false" />
+
+    <ReactionOverlay
+      v-if="isOnline"
+      :reactions="onlineGame.floatingReactions"
+    />
+
+    <StampPickerSheet
+      :open="stampSheetOpen"
+      :disabled="!isOnline || onlineGame.connection !== 'open'"
+      @close="stampSheetOpen = false"
+      @pick="onSendReaction"
+    />
 
     <MockBadge />
   </div>

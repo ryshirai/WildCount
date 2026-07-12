@@ -1559,6 +1559,145 @@
 
 ---
 
+## 2026-07-12 — UX-7 スタンプリアクション
+
+### 背景・目的
+- ルーム内でスタンプ的なリアクションを送りたい（UX-7）
+- 方針: 固定パレット + 画面浮遊 + チャット履歴に残す
+
+### 実施内容
+1. プロトコル: Client `reaction` / `ChatMessage.kind: 'stamp'` + `stampId`（allowlist 10 種）
+2. DO: `appendStampReaction` — チャットと同一 800ms クールダウン、revision 非連動
+3. フロント: `sendReaction` / `floatingReactions`、`ChatPanel` スタンプパレット、`ReactionOverlay`
+4. ロビー・ゲーム双方に配線。履歴再送時は浮遊しない（live `chat` のみ）
+5. backlog UX-7 done / phase1 プロトコル追記
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `worker/types.ts` / `roomLogic.ts` / `GameRoom.ts` | STAMP_CATALOG・reaction handler |
+| `src/online/stamps.ts` / `protocol.ts` | クライアント同期 |
+| `src/stores/onlineGame.ts` | floating queue + sendReaction |
+| `src/components/game/ChatPanel.vue` | パレット UI・大きなスタンプ表示 |
+| `src/components/game/ReactionOverlay.vue` | 浮遊アニメ |
+| `src/views/GameView.vue` / `LobbyView.vue` | 配線 |
+| `docs/backlog.md` / `phase1-multiplayer.md` | UX-7 done |
+
+### 明示的にやっていないこと
+- 自由入力絵文字 / カスタムスタンプ画像
+- メッセージ単位の Discord 風リアクション
+- ローカル対戦向けスタンプ
+- サウンド / ハプティクス
+
+### 確認結果
+- `npm test` 101 件成功
+- `npm run build` 成功
+
+### 次に考えられる作業
+1. HOLD-5 本番 deploy（ユーザー確認後）
+2. UX-2 ホスト移譲カウントダウン 等
+
+---
+
+## 2026-07-12 — モバイル向けスタンプ導線（チャット不要）
+
+### 背景・目的
+- スマホではチャット画面が使いづらいため、チャットを開かずにスタンプを送り浮遊表示したい
+
+### 実施内容
+1. `StampPickerSheet`（ボトムシート）を追加
+2. ゲーム: 下部ナビ「スタンプ」＋ヘッダ 😀 からシートを開く
+3. ロビー: スマホ幅のみクイック送信ボタン
+4. 浮遊アニメをやや大きく・長めに調整
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/components/game/StampPickerSheet.vue` | 新規 |
+| `src/components/game/GameHeader.vue` | stamp イベント |
+| `src/components/game/ReactionOverlay.vue` | 見えやすさ |
+| `src/views/GameView.vue` / `LobbyView.vue` | 配線 |
+
+### 明示的にやっていないこと
+- チャット全文のフローティング化
+- デスクトップ専用 FAB
+
+### 確認結果
+- `npm run build` 成功
+
+### 次に考えられる作業
+1. チャット履歴のモバイル見やすさ改善（任意）
+
+---
+
+## 2026-07-12 — 宣言表示・チャット入力のコンパクト化
+
+### 背景・目的
+- チャット入力が大きすぎる / 現在の宣言もそこまで大きくなくてよい
+
+### 実施内容
+1. `ChatPanel` compact: 入力・ヘッダ・行間を縮小（プレースホルダ「メッセージ…」）
+2. `CurrentBidDisplay`: compact / 通常とも数字サイズを一段下げ
+3. モバイル宣言パネルを `max-w-[12rem]` 程度に
+4. `BidControls` モバイルの余白・ボタン高さを詰める
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/components/game/ChatPanel.vue` | compact UI |
+| `src/components/game/CurrentBidDisplay.vue` | 数字縮小 |
+| `src/components/game/BidControls.vue` | モバイル密度 |
+| `src/views/GameView.vue` / `LobbyView.vue` | compact 指定 |
+
+### 確認結果
+- `npm run build` 成功
+
+---
+
+## 2026-07-12 — モバイルチャットをボトムシート化
+
+### 背景・目的
+- 全画面モーダルではなく、現在の宣言の余白を活かして下からスライド表示したい
+
+### 実施内容
+1. チャット／ログを `translate-y` ボトムシートに変更（高さ ~58% / max 24rem）
+2. 宣言数字は上部に残し、シート表示中は少し縮小
+3. 薄い scrim タップで閉じる。宣言操作はシート中非表示
+4. `ChatPanel` に `embedded` / `hideHeader`
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/views/GameView.vue` | シート UI |
+| `src/components/game/ChatPanel.vue` | embedded モード |
+
+### 確認結果
+- `npm run build` 成功
+
+---
+
+## 2026-07-12 — テキストチャットも浮遊表示
+
+### 背景・目的
+- チャット着信時もスタンプ同様に画面上へふわっと出したい
+
+### 実施内容
+1. live `chat` は stamp / text とも `floatingReactions` に積む（history は対象外）
+2. `ReactionOverlay`: stamp=大絵文字、text=吹き出し+名前
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/stores/onlineGame.ts` | FloatingReaction kind |
+| `src/components/game/ReactionOverlay.vue` | テキスト吹き出し |
+
+### 確認結果
+- ビルド確認
+
+---
+
+
+
 ## ログの書き方
 
 **正規のルールは `AGENTS.md` を参照。** 変更のあったセッションでは、このファイルに日付見出しで **追記** する（過去エントリは消さない）。

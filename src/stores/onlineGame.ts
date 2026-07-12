@@ -13,6 +13,7 @@ import type {
   PendingResultSnapshot,
   PlayerView,
   ServerMessage,
+  StampId,
 } from '@/online/protocol'
 import {
   formatHttpErrorBody,
@@ -31,6 +32,18 @@ import {
 } from '@/online/resumeStorage'
 import { roomWebSocketUrl, roomsCreateUrl } from '@/online/workerUrl'
 import type { EventLogItem } from '@/types/game'
+
+/** Short-lived floating chat / stamp on screen (not persisted). */
+export interface FloatingReaction {
+  key: string
+  /** 'stamp' = large emoji; 'text' = chat bubble */
+  kind: 'stamp' | 'text'
+  /** Stamp emoji, or chat body text */
+  body: string
+  displayName: string
+  /** Horizontal position 0–100 (%) */
+  x: number
+}
 
 export type OnlineConnection =
   | 'idle'
@@ -62,6 +75,8 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
   const eventLog = ref<EventLogItem[]>([])
   /** Room chat lines (newest last). Filled by chat_history + chat. */
   const chatMessages = ref<ChatMessage[]>([])
+  /** Ephemeral floating stamps (live chat only; not re-shown from history). */
+  const floatingReactions = ref<FloatingReaction[]>([])
   /**
    * Client-side dismiss of result cut-in / ResultView.
    * Server may clear `view.pendingResult` when the next player bids;
@@ -523,6 +538,7 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
       case 'pong':
         break
       case 'chat_history':
+        // History only — do not re-float past stamps
         chatMessages.value = Array.isArray(msg.messages) ? [...msg.messages] : []
         break
       case 'chat': {
@@ -531,11 +547,32 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
         // Dedup if history and live race
         if (chatMessages.value.some((x) => x.id === m.id)) break
         chatMessages.value = [...chatMessages.value, m].slice(-50)
+        // Live only: float stamp + text like reactions (history does not re-float)
+        enqueueFloatingChat(m)
         break
       }
       default:
         break
     }
+  }
+
+  function enqueueFloatingChat(m: ChatMessage): void {
+    const key = m.id
+    const isStamp = m.kind === 'stamp'
+    const body = (m.text || '').trim()
+    if (!body) return
+    const item: FloatingReaction = {
+      key,
+      kind: isStamp ? 'stamp' : 'text',
+      body: isStamp ? body : body.slice(0, 80),
+      displayName: m.displayName || '?',
+      x: 12 + Math.random() * 76,
+    }
+    floatingReactions.value = [...floatingReactions.value, item].slice(-12)
+    const ttl = isStamp ? 3000 : 3600
+    window.setTimeout(() => {
+      floatingReactions.value = floatingReactions.value.filter((r) => r.key !== key)
+    }, ttl)
   }
 
   function pushLog(message: string, code?: string) {
@@ -625,6 +662,12 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     send({ type: 'chat', text: trimmed.slice(0, 120) })
   }
 
+  /** Fixed stamp reaction (online only). Server allowlists stampId. */
+  function sendReaction(stampId: StampId): void {
+    clearError()
+    send({ type: 'reaction', stampId })
+  }
+
   /**
    * Update display name in lobby (re-sends join; server renames existing seat).
    * No-op when not connected.
@@ -667,6 +710,7 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     clearError()
     eventLog.value = []
     chatMessages.value = []
+    floatingReactions.value = []
     resultDismissed.value = false
     heldPendingResult.value = null
   }
@@ -700,6 +744,7 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     displayName,
     eventLog,
     chatMessages,
+    floatingReactions,
     reconnecting,
     reconnectAttempt,
     isOnlineSession,
@@ -725,6 +770,7 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     clearPendingResult,
     requestRematch,
     sendChat,
+    sendReaction,
     updateDisplayName,
     leave,
     send,

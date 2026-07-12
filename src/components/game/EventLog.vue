@@ -2,22 +2,45 @@
 import type { EventLogItem } from '@/types/game'
 import PlayerAvatar from './PlayerAvatar.vue'
 
-defineProps<{
-  items: EventLogItem[]
-  compact?: boolean
-}>()
+withDefaults(
+  defineProps<{
+    items: EventLogItem[]
+    compact?: boolean
+    /** No outer panel (bottom sheet) */
+    embedded?: boolean
+    hideHeader?: boolean
+  }>(),
+  {
+    compact: false,
+    embedded: false,
+    hideHeader: false,
+  },
+)
 </script>
 
 <template>
-  <aside class="panel flex h-full min-h-0 flex-col overflow-hidden">
+  <aside
+    class="flex h-full min-h-0 flex-col overflow-hidden"
+    :class="embedded ? 'bg-transparent' : 'panel'"
+  >
     <div
-      class="flex items-center justify-between border-b border-gold-400/15 px-4 py-3"
+      v-if="!hideHeader"
+      class="flex items-center justify-between border-b border-gold-400/15"
+      :class="compact ? 'px-2.5 py-1.5' : 'px-4 py-3'"
     >
-      <h2 class="text-sm font-semibold text-gold-200">イベントログ</h2>
+      <h2
+        class="font-semibold text-gold-200"
+        :class="compact ? 'text-xs' : 'text-sm'"
+      >
+        イベントログ
+      </h2>
       <span class="text-sand-dim">▾</span>
     </div>
 
-    <ul class="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-3 py-3">
+    <ul
+      class="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+      :class="compact ? 'space-y-2 px-2 py-2' : 'space-y-3 px-3 py-3'"
+    >
       <li
         v-for="item in items"
         :key="item.id"

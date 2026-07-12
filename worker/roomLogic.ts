@@ -18,10 +18,13 @@ import {
   MAX_CHAT_TEXT_LENGTH,
   MAX_PLAYERS,
   MIN_PLAYERS_TO_START,
+  isStampId,
+  stampEmoji,
   type ChatMessage,
   type ClientMessage,
   type PlayerView,
   type PlayerViewMember,
+  type StampId,
 } from './types'
 
 export type RoomStatus = 'open' | 'playing' | 'closed'
@@ -187,6 +190,23 @@ export type AppendChatResult =
   | { ok: true; message: ChatMessage }
   | { ok: false; code: 'CHAT_REJECTED' | 'RATE_LIMITED'; message: string }
 
+function checkChatCooldown(
+  room: RoomState,
+  playerId: string,
+  now: number,
+): AppendChatResult | null {
+  if (!room.chatLastAt) room.chatLastAt = {}
+  const last = room.chatLastAt[playerId]
+  if (typeof last === 'number' && now - last < CHAT_COOLDOWN_MS) {
+    return {
+      ok: false,
+      code: 'RATE_LIMITED',
+      message: 'Chat rate limited',
+    }
+  }
+  return null
+}
+
 /**
  * Append a chat line to the room ring buffer (mutates room).
  * Does not bump room.revision.
@@ -202,22 +222,49 @@ export function appendChatMessage(
   if (!text) {
     return { ok: false, code: 'CHAT_REJECTED', message: 'Empty chat message' }
   }
-  if (!room.chatLastAt) room.chatLastAt = {}
   if (!room.chatLog) room.chatLog = []
-  const last = room.chatLastAt[player.id]
-  if (typeof last === 'number' && now - last < CHAT_COOLDOWN_MS) {
-    return {
-      ok: false,
-      code: 'RATE_LIMITED',
-      message: 'Chat rate limited',
-    }
-  }
+  const limited = checkChatCooldown(room, player.id, now)
+  if (limited) return limited
   const message: ChatMessage = {
     id,
     playerId: player.id,
     displayName: player.displayName,
     text,
     ts: now,
+    kind: 'text',
+  }
+  room.chatLog = [...room.chatLog, message].slice(-MAX_CHAT_HISTORY)
+  room.chatLastAt[player.id] = now
+  room.lastActivityAt = now
+  return { ok: true, message }
+}
+
+/**
+ * Append a fixed stamp reaction as a chat line (mutates room).
+ * Shares rate limit with normal chat. Does not bump revision.
+ */
+export function appendStampReaction(
+  room: RoomState,
+  player: RoomPlayer,
+  stampIdRaw: unknown,
+  now = Date.now(),
+  id = crypto.randomUUID(),
+): AppendChatResult {
+  if (!isStampId(stampIdRaw)) {
+    return { ok: false, code: 'CHAT_REJECTED', message: 'Unknown stamp' }
+  }
+  const stampId: StampId = stampIdRaw
+  if (!room.chatLog) room.chatLog = []
+  const limited = checkChatCooldown(room, player.id, now)
+  if (limited) return limited
+  const message: ChatMessage = {
+    id,
+    playerId: player.id,
+    displayName: player.displayName,
+    text: stampEmoji(stampId),
+    ts: now,
+    kind: 'stamp',
+    stampId,
   }
   room.chatLog = [...room.chatLog, message].slice(-MAX_CHAT_HISTORY)
   room.chatLastAt[player.id] = now
@@ -261,6 +308,12 @@ export function parseClientMessage(raw: unknown): ClientMessage | { error: strin
       }
       // Keep raw text for server-side sanitize + length errors in handler
       return { type: 'chat', text: msg.text }
+    }
+    case 'reaction': {
+      if (!isStampId(msg.stampId)) {
+        return { error: 'reaction requires valid stampId' }
+      }
+      return { type: 'reaction', stampId: msg.stampId }
     }
     case 'leave':
       return { type: 'leave' }
