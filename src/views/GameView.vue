@@ -20,9 +20,12 @@ import CoyoteCutIn from '@/components/game/CoyoteCutIn.vue'
 import RevealCardTile from '@/components/game/RevealCardTile.vue'
 import PlayerAvatar from '@/components/game/PlayerAvatar.vue'
 import HelpModal from '@/components/common/HelpModal.vue'
+import DeckInfoModal from '@/components/game/DeckInfoModal.vue'
 import MockBadge from '@/components/common/MockBadge.vue'
 import { allowLocalPlay, allowUiMock } from '@/config/runtime'
+import { STANDARD_DECK, type DeckComposition } from '@/domain/game'
 import { AVATAR_ASSETS, avatarSrc } from '@/localGame/avatarCatalog'
+import type { WireDeckComposition } from '@/online/protocol'
 import type { GameRoomMock, RevealedCard } from '@/types/game'
 
 const router = useRouter()
@@ -75,6 +78,7 @@ const statusMessage = computed(() => {
 
 const toast = ref<string | null>(null)
 const helpOpen = ref(false)
+const deckInfoOpen = ref(false)
 /** Mobile overlay: null = play table (no drawer) */
 const mobileTab = ref<'chat' | 'log' | null>(null)
 /** Mobile quick stamp sheet (no full chat) */
@@ -87,6 +91,20 @@ const acting = ref(false)
 function openHelp() {
   helpOpen.value = true
 }
+
+function openDeckInfo() {
+  deckInfoOpen.value = true
+}
+
+/** Room recipe deck (totals only — not remaining draw pile). */
+const roomDeck = computed((): WireDeckComposition | DeckComposition => {
+  if (isOnline.value && onlineGame.view?.deck) {
+    return onlineGame.view.deck
+  }
+  const local = store.state?.config.deck
+  if (local) return local
+  return STANDARD_DECK
+})
 
 function onHeaderChat() {
   desktopSideTab.value = 'chat'
@@ -720,6 +738,7 @@ async function onChallenge() {
             :player-count="room.playerCount"
             :round="room.round"
             @help="openHelp"
+            @deck="openDeckInfo"
             @chat="onHeaderChat"
             @stamp="openStampSheet"
             @leave="requestLeaveGame"
@@ -1017,6 +1036,7 @@ async function onChallenge() {
             :round="room.round"
             :connection-status="room.connectionStatus"
             @help="openHelp"
+            @deck="openDeckInfo"
             @chat="onHeaderChat"
             @stamp="openStampSheet"
             @leave="requestLeaveGame"
@@ -1477,6 +1497,11 @@ async function onChallenge() {
     </Teleport>
 
     <HelpModal :open="helpOpen" @close="helpOpen = false" />
+    <DeckInfoModal
+      :open="deckInfoOpen"
+      :deck="roomDeck"
+      @close="deckInfoOpen = false"
+    />
 
     <ReactionOverlay
       v-if="isOnline"

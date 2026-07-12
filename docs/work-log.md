@@ -2308,6 +2308,28 @@
 
 ---
 
+## 2026-07-12 — ゲーム中の山札構成確認
+
+### 背景・目的
+- プレイ中に「この山札何枚構成だっけ」を確認できるようにする（残り山札・捨て札は対象外。開始時構成の総数）
+
+### 実施内容
+1. `DeckInfoModal` … 総枚数 + 数字/特殊内訳 + 構成タイル
+2. `GameHeader` に「山」ボタン（desktop / mobile）
+3. オンラインは `PlayerView.deck`、ローカルは `state.config.deck`
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/components/game/DeckInfoModal.vue` | 新規 |
+| `src/components/game/GameHeader.vue` | deck emit |
+| `src/views/GameView.vue` | モーダル接続 |
+
+### 確認結果
+- lint / typecheck / test (124) / build 成功
+
+---
+
 ## ログの書き方
 
 **正規のルールは `AGENTS.md` を参照。** 変更のあったセッションでは、このファイルに日付見出しで **追記** する（過去エントリは消さない）。
