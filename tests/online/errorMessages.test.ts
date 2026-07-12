@@ -89,6 +89,13 @@ describe('formatRoomClosedReason', () => {
     expect(msg).toContain('閉じ')
     expect(msg).not.toMatch(/inactivity/i)
   })
+
+  it('maps host ended the room', () => {
+    const msg = formatRoomClosedReason('Host ended the room')
+    expect(msg).toContain('ホスト')
+    expect(msg).toContain('解散')
+    expect(msg).not.toMatch(/Host ended/i)
+  })
 })
 
 describe('formatHttpErrorBody', () => {

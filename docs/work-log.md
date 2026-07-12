@@ -1986,6 +1986,76 @@
 
 ---
 
+## 2026-07-12 — ゲーム画面「退出」ボタン接続
+
+### 背景・目的
+- ゲーム中に終了してホームへ戻る導線が欲しい
+- ヘッダに退出アイコンはあったが未接続だった
+
+### 実施内容
+1. **GameHeader** PC/モバイルとも「退出」ボタンを配置し `leave` を emit
+2. **GameView** 確認モーダル（オンラインは即脱落の説明）→ 確定で leave / local `resetSession` → ホーム
+3. 同期待ち画面の退出も同じ確認フローに統一
+4. **BidCard** テンプレート内コメントの引用符が Vue ビルドを壊していたため修正
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/components/game/GameHeader.vue` | leave emit・退出ラベル |
+| `src/views/GameView.vue` | 確認モーダル・終了処理 |
+| `src/components/game/BidCard.vue` | ビルドエラー修正 |
+
+### 明示的にやっていないこと
+- ホストによるルーム全体の強制終了
+- 結果画面への「トップへ」（誤タップ回避の既存方針のまま）
+- ヘルプ本文への退出説明追記
+
+### 確認結果
+- `npm run build` 成功
+
+### 次に考えられる作業
+1. ヘルプ「操作」タブに退出・脱落の説明を足す
+2. 切断カウントダウン秒数表示（UX-2）
+
+---
+
+## 2026-07-12 — ホストによるルーム強制解散
+
+### 背景・目的
+- 個人退出だけでなく、ホストがルーム全体を終了できる必要がある
+
+### 実施内容
+1. **プロトコル** Client `end_room`（host only）
+2. **Worker** 認証後に event + `room_closed` を全員へ送信し storage 削除
+3. **onlineGame** `endRoom()` / `room_closed` 時のセッション全クリア（再接続なし）
+4. **UI** ゲーム退出モーダルにホスト向け「ルームを解散」；ロビーにも「ルームを解散」
+5. 結果画面でも `ROOM_CLOSED` を監視してホームへ
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `worker/types.ts` / `roomLogic.ts` / `GameRoom.ts` | end_room |
+| `src/online/protocol.ts` / `errorMessages.ts` | 型・解散文言 |
+| `src/stores/onlineGame.ts` | endRoom / room_closed 処理 |
+| `src/views/GameView.vue` / `LobbyView.vue` / `ResultView.vue` | UI |
+| `docs/phase1-multiplayer.md` | プロトコル追記 |
+| `tests/**` | parse / endRoom / 文言 |
+
+### 明示的にやっていないこと
+- ホスト以外によるキック（個別）
+- 解散理由の自由入力
+- ヘルプ本文への追記
+
+### 確認結果
+- `npm test` 16 ファイル・116 テスト成功
+- `npm run build` 成功
+
+### 次に考えられる作業
+1. ヘルプに退出・解散の説明
+2. 切断カウントダウン表示（UX-2）
+
+---
+
 ## ログの書き方
 
 **正規のルールは `AGENTS.md` を参照。** 変更のあったセッションでは、このファイルに日付見出しで **追記** する（過去エントリは消さない）。

@@ -49,7 +49,7 @@ const displayText = computed(() =>
     class="card-tile"
     :class="[
       compact ? '!h-11 !w-9 !text-sm' : '',
-      // Specials longer than "+5" / "×2" need a notch smaller type
+      // Long special labels (e.g. M→0) use denser type
       !compact && displayText.length > 2 ? 'card-tile--dense' : '',
       emphasized ? 'ring-2 ring-gold-400/50 shadow-gold-glow' : '',
     ]"

@@ -318,6 +318,8 @@ export function parseClientMessage(raw: unknown): ClientMessage | { error: strin
     }
     case 'leave':
       return { type: 'leave' }
+    case 'end_room':
+      return { type: 'end_room' }
     case 'resume': {
       if (typeof msg.resumeToken !== 'string' || !msg.resumeToken) {
         return { error: 'resumeToken required' }

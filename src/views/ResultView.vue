@@ -255,6 +255,16 @@ watch(
   },
 )
 
+// Host dissolved room / idle purge during result screen
+watch(
+  () => onlineGame.lastErrorCode,
+  (code) => {
+    if (code === 'ROOM_CLOSED') {
+      void router.replace({ name: 'home' })
+    }
+  },
+)
+
 function goNextRound() {
   if (useMock.value) {
     void router.push({ name: 'game', query: { mock: '1' } })

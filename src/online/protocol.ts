@@ -38,6 +38,8 @@ export type ClientMessage =
   | { type: 'chat'; text: string }
   | { type: 'reaction'; stampId: StampId }
   | { type: 'leave' }
+  /** Host only: dissolve room for everyone */
+  | { type: 'end_room' }
 
 export type ClientGameAction =
   | { type: 'PLACE_BID'; value: number }

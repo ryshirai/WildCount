@@ -102,7 +102,8 @@ type ClientMessage =
   | { type: 'rematch' }                         // game_over 後: 同席のままロビーへ
   | { type: 'chat'; text: string }              // UX-6 ルームチャット（join 後）
   | { type: 'reaction'; stampId: StampId }      // UX-7 固定スタンプ（join 後）
-  | { type: 'leave' }                           // 意図的退出（ロビー: 席削除 / 対戦中: 切断）
+  | { type: 'leave' }                           // 意図的退出（ロビー: 席削除 / 対戦中: 即脱落）
+  | { type: 'end_room' }                        // host only: ルーム解散（全員 room_closed + storage 削除）
 
 /** domain GameAction のうちプレイヤー操作分（START_GAME は start メッセージ） */
 type ClientGameAction =

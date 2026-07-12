@@ -552,13 +552,32 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
         }
         break
       }
-      case 'room_closed':
-        setError('ROOM_CLOSED', formatRoomClosedReason(msg.reason))
-        connection.value = 'closed'
+      case 'room_closed': {
+        // Room is gone — do not reconnect; keep Japanese reason for Home UI
+        intentionalClose = true
         clearReconnectTimer()
         reconnecting.value = false
-        if (roomCode.value) clearResumeToken(roomCode.value)
+        reconnectAttempt.value = 0
+        const code = roomCode.value
+        if (code) clearResumeToken(code)
+        setError('ROOM_CLOSED', formatRoomClosedReason(msg.reason))
+        roomCode.value = null
+        playerId.value = null
+        resumeToken.value = null
+        isHost.value = false
+        revision.value = 0
+        view.value = null
+        heldPendingResult.value = null
+        resultDismissed.value = false
+        eventLog.value = []
+        chatMessages.value = []
+        floatingReactions.value = []
+        setLastEvent(null)
+        connection.value = 'closed'
+        // Close local socket if server has not yet (avoid leave race)
+        closeSocketOnly()
         break
+      }
       case 'pong':
         break
       case 'chat_history':
@@ -789,6 +808,33 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     heldPendingResult.value = null
   }
 
+  /**
+   * Host only: dissolve the entire room for everyone.
+   * Server broadcasts room_closed and purges storage; local cleanup follows that message.
+   * Falls back to a local reset if the socket is already down.
+   */
+  function endRoom(): void {
+    if (!isHost.value) {
+      setError('UNAUTHORIZED', 'Only the host can end the room')
+      return
+    }
+    // Prevent reconnect race if the socket drops before room_closed arrives
+    intentionalClose = true
+    clearReconnectTimer()
+    reconnecting.value = false
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      try {
+        ws.send(JSON.stringify({ type: 'end_room' } satisfies ClientMessage))
+        return
+      } catch {
+        // fall through to local teardown
+      }
+    }
+    // Offline / send failed: local cleanup only
+    leave()
+    setError('ROOM_CLOSED', formatRoomClosedReason('Host ended the room'))
+  }
+
   /** Close current WS and invalidate its handlers (no reconnect). */
   function closeSocketOnly(): void {
     socketGen += 1
@@ -847,6 +893,7 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     sendReaction,
     updateDisplayName,
     leave,
+    endRoom,
     send,
   }
 })

@@ -245,6 +245,9 @@ export class GameRoom {
       case 'leave':
         await this.handleLeave(ws, room)
         return
+      case 'end_room':
+        await this.handleEndRoom(ws, room)
+        return
       default:
         this.send(ws, {
           type: 'error',
@@ -1117,6 +1120,51 @@ export class GameRoom {
     }
     // DO alarms: if scheduled in the past, fire soon
     await this.state.storage.setAlarm(at)
+  }
+
+  /**
+   * Host dissolves the room for everyone (lobby or mid-game).
+   * Broadcasts room_closed then purges durable storage.
+   */
+  private async handleEndRoom(ws: WebSocket, room: RoomState): Promise<void> {
+    const playerId = this.playerIdOf(ws)
+    if (!playerId) {
+      this.send(ws, {
+        type: 'error',
+        code: 'BAD_REQUEST',
+        message: 'Join the room first',
+      })
+      return
+    }
+
+    if (playerId !== room.hostId) {
+      this.send(ws, {
+        type: 'error',
+        code: 'UNAUTHORIZED',
+        message: 'Only the host can end the room',
+      })
+      return
+    }
+
+    this.broadcast(room, {
+      type: 'event',
+      level: 'warn',
+      message: 'ホストがルームを解散しました',
+      code: 'ROOM_ENDED',
+    })
+
+    for (const sock of this.state.getWebSockets()) {
+      try {
+        this.send(sock, {
+          type: 'room_closed',
+          reason: 'Host ended the room',
+        })
+        sock.close(4002, 'host ended room')
+      } catch {
+        // ignore
+      }
+    }
+    await this.state.storage.deleteAll()
   }
 
   private async purgeRoom(): Promise<void> {

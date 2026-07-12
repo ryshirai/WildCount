@@ -293,6 +293,35 @@ function leaveLobby() {
   void router.push({ name: 'home' })
 }
 
+const dissolveConfirmOpen = ref(false)
+
+function requestDissolveRoom() {
+  dissolveConfirmOpen.value = true
+}
+
+function cancelDissolveRoom() {
+  dissolveConfirmOpen.value = false
+}
+
+/** Host: dissolve room for everyone still in lobby. */
+function confirmDissolveRoom() {
+  dissolveConfirmOpen.value = false
+  if (!isOnline.value || !onlineGame.isHost) return
+  onlineGame.endRoom()
+  void router.push({ name: 'home' })
+}
+
+// Host ended room / idle purge while on lobby
+watch(
+  () => onlineGame.lastErrorCode,
+  (code) => {
+    if (code === 'ROOM_CLOSED') {
+      dissolveConfirmOpen.value = false
+      void router.replace({ name: 'home' })
+    }
+  },
+)
+
 function lobbyChatAvatar(playerId: string) {
   const p = players.value.find((x) => x.id === playerId)
   if (p) return { avatar: p.avatar, avatarSrc: p.avatarSrc }
@@ -611,8 +640,57 @@ watch(
         <button type="button" class="btn-ghost w-full sm:w-auto" @click="leaveLobby">
           ロビーを退出
         </button>
+        <button
+          v-if="isOnline && isHost"
+          type="button"
+          class="btn-ghost w-full border-red-400/30 text-red-200 sm:w-auto"
+          @click="requestDissolveRoom"
+        >
+          ルームを解散
+        </button>
       </div>
     </div>
+
+    <!-- Host dissolve confirm -->
+    <Teleport to="body">
+      <Transition
+        enter-active-class="transition duration-200 ease-out"
+        enter-from-class="opacity-0"
+        enter-to-class="opacity-100"
+        leave-active-class="transition duration-150 ease-in"
+        leave-from-class="opacity-100"
+        leave-to-class="opacity-0"
+      >
+        <div
+          v-if="dissolveConfirmOpen"
+          class="fixed inset-0 z-[60] flex items-center justify-center bg-night-950/75 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="dissolve-confirm-title"
+          @click.self="cancelDissolveRoom"
+        >
+          <div class="panel w-full max-w-sm space-y-4 p-5 shadow-panel" @click.stop>
+            <h2
+              id="dissolve-confirm-title"
+              class="font-display text-lg font-bold text-gold-200"
+            >
+              ルームを解散しますか？
+            </h2>
+            <p class="text-sm leading-relaxed text-sand-dim">
+              全員がホームに戻され、このルームコードでは再参加できなくなります。
+            </p>
+            <div class="flex flex-col gap-2">
+              <button type="button" class="btn-gold w-full" @click="confirmDissolveRoom">
+                ルームを解散
+              </button>
+              <button type="button" class="btn-ghost w-full" @click="cancelDissolveRoom">
+                キャンセル
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
 
     <Transition
       enter-active-class="transition duration-200 ease-out"

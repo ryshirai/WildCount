@@ -81,6 +81,7 @@ describe('roomLogic', () => {
       error: expect.stringContaining('stampId'),
     })
     expect(parseClientMessage({ type: 'leave' })).toEqual({ type: 'leave' })
+    expect(parseClientMessage({ type: 'end_room' })).toEqual({ type: 'end_room' })
     expect(parseClientMessage({ type: 'nope' })).toMatchObject({
       error: expect.stringContaining('Unknown'),
     })

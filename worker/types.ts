@@ -103,6 +103,8 @@ export type ClientMessage =
   | { type: 'reaction'; stampId: StampId }
   /** Intentional leave (lobby: seat removed; playing: disconnect only) */
   | { type: 'leave' }
+  /** Host only: dissolve room for everyone (lobby or in-game) */
+  | { type: 'end_room' }
 
 export type ClientGameAction =
   | { type: 'PLACE_BID'; value: number }

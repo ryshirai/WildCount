@@ -143,7 +143,11 @@ describe('onlineGame store', () => {
     MockWebSocket.reset()
   })
 
-  async function joinHappyPath(code = 'ABC234') {
+  async function joinHappyPath(
+    code = 'ABC234',
+    opts: { isHost?: boolean } = {},
+  ) {
+    const asHost = opts.isHost !== false
     const store = useOnlineGameStore()
     const joinP = store.joinRoom(code, 'テスト')
     // Allow constructor + open listener registration
@@ -156,7 +160,7 @@ describe('onlineGame store', () => {
       playerId: 'p1',
       resumeToken: 'tok-1',
       roomCode: code,
-      isHost: true,
+      isHost: asHost,
     })
     ws.simulateMessage({
       type: 'view',
@@ -164,14 +168,14 @@ describe('onlineGame store', () => {
       view: {
         phase: 'lobby',
         roomCode: code,
-        hostId: 'p1',
+        hostId: asHost ? 'p1' : 'host-other',
         players: [
           {
             id: 'p1',
             displayName: 'テスト',
             ready: false,
             connected: true,
-            isHost: true,
+            isHost: asHost,
             avatarIndex: 0,
           },
         ],
@@ -356,5 +360,37 @@ describe('onlineGame store', () => {
     })
     expect(leaveMsgs).toHaveLength(1)
     expect(store.connection).toBe('idle')
+  })
+
+  it('endRoom sends end_room when host; room_closed clears session', async () => {
+    const { store, ws } = await joinHappyPath('ENDR01')
+    expect(store.isHost).toBe(true)
+    store.endRoom()
+    const endMsgs = ws.sent.filter((s) => {
+      try {
+        return JSON.parse(s).type === 'end_room'
+      } catch {
+        return false
+      }
+    })
+    expect(endMsgs).toHaveLength(1)
+    // Server responds with room_closed
+    ws.simulateMessage({
+      type: 'room_closed',
+      reason: 'Host ended the room',
+    })
+    expect(store.lastErrorCode).toBe('ROOM_CLOSED')
+    expect(store.lastError).toContain('ホスト')
+    expect(store.roomCode).toBeNull()
+    expect(store.view).toBeNull()
+  })
+
+  it('endRoom is rejected for non-host without sending', async () => {
+    const { store, ws } = await joinHappyPath('ENDR02', { isHost: false })
+    expect(store.isHost).toBe(false)
+    const before = ws.sent.length
+    store.endRoom()
+    expect(ws.sent.length).toBe(before)
+    expect(store.lastErrorCode).toBe('UNAUTHORIZED')
   })
 })

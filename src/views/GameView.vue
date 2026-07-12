@@ -471,10 +471,49 @@ async function manualReconnect() {
   }
 }
 
-function leaveOnline() {
-  onlineGame.leave()
+/** Confirm before ending the session (forfeit online / drop local / host dissolve). */
+const leaveConfirmOpen = ref(false)
+
+const canHostEndRoom = computed(
+  () => isOnline.value && onlineGame.isHost,
+)
+
+function requestLeaveGame() {
+  leaveConfirmOpen.value = true
+}
+
+function cancelLeaveGame() {
+  leaveConfirmOpen.value = false
+}
+
+function confirmLeaveGame() {
+  leaveConfirmOpen.value = false
+  if (isOnline.value) {
+    onlineGame.leave()
+  } else if (!useMock.value) {
+    store.resetSession()
+  }
   void router.push({ name: 'home' })
 }
+
+/** Host: dissolve room for everyone (server room_closed → all clients home). */
+function confirmEndRoom() {
+  leaveConfirmOpen.value = false
+  if (!isOnline.value || !onlineGame.isHost) return
+  onlineGame.endRoom()
+  void router.push({ name: 'home' })
+}
+
+// Server dissolved room (host end / idle purge) while still on game screen
+watch(
+  () => onlineGame.lastErrorCode,
+  (code) => {
+    if (code === 'ROOM_CLOSED') {
+      leaveConfirmOpen.value = false
+      void router.replace({ name: 'home' })
+    }
+  },
+)
 
 const showOnlineDisconnect = computed(
   () =>
@@ -571,7 +610,7 @@ async function onChallenge() {
         >
           再接続
         </button>
-        <button type="button" class="btn-ghost" @click="leaveOnline">退出</button>
+        <button type="button" class="btn-ghost" @click="requestLeaveGame">退出</button>
       </div>
       <MockBadge />
     </div>
@@ -607,6 +646,7 @@ async function onChallenge() {
             @help="openHelp"
             @chat="onHeaderChat"
             @stamp="openStampSheet"
+            @leave="requestLeaveGame"
           />
         </div>
 
@@ -874,6 +914,7 @@ async function onChallenge() {
             @help="openHelp"
             @chat="onHeaderChat"
             @stamp="openStampSheet"
+            @leave="requestLeaveGame"
           />
         </div>
 
@@ -1251,6 +1292,75 @@ async function onChallenge() {
       <RouterLink to="/" class="btn-ghost !px-2 !py-1 text-[10px]">トップ</RouterLink>
       <RouterLink to="/lobby" class="btn-ghost !px-2 !py-1 text-[10px]">ロビー</RouterLink>
     </nav>
+
+    <!-- Leave / end session / host dissolve confirm -->
+    <Teleport to="body">
+      <Transition
+        enter-active-class="transition duration-200 ease-out"
+        enter-from-class="opacity-0"
+        enter-to-class="opacity-100"
+        leave-active-class="transition duration-150 ease-in"
+        leave-from-class="opacity-100"
+        leave-to-class="opacity-0"
+      >
+        <div
+          v-if="leaveConfirmOpen"
+          class="fixed inset-0 z-[60] flex items-center justify-center bg-night-950/75 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="leave-confirm-title"
+          @click.self="cancelLeaveGame"
+        >
+          <div
+            class="panel w-full max-w-sm space-y-4 p-5 shadow-panel"
+            @click.stop
+          >
+            <h2
+              id="leave-confirm-title"
+              class="font-display text-lg font-bold text-gold-200"
+            >
+              {{ canHostEndRoom ? '退出・ルーム解散' : 'ゲームを終了しますか？' }}
+            </h2>
+            <p class="text-sm leading-relaxed text-sand-dim">
+              <template v-if="canHostEndRoom">
+                <strong class="text-sand">自分だけ退出</strong>するとあなたは即脱落し、他の人は続きます。
+                <strong class="text-sand">ルームを解散</strong>すると全員の対戦が終わり、ルームが閉じます。
+              </template>
+              <template v-else-if="isOnline">
+                退出するとこの対戦から<strong class="text-sand">即脱落</strong>します。ホームに戻ります。
+              </template>
+              <template v-else>
+                現在のゲームを終了してホームに戻ります。
+              </template>
+            </p>
+            <div class="flex flex-col gap-2">
+              <button
+                v-if="canHostEndRoom"
+                type="button"
+                class="btn-gold w-full"
+                @click="confirmEndRoom"
+              >
+                ルームを解散
+              </button>
+              <button
+                type="button"
+                class="btn-teal w-full"
+                @click="confirmLeaveGame"
+              >
+                {{ canHostEndRoom ? '自分だけ退出' : '終了して退出' }}
+              </button>
+              <button
+                type="button"
+                class="btn-ghost w-full"
+                @click="cancelLeaveGame"
+              >
+                キャンセル
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
 
     <HelpModal :open="helpOpen" @close="helpOpen = false" />
 

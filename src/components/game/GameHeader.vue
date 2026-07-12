@@ -11,6 +11,7 @@ const emit = defineEmits<{
   help: []
   chat: []
   stamp: []
+  leave: []
 }>()
 
 const connectionLabel: Record<string, string> = {
@@ -87,8 +88,14 @@ const connectionLabel: Record<string, string> = {
       >
         💬
       </button>
-      <button type="button" class="btn-ghost !p-2" title="退出" aria-label="退出">
-        ↗
+      <button
+        type="button"
+        class="btn-ghost !px-2.5 !py-2 text-xs"
+        title="ゲームを終了して退出"
+        aria-label="ゲームを終了して退出"
+        @click="emit('leave')"
+      >
+        退出
       </button>
     </div>
   </header>
@@ -138,6 +145,15 @@ const connectionLabel: Record<string, string> = {
         @click="emit('chat')"
       >
         💬
+      </button>
+      <button
+        type="button"
+        class="btn-ghost !px-2 !py-2 text-[11px] font-medium"
+        title="ゲームを終了して退出"
+        aria-label="ゲームを終了して退出"
+        @click="emit('leave')"
+      >
+        退出
       </button>
     </div>
   </header>

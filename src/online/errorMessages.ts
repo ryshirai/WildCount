@@ -123,6 +123,9 @@ export function formatServerError(
 export function formatRoomClosedReason(reason: string | null | undefined): string {
   if (!reason) return 'ルームが閉じられました'
   const r = reason.toLowerCase()
+  if (r.includes('host ended') || r.includes('host dissolved') || r.includes('ended the room')) {
+    return 'ホストがルームを解散しました'
+  }
   if (r.includes('inactivity') || r.includes('idle')) {
     return 'しばらく操作がなかったため、ルームが閉じられました'
   }
