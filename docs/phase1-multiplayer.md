@@ -297,15 +297,28 @@ interface RoomPlayer {
 3. 全員 ACK 後にサーバが `START_ROUND` → イベント `ROUND_START`  
 4. 切断席は ACK を待たない（従来どおり）
 
-### 7.6 空ルーム / idle TTL
+### 7.6 空ルーム / idle TTL / DO 破棄
 
 | 条件 | 動作 |
 |------|------|
-| 接続 0 かつ `status === 'open'` で **10 分** | 状態削除・`room_closed` 不要（誰もいない） |
+| 接続 0 かつ `status === 'open'` で **10 分** | storage 削除（接続中がいれば `room_closed`） |
 | 接続 0 かつ playing で **30 分** | 同上（再接続猶予を超えた放棄） |
-| `status === 'closed'` | 即座または短 TTL で storage 削除 |
+| `status === 'closed'` | 即 purge 候補 |
+| ホスト `end_room` | 即 teardown（全員 `room_closed` + storage 削除） |
 
-実装: DO `alarm()` で `lastActivityAt` / 接続数を見て `storage.deleteAll()`。
+実装: 共通 `teardownRoom`（`GameRoom`）
+
+1. 接続中ソケットへ `room_closed`（理由文字列）
+2. attachment を空にしてから close（`webSocketClose` が再 save しない）
+3. `storage.deleteAlarm()` → `storage.deleteAll()`
+   - `compatibility_date` が 2026-02-24 未満のとき `deleteAll` だけでは alarm が残るため必須
+
+**DO インスタンスについて**
+
+- ルームは `idFromName(roomCode)` で固定マッピング（コード = DO 名）
+- teardown は **storage / alarm の解放**であり、名前→ID の対応自体は残る
+- 次の `POST /init` で同じコードが空 DO を再利用できる（`alreadyExisted` は storage 有無で判定）
+- 課金上は `deleteAll` 後はストレージ課金対象外（CF ドキュメント準拠）
 
 ---
 

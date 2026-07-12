@@ -2056,6 +2056,39 @@
 
 ---
 
+## 2026-07-12 — DO teardown 整理（end_room / idle purge）
+
+### 背景・目的
+- ルーム解散を足したとき Durable Object の破棄パスが二重・不完全だった
+- `webSocketClose` が purge 後に storage を書き戻すレース、alarm 残留の可能性
+
+### 実施内容
+1. `teardownRoom` に共通化（`end_room` / idle `purgeRoom`）
+2. close 前に attachment クリア → close ハンドラが再 save しない
+3. `deleteAlarm()` のあと `deleteAll()`（compat 2024-10-01 では deleteAll だけでは alarm が残る）
+4. phase1 §7.6 に DO ライフサイクル（idFromName 再利用）を明記
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `worker/GameRoom.ts` | `teardownRoom` |
+| `docs/phase1-multiplayer.md` | §7.6 拡充 |
+
+### 明示的にやっていないこと
+- `compatibility_date` の 2026-02-24 以降への引き上げ
+- ルームコード再利用の明示的ブラックリスト
+- 本番での DO 課金モニタ
+
+### 確認結果
+- `npm test` 16 ファイル・116 テスト成功
+- `npm run build` 成功
+
+### 次に考えられる作業
+1. compat date 更新で deleteAll が alarm も消す前提に寄せる（要確認）
+2. ヘルプに退出・解散の説明
+
+---
+
 ## ログの書き方
 
 **正規のルールは `AGENTS.md` を参照。** 変更のあったセッションでは、このファイルに日付見出しで **追記** する（過去エントリは消さない）。

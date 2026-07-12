@@ -1124,7 +1124,7 @@ export class GameRoom {
 
   /**
    * Host dissolves the room for everyone (lobby or mid-game).
-   * Broadcasts room_closed then purges durable storage.
+   * Single teardown path shared with idle purge.
    */
   private async handleEndRoom(ws: WebSocket, room: RoomState): Promise<void> {
     const playerId = this.playerIdOf(ws)
@@ -1153,31 +1153,64 @@ export class GameRoom {
       code: 'ROOM_ENDED',
     })
 
+    await this.teardownRoom({
+      reason: 'Host ended the room',
+      closeCode: 4002,
+      closeReason: 'host ended room',
+    })
+  }
+
+  private async purgeRoom(): Promise<void> {
+    await this.teardownRoom({
+      reason: 'Room closed due to inactivity',
+      closeCode: 4001,
+      closeReason: 'room purged',
+    })
+  }
+
+  /**
+   * Tear down a GameRoom Durable Object instance storage.
+   *
+   * 1. Notify clients with room_closed (best-effort)
+   * 2. Clear WS attachments so webSocketClose does not re-save room state
+   * 3. Close all sockets
+   * 4. deleteAlarm + deleteAll (compat date pre-2026-02-24 does not clear
+   *    alarms via deleteAll alone — always call deleteAlarm explicitly)
+   *
+   * Note: idFromName(roomCode) still maps to this DO class instance forever;
+   * only storage is freed. Next /init on the same code recreates RoomState.
+   */
+  private async teardownRoom(opts: {
+    reason: string
+    closeCode: number
+    closeReason: string
+  }): Promise<void> {
     for (const sock of this.state.getWebSockets()) {
       try {
         this.send(sock, {
           type: 'room_closed',
-          reason: 'Host ended the room',
+          reason: opts.reason,
         })
-        sock.close(4002, 'host ended room')
+      } catch {
+        // ignore
+      }
+      try {
+        // Prevent webSocketClose from markDisconnected + saveRoom after purge
+        sock.serializeAttachment({} satisfies WsAttachment)
+      } catch {
+        // ignore
+      }
+      try {
+        sock.close(opts.closeCode, opts.closeReason)
       } catch {
         // ignore
       }
     }
-    await this.state.storage.deleteAll()
-  }
 
-  private async purgeRoom(): Promise<void> {
-    for (const sock of this.state.getWebSockets()) {
-      try {
-        this.send(sock, {
-          type: 'room_closed',
-          reason: 'Room closed due to inactivity',
-        })
-        sock.close(4001, 'room purged')
-      } catch {
-        // ignore
-      }
+    try {
+      await this.state.storage.deleteAlarm()
+    } catch {
+      // ignore
     }
     await this.state.storage.deleteAll()
   }
