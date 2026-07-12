@@ -220,6 +220,7 @@ export function cardLabel(card: Card): string {
     case 'redraw':
       return '?'
     case 'zero_mix':
-      return '0 (mix)'
+      // Compact: hand tiles are ~2.5rem wide; "0 (mix)" overflowed.
+      return '0*'
   }
 }

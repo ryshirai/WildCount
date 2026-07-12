@@ -856,6 +856,68 @@
 
 ---
 
+## 2026-07-12 — 0 (mix) 表示サイズ調整
+
+### 背景・目的
+
+- 手札タイル / 結果公開で `0 (mix)` だけ文字がはみ出て大きく見えていた。
+
+### 実施内容
+
+1. `cardLabel(zero_mix)` を `0*` に短縮（通常 0 は `+0` のまま区別）
+2. 結果 `RevealCardTile` はヒーロー `0` + サブ `捨札混`（長いラベルを載さない）
+3. `.card-tile` に overflow クリップを追加
+
+### 確認結果
+
+- `npm test` 53 件成功
+
+---
+
+## 2026-07-12 — Phase B7 背景・PWA
+
+### 背景・目的
+
+- デザイン磨きプランの任意フェーズ B7：夜砂漠背景の強化と PWA（マニフェスト + アプリアイコン接続）。
+
+### 実施内容
+
+1. **砂漠夜背景** — `.desert-bg` を CSS のみで強化（月光・多層砂丘・星・地平線ヘイズ・左右サボテンシルエット）。UI 可読性のため低コントラスト。
+2. **PWA** — 既に依存にあった `vite-plugin-pwa` を `vite.config.ts` で有効化。B2 の `app-192` / `app-512` を manifest に接続。`autoUpdate` + SPA `navigateFallback`。
+3. **HTML メタ** — description / apple-mobile-web-app / theme-color 周りを整備。
+4. **ドキュメント** — `design-polish-plan` / `ui-mock` / icons README を B7 完了に更新。
+
+### 主なパス変更
+
+| パス | 内容 |
+|------|------|
+| `src/styles/main.css` | `.desert-bg` 強化 |
+| `vite.config.ts` | `VitePWA` 設定 |
+| `index.html` | PWA / 説明メタ |
+| `docs/design-polish-plan.md` | B7 完了 |
+| `docs/ui-mock.md` | 背景・PWA 行 |
+| `docs/work-log.md` | 本エントリ |
+
+### 明示的にやっていないこと
+
+- 背景イラスト画像の生成（CSS のみ）
+- 勝利・脱落用の追加アバターポーズ
+- Service Worker のオフラインゲームロジック拡張
+- マルチプレイ / Worker
+
+### 確認結果
+
+- `npm test` 53 件すべて成功
+- `npm run build` 成功（`dist/manifest.webmanifest` / `dist/sw.js` 生成確認）
+
+### 次に考えられる作業
+
+1. Phase 1 マルチプレイ（Worker / DO）
+2. 細部 UX（ボット思考時間スライダー等）
+3. オフラインキャッシュ戦略の見直し（必要なら）
+
+---
+
 ## ログの書き方
 
 **正規のルールは `AGENTS.md` を参照。** 変更のあったセッションでは、このファイルに日付見出しで **追記** する（過去エントリは消さない）。

@@ -17,4 +17,4 @@ Related:
 | `public/icons/app-512.png` | PWA icon 512 |
 | `public/icons/apple-touch-icon.png` | iOS home screen |
 
-PWA manifest wiring is Phase **B7**.
+PWA manifest is wired in Phase **B7** (`vite.config.ts` → `VitePWA`).

@@ -99,7 +99,13 @@ const sizeClass: Record<'md' | 'lg', string> = {
       <span class="reveal-card__hero font-display">?</span>
     </template>
 
-    <!-- Number / zero_mix -->
+    <!-- 0* 捨札ミックス（通常 0 は +0。ヒーローは 0 のみで幅を抑える） -->
+    <template v-else-if="kind === 'zero_mix'">
+      <span class="reveal-card__hero font-display tabular-nums">0</span>
+      <span class="reveal-card__sub">捨札混</span>
+    </template>
+
+    <!-- Number -->
     <template v-else>
       <span
         class="reveal-card__hero font-display tabular-nums"
@@ -109,7 +115,6 @@ const sizeClass: Record<'md' | 'lg', string> = {
       >
         {{ label }}
       </span>
-      <span v-if="kind === 'zero_mix'" class="reveal-card__sub">捨札混</span>
     </template>
   </div>
 </template>

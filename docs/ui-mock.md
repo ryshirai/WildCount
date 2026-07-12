@@ -22,6 +22,8 @@ npm run dev
 | データ | Pinia `localGame` + mapper。固定モックは `?mock=1` で参照可 |
 | ゲームエンジン | **ローカル接続済み**（Worker / WebSocket なし） |
 | チャット | UIのみ（MVP外・トースト表示） |
+| 背景 | **B7**: `.desert-bg` 夜砂漠（月・砂丘・星・シルエット） |
+| PWA | **B7**: `vite-plugin-pwa` + `public/icons` マニフェスト（ホーム画面追加可） |
 
 ## ルート
 

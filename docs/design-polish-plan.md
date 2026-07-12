@@ -26,6 +26,7 @@
 | ロゴ / favicon | **B2 済**: `favicon.svg` + `logo-mark.webp`（`AppLogo` / `GameHeader`）+ PWA 用 `icons/` |
 | 見た目 | **B4–B5 済**: 席 UI モック寄せ + 結果公開アニメ / 特殊札 CSS |
 | ローカルデモ UX | **B6 済**: ボット賢さ・人数/表示名・終了導線 |
+| 背景・PWA | **B7 済**: 砂漠夜背景強化 + `vite-plugin-pwa` / マニフェスト |
 
 参照: `docs/ui-mock.md` / `docs/design-overview.md` / `docs/画面イメージ.png`
 
@@ -42,7 +43,7 @@
 | **B4** | 席・ゲーム画面のブラッシュアップ | **済**: 手番リング、宣言チップ、モック寄せ | B3 |
 | **B5** | 結果・カード演出 | **済**: 公開アニメ、特殊札 CSS/SVG、計算ステップ演出 | B3 |
 | **B6** | ローカルデモ UX | **済**: ボット賢さ、終了フロー、人数など | B3 推奨 |
-| **B7**（任意） | 背景・PWA 仕上げ | 砂漠背景強化、マニフェスト | B2 |
+| **B7**（任意） | 背景・PWA 仕上げ | **済**: 砂漠背景強化、マニフェスト | B2 |
 
 推奨実施順: **B0 → B1 → B2 → B3 → B4 → B5 → B6**（B7 は空き時間）。
 
@@ -425,9 +426,26 @@ Small horizontal logo mark for Wild Count: circular badge with wolf howling at a
 
 ## Phase B7（任意）— 背景・PWA
 
-- 砂漠夜背景の強化（CSS or 1 枚の背景イラスト）
-- `vite-plugin-pwa` とアプリアイコン接続
-- オリジナル動物の追加ポーズ（勝利・脱落）は優先度低
+### 目的
+
+夜砂漠の雰囲気を一段上げ、ホーム画面追加（PWA）を有効にする。
+
+### 実施内容（B7）
+
+| 項目 | 対応 |
+|------|------|
+| 砂漠背景 | `.desert-bg` を強化：月の光暈・多層砂丘・星・地平線ヘイズ・サボテンシルエット。UI 可読性優先で低コントラスト |
+| PWA | `vite-plugin-pwa`（`registerType: autoUpdate`）+ Web App Manifest。B2 の `icons/app-192.png` / `app-512.png` を接続 |
+| HTML | `theme-color` / apple-touch / description メタを整備 |
+| 追加ポーズ | **未実施**（勝利・脱落アバターは優先度低のまま） |
+
+主なパス: `src/styles/main.css` / `vite.config.ts` / `index.html` / `public/icons/*`
+
+### 完了条件
+
+- [x] 背景がフラットな単色から「夜砂漠」に見える
+- [x] ビルド成果物にマニフェスト + SW が含まれる
+- [x] `npm run build` 成功
 
 ---
 
@@ -449,7 +467,9 @@ Small horizontal logo mark for Wild Count: circular badge with wolf howling at a
 5. ~~**B4** 席・ゲーム画面~~ → 完了
 6. ~~**B5** 結果・カード演出~~ → 完了
 7. ~~**B6** ローカルデモ UX~~ → 完了
-8. 任意 **B7** 背景・PWA
+8. ~~任意 **B7** 背景・PWA~~ → 完了（追加ポーズは対象外）
+
+Phase B 見た目磨きは一通り完了。次は Phase 1（Worker / マルチプレイ）または細部の遊び心地調整。
 
 ---
 

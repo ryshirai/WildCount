@@ -68,9 +68,15 @@
   .card-tile {
     @apply flex h-12 w-10 items-center justify-center rounded-lg
       border border-gold-400/50 bg-gradient-to-b from-gold-50 via-gold-100 to-gold-300
-      font-display text-lg font-bold text-night-900 shadow-md
+      font-display text-lg font-bold leading-none text-night-900 shadow-md
       ring-1 ring-inset ring-white/25
       sm:h-14 sm:w-11 sm:text-xl;
+    /* Long specials (e.g. 0*) still fit without growing the tile */
+    letter-spacing: -0.02em;
+    padding-inline: 0.1rem;
+    overflow: hidden;
+    text-overflow: clip;
+    white-space: nowrap;
   }
 
   .card-tile-mystery {
@@ -631,51 +637,98 @@
   animation: turn-ring-pulse 2.2s ease-in-out infinite;
 }
 
-/* Desert night backdrop decorations */
+/*
+ * Desert night backdrop (B7).
+ * Pure CSS: multi-layer dunes, moon glow, stars, soft silhouettes.
+ * Keep UI readable — decoration stays low-contrast and behind content.
+ */
 .desert-bg {
-  background-color: #0b1220;
+  background-color: #060a12;
   background-image:
-    radial-gradient(ellipse 90% 55% at 50% 110%, rgba(90, 60, 30, 0.55) 0%, transparent 55%),
-    radial-gradient(ellipse 50% 35% at 50% -5%, rgba(30, 50, 90, 0.45) 0%, transparent 55%),
-    radial-gradient(1px 1px at 12% 18%, rgba(255, 255, 255, 0.55), transparent),
-    radial-gradient(1px 1px at 28% 42%, rgba(255, 255, 255, 0.35), transparent),
-    radial-gradient(1.5px 1.5px at 55% 12%, rgba(255, 255, 255, 0.5), transparent),
-    radial-gradient(1px 1px at 72% 28%, rgba(255, 255, 255, 0.4), transparent),
-    radial-gradient(1px 1px at 88% 15%, rgba(255, 255, 255, 0.45), transparent),
-    radial-gradient(1px 1px at 40% 8%, rgba(255, 255, 255, 0.3), transparent),
-    radial-gradient(1px 1px at 65% 45%, rgba(255, 255, 255, 0.25), transparent),
-    radial-gradient(1.5px 1.5px at 18% 55%, rgba(255, 255, 255, 0.3), transparent);
+    /* Moon disc + warm halo (upper right) */
+    radial-gradient(circle 3px at 78% 12%, rgba(255, 248, 220, 0.95) 0%, transparent 100%),
+    radial-gradient(ellipse 32% 24% at 78% 12%, rgba(201, 168, 76, 0.16) 0%, transparent 68%),
+    radial-gradient(ellipse 18% 14% at 78% 12%, rgba(232, 213, 163, 0.08) 0%, transparent 70%),
+    /* Cool night sky */
+    radial-gradient(ellipse 90% 55% at 50% -8%, rgba(28, 48, 88, 0.55) 0%, transparent 58%),
+    radial-gradient(ellipse 50% 30% at 20% 8%, rgba(20, 40, 70, 0.25) 0%, transparent 55%),
+    /* Horizon haze (teal-sand dust) */
+    radial-gradient(ellipse 110% 28% at 50% 72%, rgba(42, 138, 138, 0.06) 0%, transparent 65%),
+    radial-gradient(ellipse 100% 22% at 50% 78%, rgba(201, 168, 76, 0.05) 0%, transparent 60%),
+    /* Far / mid / near dunes */
+    radial-gradient(ellipse 120% 48% at 50% 118%, rgba(90, 60, 30, 0.72) 0%, transparent 52%),
+    radial-gradient(ellipse 90% 40% at 22% 112%, rgba(70, 48, 28, 0.5) 0%, transparent 48%),
+    radial-gradient(ellipse 85% 38% at 78% 114%, rgba(100, 68, 32, 0.45) 0%, transparent 48%),
+    radial-gradient(ellipse 70% 28% at 50% 105%, rgba(50, 36, 22, 0.55) 0%, transparent 55%),
+    /* Soft ridge silhouettes along the horizon */
+    radial-gradient(ellipse 48% 18% at 8% 92%, rgba(8, 14, 24, 0.75) 0%, transparent 70%),
+    radial-gradient(ellipse 55% 20% at 38% 94%, rgba(10, 16, 26, 0.7) 0%, transparent 68%),
+    radial-gradient(ellipse 50% 18% at 68% 93%, rgba(8, 14, 24, 0.72) 0%, transparent 70%),
+    radial-gradient(ellipse 42% 16% at 94% 92%, rgba(9, 15, 25, 0.7) 0%, transparent 68%),
+    /* Ground fade so chrome stays dark */
+    linear-gradient(to top, rgba(6, 10, 18, 0.9) 0%, rgba(6, 10, 18, 0.28) 16%, transparent 40%),
+    /* Stars */
+    radial-gradient(1px 1px at 8% 14%, rgba(255, 255, 255, 0.55), transparent),
+    radial-gradient(1px 1px at 14% 32%, rgba(255, 255, 255, 0.28), transparent),
+    radial-gradient(1.5px 1.5px at 22% 10%, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(1px 1px at 28% 42%, rgba(255, 255, 255, 0.32), transparent),
+    radial-gradient(1px 1px at 35% 18%, rgba(255, 255, 255, 0.4), transparent),
+    radial-gradient(1.5px 1.5px at 42% 6%, rgba(255, 255, 255, 0.48), transparent),
+    radial-gradient(1px 1px at 48% 28%, rgba(255, 255, 255, 0.22), transparent),
+    radial-gradient(1px 1px at 55% 12%, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(1px 1px at 62% 38%, rgba(255, 255, 255, 0.25), transparent),
+    radial-gradient(1.5px 1.5px at 68% 8%, rgba(255, 255, 255, 0.42), transparent),
+    radial-gradient(1px 1px at 72% 28%, rgba(255, 255, 255, 0.38), transparent),
+    radial-gradient(1px 1px at 84% 22%, rgba(255, 255, 255, 0.3), transparent),
+    radial-gradient(1px 1px at 90% 36%, rgba(255, 255, 255, 0.22), transparent),
+    radial-gradient(1.5px 1.5px at 94% 16%, rgba(255, 255, 255, 0.4), transparent),
+    radial-gradient(1px 1px at 18% 52%, rgba(255, 255, 255, 0.2), transparent),
+    radial-gradient(1px 1px at 40% 48%, rgba(255, 255, 255, 0.18), transparent);
 }
 
-/* Soft cactus silhouettes via CSS */
+/* Content above decorative layers (flex/grid items honor z-index) */
+.desert-bg > * {
+  z-index: 1;
+}
+
+/* Soft cactus silhouettes (left / right) */
 .desert-bg::before,
 .desert-bg::after {
   content: '';
   position: absolute;
   bottom: 0;
   pointer-events: none;
-  opacity: 0.35;
-  background: #0a1525;
+  z-index: 0;
+  opacity: 0.38;
+  background: #070d16;
 }
 
 .desert-bg::before {
-  left: 6%;
-  width: 48px;
-  height: 120px;
-  border-radius: 24px 24px 0 0;
+  left: 5%;
+  width: 44px;
+  height: min(18vh, 128px);
+  border-radius: 22px 22px 0 0;
   box-shadow:
-    18px -40px 0 -8px #0a1525,
-    -14px -28px 0 -12px #0a1525;
+    16px -36px 0 -8px #070d16,
+    -12px -24px 0 -12px #070d16;
 }
 
 .desert-bg::after {
-  right: 10%;
-  width: 40px;
-  height: 100px;
-  border-radius: 20px 20px 0 0;
+  right: 8%;
+  width: 36px;
+  height: min(15vh, 108px);
+  border-radius: 18px 18px 0 0;
   box-shadow:
-    -16px -32px 0 -10px #0a1525,
-    14px -22px 0 -14px #0a1525;
+    -14px -28px 0 -9px #070d16,
+    12px -18px 0 -12px #070d16;
+}
+
+@media (max-width: 640px) {
+  .desert-bg::before,
+  .desert-bg::after {
+    opacity: 0.28;
+    height: min(12vh, 88px);
+  }
 }
 
 /* Circular seat positioning helpers (desktop) */
