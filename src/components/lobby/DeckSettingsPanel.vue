@@ -401,19 +401,19 @@ function closeEditor() {
         </div>
       </div>
 
-      <!-- Composition strip: mini tiles -->
+      <!-- Composition: mini tiles (wrap on sm+; no horizontal scroll needed on PC) -->
       <div
         class="border-t border-gold-400/15 bg-night-950/40 px-4 py-3 sm:px-5"
       >
         <p class="mb-2 text-[10px] font-medium uppercase tracking-[0.14em] text-sand-dim">
           構成プレビュー
         </p>
-        <div class="flex gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div class="flex flex-wrap items-start gap-x-2 gap-y-3">
           <!-- Number mini tiles -->
           <div
             v-for="n in summaryNumbers"
             :key="`sum-n-${n.value}`"
-            class="group relative flex shrink-0 flex-col items-center"
+            class="flex flex-col items-center"
           >
             <div
               class="flex h-11 w-9 items-center justify-center rounded-md border border-gold-400/50 bg-gradient-to-b from-gold-50 via-gold-100 to-gold-300 font-display text-[11px] font-bold leading-none shadow-md ring-1 ring-inset ring-white/25 sm:h-12 sm:w-10 sm:text-xs"
@@ -430,7 +430,7 @@ function closeEditor() {
 
           <div
             v-if="summarySpecials.length > 0"
-            class="mx-0.5 w-px shrink-0 self-stretch bg-gradient-to-b from-transparent via-gold-400/30 to-transparent"
+            class="hidden h-12 w-px self-center bg-gradient-to-b from-transparent via-gold-400/35 to-transparent sm:block"
             aria-hidden="true"
           />
 
@@ -438,7 +438,7 @@ function closeEditor() {
           <div
             v-for="s in summarySpecials"
             :key="`sum-s-${s.key}`"
-            class="flex shrink-0 flex-col items-center"
+            class="flex flex-col items-center"
             :title="s.hint"
           >
             <div
