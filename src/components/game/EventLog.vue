@@ -17,7 +17,7 @@ defineProps<{
       <span class="text-sand-dim">▾</span>
     </div>
 
-    <ul class="flex-1 space-y-3 overflow-y-auto px-3 py-3">
+    <ul class="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-3 py-3">
       <li
         v-for="item in items"
         :key="item.id"

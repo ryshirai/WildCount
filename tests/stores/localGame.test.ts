@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { useLocalGameStore } from '../../src/stores/localGame'
-import { SELF_ID } from '../../src/localGame/profiles'
+import { buildDemoLineup, SELF_ID } from '../../src/localGame/profiles'
 import { getLegalMoves } from '../../src/domain/game'
 
 /** Instant pacing for unit tests */
@@ -23,6 +23,27 @@ describe('localGame store', () => {
     const others = store.gameView?.players.filter((p) => !p.isSelf) ?? []
     expect(others.every((p) => !p.handHidden && p.handLabel)).toBe(true)
     expect(store.botsRunning).toBe(false)
+  })
+
+  it('supports 3-player lineup and custom self name', async () => {
+    const store = useLocalGameStore()
+    const profiles = buildDemoLineup({ playerCount: 3, selfName: 'テスト' })
+    await store.startLocalGame({ profiles, seed: 5, ...FAST })
+    expect(store.gameView?.players).toHaveLength(3)
+    const self = store.gameView?.players.find((p) => p.isSelf)
+    expect(self?.name).toBe('テスト')
+  })
+
+  it('restartLastGame reuses profiles and seed', async () => {
+    const store = useLocalGameStore()
+    const profiles = buildDemoLineup({ playerCount: 3, selfName: '再戦' })
+    await store.startLocalGame({ profiles, seed: 99, ...FAST })
+    const firstHands = { ...store.state!.hands }
+    await store.restartLastGame()
+    expect(store.gameView?.players).toHaveLength(3)
+    expect(store.gameView?.players.find((p) => p.isSelf)?.name).toBe('再戦')
+    // Same seed → same initial deal
+    expect(store.state!.hands).toEqual(firstHands)
   })
 
   it('placeBid then bots may produce a pending result via challenge chain', async () => {

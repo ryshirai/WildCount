@@ -3,10 +3,22 @@
 @tailwind utilities;
 
 @layer base {
+  /*
+   * App shell: lock to the visual viewport so pages don't "spill" and clip.
+   * Each view either scrolls internally (Home / Result / Lobby) or manages
+   * its own flex regions (Game).
+   */
+  html {
+    height: 100%;
+  }
+
   html,
   body,
   #app {
-    @apply h-full min-h-full;
+    /* 100dvh tracks mobile browser chrome; 100% is a safe fallback */
+    height: 100%;
+    height: 100dvh;
+    overflow: hidden;
   }
 
   body {
@@ -679,7 +691,57 @@
   transform: translate(-50%, -50%);
 }
 
-/* Mobile safe area */
+/* Mobile / notch safe areas */
 .safe-bottom {
   padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+
+.safe-top {
+  padding-top: max(0px, env(safe-area-inset-top));
+}
+
+.safe-x {
+  padding-left: max(0px, env(safe-area-inset-left));
+  padding-right: max(0px, env(safe-area-inset-right));
+}
+
+/**
+ * Page root for scrollable screens (home / lobby / result).
+ * Fills the app shell and scrolls when content is taller than the viewport.
+ */
+.page-scroll {
+  @apply relative flex h-full min-h-0 flex-col overflow-x-hidden overflow-y-auto;
+}
+
+/**
+ * Page root for fixed chrome + flexible body (game).
+ */
+.page-fixed {
+  @apply relative flex h-full min-h-0 flex-col overflow-hidden;
+}
+
+/**
+ * Ellipse stage that always fits its parent (container queries).
+ * Parent must be a size container with non-zero height.
+ */
+.player-circle-stage {
+  container-type: size;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.player-circle-stage__board {
+  position: relative;
+  /* Fit width AND height: width capped so height (×4/5) ≤ container */
+  width: min(100cqi, calc(100cqb * 5 / 4), 56rem);
+  aspect-ratio: 5 / 4;
+  max-height: 100%;
+  flex-shrink: 1;
 }

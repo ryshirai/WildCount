@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { mockLobby } from '@/data/mockLobby'
-import { DEFAULT_PROFILES } from '@/localGame/profiles'
+import { buildDemoLineup, DEFAULT_PROFILES } from '@/localGame/profiles'
 import { useLocalGameStore } from '@/stores/localGame'
 import AppLogo from '@/components/common/AppLogo.vue'
 import MockBadge from '@/components/common/MockBadge.vue'
@@ -70,7 +70,9 @@ function startGame() {
     showToast('ホストのみ開始できます（2人以上）')
     return
   }
+  // Lobby still uses the default 4-seat demo lineup (host UI mock).
   localGame.startLocalGame({
+    profiles: buildDemoLineup({ playerCount: 4 }),
     roomCode: roomCode.value,
     initialLives: 3,
     deck: 'standard',
@@ -84,16 +86,18 @@ function leaveLobby() {
 </script>
 
 <template>
-  <div class="relative flex min-h-dvh flex-col desert-bg">
+  <div class="page-scroll desert-bg safe-x">
     <!-- Header -->
     <header
-      class="flex items-center justify-between gap-3 border-b border-gold-400/15 bg-night-900/70 px-4 py-3 backdrop-blur-md sm:px-6"
+      class="sticky top-0 z-20 flex shrink-0 items-center justify-between gap-3 border-b border-gold-400/15 bg-night-900/90 px-4 py-3 backdrop-blur-md safe-top sm:px-6"
     >
       <AppLogo size="sm" />
       <button type="button" class="btn-ghost text-xs" @click="leaveLobby">退出</button>
     </header>
 
-    <div class="relative z-10 mx-auto flex w-full max-w-2xl flex-1 flex-col px-4 py-6 sm:py-8">
+    <div
+      class="relative z-10 mx-auto flex w-full max-w-2xl flex-1 flex-col px-4 py-6 safe-bottom sm:py-8"
+    >
       <!-- Room code block -->
       <section class="panel mb-6 p-5 text-center sm:p-6">
         <p class="mb-1 text-xs text-sand-dim">ルームコード</p>

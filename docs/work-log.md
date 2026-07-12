@@ -779,6 +779,83 @@
 
 ---
 
+## 2026-07-12 — 画面見切れ / レイアウト崩れの修正
+
+### 背景・目的
+
+- 画面の一部がビューポートに収まらずクリップされる問題を横断修正。
+
+### 実施内容
+
+1. **App shell** — `html/body/#app` を `100dvh` + `overflow: hidden`。各画面が内部スクロール or flex 領域を持つ。
+2. **スクロールページ** — Home / Lobby は `.page-scroll`、Result はヘッダー固定 + 本文 `overflow-y-auto`。
+3. **ゲーム席** — `PlayerCircle` を container query で親にフィット。楕円半径を下げ席のアバター/札が見切れないように。
+4. **GameView flex** — `min-h-0` / `shrink-0` を明示。イベントログ列とモバイルオーバーレイを高さ内に収める。
+5. **safe-area** — top/x/bottom 用ユーティリティを追加。
+
+### 主なパス変更
+
+| パス | 内容 |
+|------|------|
+| `src/styles/main.css` | shell / page-scroll / player-circle-stage |
+| `src/components/game/PlayerCircle.vue` | フィット楕円 |
+| `src/views/GameView.vue` 他 | 高さチェーン・スクロール |
+
+### 確認結果
+
+- `npm test` 53 件成功 / `npm run build` 成功
+
+---
+
+## 2026-07-12 — Phase B6 ローカルデモ UX
+
+### 背景・目的
+
+- 見た目以外の「遊び心地」を上げ、友人に URL なしで一人デモとして見せられる状態にする（`docs/design-polish-plan.md` B6）。
+
+### 実施内容
+
+1. **ボット賢さ** — 他者の見える札 + 自分カード期待値で概算合計。宣言・チャレンジ確率を調整（`localGame/bot.ts`）。
+2. **デモ設定** — トップで人数 3/4・表示名・任意シード。`buildDemoLineup`。シード空は毎回ランダム。
+3. **終了導線** — 勝者バナー説明 +「もう一度遊ぶ」（`restartLastGame` で設定維持）/「トップへ」（セッション破棄）。
+4. **モック導線** — `?mock=1` リンクをトップの開発用 details に折りたたみ。ローカル対戦を主導線に。
+5. **テスト** — bot 単体 + 3 人ラインナップ / restartLastGame。
+
+### 主なパス変更
+
+| パス | 内容 |
+|------|------|
+| `src/localGame/bot.ts` | 概算ポリシー |
+| `src/localGame/profiles.ts` | `buildDemoLineup` / 人数型 |
+| `src/stores/localGame.ts` | `restartLastGame`・シード既定 |
+| `src/views/HomeView.vue` | デモ設定 UI |
+| `src/views/ResultView.vue` | 終了 CTA |
+| `src/views/LobbyView.vue` | lineup 明示 |
+| `tests/localGame/bot.test.ts` | ボット単体テスト |
+| `docs/design-polish-plan.md` | B6 完了 |
+| `docs/ui-mock.md` | 導線メモ |
+| `docs/work-log.md` | 本エントリ |
+
+### 明示的にやっていないこと
+
+- 砂漠背景イラスト / PWA マニフェスト（B7）
+- ボットの高度なブラフ・相手モデル
+- ドメインロジック変更
+- マルチプレイ / Worker
+
+### 確認結果
+
+- `npm test` 53 件すべて成功
+- `npm run build` 成功
+
+### 次に考えられる作業
+
+1. 任意 **B7** 背景・PWA
+2. ボット思考時間の UI 調整スライダー（任意）
+3. Phase 1 マルチプレイ
+
+---
+
 ## ログの書き方
 
 **正規のルールは `AGENTS.md` を参照。** 変更のあったセッションでは、このファイルに日付見出しで **追記** する（過去エントリは消さない）。

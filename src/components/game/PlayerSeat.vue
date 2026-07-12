@@ -10,9 +10,9 @@ defineProps<{
 
 <template>
   <div
-    class="flex flex-col items-center gap-1 transition-transform duration-200"
+    class="flex max-w-[5.5rem] flex-col items-center gap-0.5 transition-transform duration-200 sm:max-w-[6.5rem]"
     :class="[
-      player.isCurrentTurn ? 'scale-105 z-10' : '',
+      player.isCurrentTurn ? 'z-10 scale-[1.03]' : '',
       player.lives <= 0 ? 'opacity-40 grayscale' : '',
     ]"
   >

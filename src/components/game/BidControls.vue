@@ -25,12 +25,12 @@ function adjust(delta: number) {
 <template>
   <div
     class="border-t border-gold-400/15 bg-night-900/85 backdrop-blur-md"
-    :class="mobile ? 'px-3 py-3 safe-bottom' : 'px-5 py-4'"
+    :class="mobile ? 'px-3 py-2.5' : 'px-5 py-3 sm:py-4'"
   >
-    <p v-if="!mobile" class="mb-3 text-sm text-sand-dim">
+    <p v-if="!mobile" class="mb-2 text-sm text-sand-dim sm:mb-3">
       次の宣言を選択してください
     </p>
-    <p v-else class="mb-2 text-center text-xs text-sand-dim">次の宣言を選択</p>
+    <p v-else class="mb-1.5 text-center text-xs text-sand-dim">次の宣言を選択</p>
 
     <div
       class="flex flex-wrap items-center gap-2"

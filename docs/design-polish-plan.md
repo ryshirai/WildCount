@@ -25,6 +25,7 @@
 | アバター | **B0–B3 済**: フル 10 体 WebP + `PlayerAvatar` 画像表示（失敗時絵文字） |
 | ロゴ / favicon | **B2 済**: `favicon.svg` + `logo-mark.webp`（`AppLogo` / `GameHeader`）+ PWA 用 `icons/` |
 | 見た目 | **B4–B5 済**: 席 UI モック寄せ + 結果公開アニメ / 特殊札 CSS |
+| ローカルデモ UX | **B6 済**: ボット賢さ・人数/表示名・終了導線 |
 
 参照: `docs/ui-mock.md` / `docs/design-overview.md` / `docs/画面イメージ.png`
 
@@ -40,7 +41,7 @@
 | **B3** | アバターを UI に接続 | `PlayerAvatar` 画像化、profiles 更新 | B1 |
 | **B4** | 席・ゲーム画面のブラッシュアップ | **済**: 手番リング、宣言チップ、モック寄せ | B3 |
 | **B5** | 結果・カード演出 | **済**: 公開アニメ、特殊札 CSS/SVG、計算ステップ演出 | B3 |
-| **B6** | ローカルデモ UX | ボット賢さ、終了フロー、人数など | B3 推奨 |
+| **B6** | ローカルデモ UX | **済**: ボット賢さ、終了フロー、人数など | B3 推奨 |
 | **B7**（任意） | 背景・PWA 仕上げ | 砂漠背景強化、マニフェスト | B2 |
 
 推奨実施順: **B0 → B1 → B2 → B3 → B4 → B5 → B6**（B7 は空き時間）。
@@ -403,10 +404,22 @@ Small horizontal logo mark for Wild Count: circular badge with wolf howling at a
 | モック導線 | `?mock=1` を開発用に残す or 整理 |
 | ペース | 思考 3–5 秒・結果手動は現状維持（調整可） |
 
+### 実施内容（B6）
+
+| 項目 | 対応 |
+|------|------|
+| ボット | `estimateRoundTotal`（他者札 + 自分の期待値）で宣言・チャレンジ確率を調整 |
+| 設定 | トップで人数 3/4・表示名・任意シード。`buildDemoLineup` |
+| 終了 | 勝者バナー +「もう一度遊ぶ」（設定維持）/「トップへ」（セッション破棄） |
+| モック導線 | トップの `?mock=1` リンクを `<details>` 開発用に折りたたみ |
+| ペース | 思考 3–5 秒・結果手動は現状維持 |
+
+主なパス: `src/localGame/bot.ts` / `profiles.ts` / `stores/localGame.ts` / `HomeView.vue` / `ResultView.vue`
+
 ### 完了条件
 
-- [ ] 友人に URL なしでも「一人デモ」として見せられる
-- [ ] 明らかな UX 引っかかりがない
+- [x] 友人に URL なしでも「一人デモ」として見せられる
+- [x] 明らかな UX 引っかかりがない
 
 ---
 
@@ -435,7 +448,8 @@ Small horizontal logo mark for Wild Count: circular badge with wolf howling at a
 4. ~~**B2** favicon / ロゴ~~ → 完了
 5. ~~**B4** 席・ゲーム画面~~ → 完了
 6. ~~**B5** 結果・カード演出~~ → 完了
-7. 次は **B6** ローカルデモ UX（任意 **B7**）
+7. ~~**B6** ローカルデモ UX~~ → 完了
+8. 任意 **B7** 背景・PWA
 
 ---
 

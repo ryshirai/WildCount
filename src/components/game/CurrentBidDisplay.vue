@@ -22,7 +22,11 @@ withDefaults(
     </p>
     <p
       class="font-display font-bold leading-none text-gold-100"
-      :class="compact ? 'mt-1 text-6xl' : 'mt-2 text-7xl sm:text-8xl'"
+      :class="
+        compact
+          ? 'mt-1 text-5xl sm:text-6xl'
+          : 'mt-2 text-5xl sm:text-7xl xl:text-8xl'
+      "
       style="text-shadow: 0 0 48px rgba(201, 168, 76, 0.4), 0 0 12px rgba(201, 168, 76, 0.25)"
     >
       {{ currentBid == null ? '—' : currentBid }}

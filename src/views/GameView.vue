@@ -332,20 +332,22 @@ async function onChallenge() {
 </script>
 
 <template>
-  <div class="relative flex h-full min-h-dvh flex-col overflow-hidden desert-bg">
+  <div class="page-fixed desert-bg safe-x">
     <template v-if="room">
       <!-- ========== Desktop / tablet ========== -->
       <div class="hidden h-full min-h-0 flex-1 flex-col lg:flex">
-        <GameHeader
-          :room-code="room.roomCode"
-          :player-count="room.playerCount"
-          :round="room.round"
-        />
+        <div class="shrink-0 safe-top">
+          <GameHeader
+            :room-code="room.roomCode"
+            :player-count="room.playerCount"
+            :round="room.round"
+          />
+        </div>
 
         <!-- Status under header -->
         <div
           v-if="paceHint"
-          class="flex items-center justify-center gap-2.5 border-b px-3 py-2.5 text-center text-sm font-medium backdrop-blur-md"
+          class="flex shrink-0 items-center justify-center gap-2.5 border-b px-3 py-2.5 text-center text-sm font-medium backdrop-blur-md"
           :class="
             awaitingResultView
               ? 'border-teal-soft/35 bg-teal-deep/40 text-teal-soft'
@@ -472,55 +474,65 @@ async function onChallenge() {
 
         <!-- Normal play area -->
         <div v-else class="relative flex min-h-0 flex-1">
-          <main class="relative flex min-w-0 flex-1 flex-col">
-            <div class="relative flex flex-1 items-center justify-center px-4 py-6">
-              <div class="pointer-events-none absolute inset-0 z-0 flex items-center justify-center">
+          <main class="relative flex min-h-0 min-w-0 flex-1 flex-col">
+            <div
+              class="relative flex min-h-0 flex-1 items-center justify-center px-2 py-2 sm:px-4 sm:py-3"
+            >
+              <div
+                class="pointer-events-none absolute inset-0 z-0 flex items-center justify-center"
+              >
                 <CurrentBidDisplay
                   :current-bid="room.currentBid"
                   :turns-until-self="room.turnsUntilSelf"
                 />
               </div>
 
-              <PlayerCircle :players="room.players" class="relative z-10" />
+              <PlayerCircle :players="room.players" class="relative z-10 h-full w-full" />
             </div>
 
             <div
               v-if="isGameOver && !awaitingResultView"
-              class="mx-4 mb-2 rounded-xl border border-gold-400/30 bg-night-900/90 px-4 py-3 text-center text-sm text-gold-100"
+              class="mx-4 mb-2 shrink-0 rounded-xl border border-gold-400/30 bg-night-900/90 px-4 py-3 text-center text-sm text-gold-100"
             >
               ゲーム終了 — 結果画面で勝者を確認してください
             </div>
 
-            <BidControls
-              v-if="!awaitingResultView"
-              v-model="draftBid"
-              :min-bid="minBid"
-              :can-declare="canDeclare"
-              :can-challenge="canChallenge"
-              @declare="onDeclare"
-              @challenge="onChallenge"
-            />
+            <div class="shrink-0">
+              <BidControls
+                v-if="!awaitingResultView"
+                v-model="draftBid"
+                :min-bid="minBid"
+                :can-declare="canDeclare"
+                :can-challenge="canChallenge"
+                @declare="onDeclare"
+                @challenge="onChallenge"
+              />
+            </div>
           </main>
 
-          <div class="w-72 shrink-0 border-l border-gold-400/10 p-3 xl:w-80">
-            <EventLog :items="room.eventLog" />
+          <div
+            class="flex w-72 min-h-0 shrink-0 flex-col border-l border-gold-400/10 p-3 xl:w-80"
+          >
+            <EventLog :items="room.eventLog" class="min-h-0 flex-1" />
           </div>
         </div>
       </div>
 
       <!-- ========== Mobile ========== -->
-      <div class="flex h-full min-h-0 flex-1 flex-col lg:hidden">
-        <GameHeader
-          mobile
-          :room-code="room.roomCode"
-          :player-count="room.playerCount"
-          :round="room.round"
-          :connection-status="room.connectionStatus"
-        />
+      <div class="relative flex h-full min-h-0 flex-1 flex-col lg:hidden">
+        <div class="shrink-0 safe-top">
+          <GameHeader
+            mobile
+            :room-code="room.roomCode"
+            :player-count="room.playerCount"
+            :round="room.round"
+            :connection-status="room.connectionStatus"
+          />
+        </div>
 
         <div
           v-if="paceHint"
-          class="flex items-center justify-center gap-2 border-b px-3 py-2 text-center text-xs font-medium backdrop-blur-md"
+          class="flex shrink-0 items-center justify-center gap-2 border-b px-3 py-2 text-center text-xs font-medium backdrop-blur-md"
           :class="
             awaitingResultView
               ? 'border-teal-soft/35 bg-teal-deep/40 text-teal-soft'
@@ -618,10 +630,12 @@ async function onChallenge() {
 
         <!-- Normal mobile play -->
         <template v-else>
-          <MobilePlayerCarousel :players="room.players" />
+          <div class="shrink-0">
+            <MobilePlayerCarousel :players="room.players" />
+          </div>
 
           <div
-            class="flex items-center justify-between gap-2 border-b border-gold-400/10 bg-night-950/30 px-4 py-1.5 text-xs text-sand-dim"
+            class="flex shrink-0 items-center justify-between gap-2 border-b border-gold-400/10 bg-night-950/30 px-4 py-1.5 text-xs text-sand-dim"
           >
             <span class="chip !px-2 !py-0.5 !text-[10px]">
               {{ room.players.filter((p) => p.hasDeclared).length }}/{{ room.playerCount }} 宣言
@@ -633,8 +647,10 @@ async function onChallenge() {
             <span class="text-[10px] text-sand-dim/80">自分の札は？</span>
           </div>
 
-          <main class="flex flex-1 flex-col items-center justify-center px-4 py-4">
-            <div class="panel w-full max-w-sm px-6 py-8 shadow-panel">
+          <main
+            class="flex min-h-0 flex-1 flex-col items-center justify-center overflow-hidden px-4 py-3"
+          >
+            <div class="panel w-full max-w-sm px-5 py-5 shadow-panel sm:px-6 sm:py-8">
               <CurrentBidDisplay
                 compact
                 :show-turns-hint="false"
@@ -643,24 +659,26 @@ async function onChallenge() {
             </div>
           </main>
 
-          <BidControls
-            v-if="!awaitingResultView"
-            v-model="draftBid"
-            mobile
-            :min-bid="minBid"
-            :can-declare="canDeclare"
-            :can-challenge="canChallenge"
-            @declare="onDeclare"
-            @challenge="onChallenge"
-          />
+          <div class="shrink-0">
+            <BidControls
+              v-if="!awaitingResultView"
+              v-model="draftBid"
+              mobile
+              :min-bid="minBid"
+              :can-declare="canDeclare"
+              :can-challenge="canChallenge"
+              @declare="onDeclare"
+              @challenge="onChallenge"
+            />
+          </div>
 
           <nav
-            class="flex border-t border-gold-400/15 bg-night-950/95 safe-bottom"
+            class="flex shrink-0 border-t border-gold-400/15 bg-night-950/95 safe-bottom"
             aria-label="モバイルメニュー"
           >
             <button
               type="button"
-              class="flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[11px] transition"
+              class="flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] transition"
               :class="mobileTab === 'chat' ? 'text-gold-200' : 'text-sand-dim'"
               @click="
                 mobileTab = 'chat';
@@ -672,7 +690,7 @@ async function onChallenge() {
             </button>
             <button
               type="button"
-              class="flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[11px] transition"
+              class="flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] transition"
               :class="mobileTab === 'players' ? 'text-gold-200' : 'text-sand-dim'"
               @click="mobileTab = 'players'"
             >
@@ -681,20 +699,31 @@ async function onChallenge() {
             </button>
             <button
               type="button"
-              class="flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[11px] transition"
+              class="flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] transition"
               :class="mobileTab === 'log' ? 'text-gold-200' : 'text-sand-dim'"
-              @click="mobileTab = 'log'"
+              @click="mobileTab = mobileTab === 'log' ? 'players' : 'log'"
             >
               <span class="text-base">☰</span>
               イベントログ
             </button>
           </nav>
 
+          <!-- Full-area overlay between header band and bottom chrome -->
           <div
             v-if="mobileTab === 'log'"
-            class="absolute inset-x-0 bottom-16 top-24 z-20 px-3"
+            class="absolute inset-0 z-20 flex flex-col bg-night-950/95 p-3 pt-14 safe-bottom"
           >
-            <EventLog :items="room.eventLog" class="h-full" />
+            <div class="mb-2 flex shrink-0 items-center justify-between gap-2">
+              <p class="text-xs font-semibold text-gold-200">イベントログ</p>
+              <button
+                type="button"
+                class="btn-ghost !px-2 !py-1 text-[11px]"
+                @click="mobileTab = 'players'"
+              >
+                閉じる
+              </button>
+            </div>
+            <EventLog :items="room.eventLog" class="min-h-0 flex-1" />
           </div>
         </template>
       </div>

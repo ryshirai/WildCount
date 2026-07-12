@@ -45,6 +45,9 @@ export interface StartLocalGameOptions {
   botDelayMaxMs?: number
 }
 
+/** Options remembered for「もう一度遊ぶ」. */
+type RememberedStartOptions = StartLocalGameOptions
+
 /**
  * Pending challenge result kept after the engine auto-advances to the next round.
  * Policy: snapshot hands + round before CHALLENGE; map outcome after applyAction.
@@ -87,6 +90,8 @@ export const useLocalGameStore = defineStore('localGame', () => {
   let rng: RandomSource = seedRandom(42)
   /** Generation token to ignore stale async bot loops after reset/restart */
   let runGeneration = 0
+  /** Last successful start options for play-again */
+  let lastStartOptions: RememberedStartOptions = {}
 
   const hasSession = computed(() => state.value != null)
 
@@ -140,6 +145,8 @@ export const useLocalGameStore = defineStore('localGame', () => {
     runGeneration += 1
     const gen = runGeneration
 
+    lastStartOptions = { ...options }
+
     const lineup = options.profiles
       ? [...options.profiles]
       : [...DEFAULT_PROFILES]
@@ -161,7 +168,12 @@ export const useLocalGameStore = defineStore('localGame', () => {
     statusMessage.value = null
     botsRunning.value = false
     logSeq = 0
-    rng = seedRandom(options.seed ?? 42)
+    // Explicit seed for reproducibility; otherwise a fresh deal each start / play-again
+    const seed =
+      options.seed != null
+        ? options.seed >>> 0
+        : (Math.floor(Math.random() * 0x1_0000_0000) >>> 0)
+    rng = seedRandom(seed)
 
     const playerIds = lineup.map((p) => p.id)
     state.value = startGame(
@@ -177,6 +189,14 @@ export const useLocalGameStore = defineStore('localGame', () => {
 
     pushLog(selfId.value, 'ローカル対戦を開始しました')
     return runBots(gen)
+  }
+
+  /**
+   * Restart with the same profiles / seed / delays as the last startLocalGame.
+   * Used by the result screen「もう一度遊ぶ」.
+   */
+  async function restartLastGame(): Promise<{ hasResult: boolean }> {
+    return startLocalGame({ ...lastStartOptions })
   }
 
   function applyCurrentAction(action: {
@@ -372,6 +392,7 @@ export const useLocalGameStore = defineStore('localGame', () => {
     awaitingResultView,
     // actions
     startLocalGame,
+    restartLastGame,
     placeBid,
     challenge,
     clearPendingResult,

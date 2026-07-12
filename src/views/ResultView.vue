@@ -131,27 +131,31 @@ function goNextRound() {
     return
   }
   store.clearPendingResult()
-  if (isGameOver.value) {
-    void router.push({ name: 'game' })
-    return
-  }
   void router.push({ name: 'game' })
 }
 
-function playAgain() {
-  store.startLocalGame()
+async function playAgain() {
+  if (useMock.value) {
+    void router.push({ name: 'game', query: { mock: '1' } })
+    return
+  }
+  await store.restartLastGame()
   void router.push({ name: 'game' })
 }
 
 function goHome() {
+  if (!useMock.value) {
+    store.clearPendingResult()
+    store.resetSession()
+  }
   void router.push({ name: 'home' })
 }
 </script>
 
 <template>
-  <div class="relative flex min-h-dvh flex-col desert-bg">
+  <div class="page-fixed desert-bg safe-x">
     <header
-      class="flex items-center justify-between gap-3 border-b border-gold-400/15 bg-night-900/70 px-4 py-3 backdrop-blur-md sm:px-6"
+      class="flex shrink-0 items-center justify-between gap-3 border-b border-gold-400/15 bg-night-900/90 px-4 py-3 backdrop-blur-md safe-top sm:px-6"
     >
       <AppLogo size="sm" />
       <div v-if="result" class="flex items-center gap-2">
@@ -170,7 +174,7 @@ function goHome() {
 
     <div
       v-if="result"
-      class="relative z-10 mx-auto w-full max-w-3xl flex-1 overflow-y-auto px-4 py-6 sm:py-8"
+      class="relative z-10 mx-auto w-full max-w-3xl min-h-0 flex-1 overflow-y-auto px-4 py-6 safe-bottom sm:py-8"
     >
       <!-- Game over banner -->
       <section
@@ -181,6 +185,9 @@ function goHome() {
         <h2 class="font-display text-2xl font-bold text-gold-100 sm:text-3xl">
           {{ localMeta.winnerName ?? '勝者' }} の勝利！
         </h2>
+        <p class="mt-2 text-xs text-sand-dim">
+          最後の1人が生き残りました。下からもう一度遊ぶか、トップへ戻れます。
+        </p>
       </section>
 
       <!-- Verdict banner (main “結果”) -->
@@ -358,31 +365,36 @@ function goHome() {
 
       <!-- Actions -->
       <div class="flex flex-col gap-3 safe-bottom sm:flex-row sm:justify-center">
-        <button
-          v-if="localMeta.isGameOver && !useMock"
-          type="button"
-          class="btn-gold w-full sm:max-w-xs"
-          @click="playAgain"
-        >
-          もう一度遊ぶ
-        </button>
-        <button
-          v-else
-          type="button"
-          class="btn-gold w-full sm:max-w-xs"
-          @click="goNextRound"
-        >
-          {{ useMock ? '次のラウンドへ（モック）' : '次のラウンドへ' }}
-        </button>
-        <button type="button" class="btn-ghost w-full sm:w-auto" @click="goHome">
-          トップへ
-        </button>
+        <template v-if="localMeta.isGameOver && !useMock">
+          <button
+            type="button"
+            class="btn-gold w-full sm:max-w-xs"
+            @click="playAgain"
+          >
+            もう一度遊ぶ
+          </button>
+          <button type="button" class="btn-teal w-full sm:max-w-xs" @click="goHome">
+            トップへ
+          </button>
+        </template>
+        <template v-else>
+          <button
+            type="button"
+            class="btn-gold w-full sm:max-w-xs"
+            @click="goNextRound"
+          >
+            {{ useMock ? '次のラウンドへ（モック）' : '次のラウンドへ' }}
+          </button>
+          <button type="button" class="btn-ghost w-full sm:w-auto" @click="goHome">
+            トップへ
+          </button>
+        </template>
       </div>
     </div>
 
     <div
       v-else
-      class="flex flex-1 items-center justify-center text-sm text-sand-dim"
+      class="flex min-h-0 flex-1 items-center justify-center text-sm text-sand-dim"
     >
       結果を読み込み中…
     </div>
