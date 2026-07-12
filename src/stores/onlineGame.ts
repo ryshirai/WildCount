@@ -17,7 +17,6 @@ import type {
 } from '@/online/protocol'
 import {
   formatHttpErrorBody,
-  formatRoomClosedReason,
   formatServerError,
   isKnownErrorCode,
   isSoftActionError,
@@ -394,7 +393,10 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     reconnectAttempt.value = 0
     const code = roomCode.value
     if (code) clearResumeToken(code)
-    setError('ROOM_CLOSED', formatRoomClosedReason(reason))
+    // Keep ROOM_CLOSED for isRoomClosed / no-reconnect; no sticky UI copy
+    // (clients auto-navigate home — "ホストが解散…" は冗長)
+    lastErrorCode.value = 'ROOM_CLOSED'
+    lastError.value = null
     roomCode.value = null
     playerId.value = null
     resumeToken.value = null
@@ -1007,7 +1009,8 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     }
     // Offline / send failed: local cleanup only
     leave()
-    setError('ROOM_CLOSED', formatRoomClosedReason('Host ended the room'))
+    lastErrorCode.value = 'ROOM_CLOSED'
+    lastError.value = null
   }
 
   /** Close current WS and invalidate its handlers (no reconnect). */

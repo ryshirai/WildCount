@@ -608,7 +608,8 @@ describe('onlineGame store', () => {
       reason: 'Host ended the room',
     })
     expect(store.lastErrorCode).toBe('ROOM_CLOSED')
-    expect(store.lastError).toContain('ホスト')
+    // No sticky UI message (auto-navigate home is enough)
+    expect(store.lastError).toBeNull()
     expect(store.roomCode).toBeNull()
     expect(store.view).toBeNull()
   })
@@ -629,7 +630,7 @@ describe('onlineGame store', () => {
     ws.simulateRoomEndedClose()
 
     expect(store.lastErrorCode).toBe('ROOM_CLOSED')
-    expect(store.lastError).toContain('ホスト')
+    expect(store.lastError).toBeNull()
     expect(store.roomCode).toBeNull()
     expect(loadResumeToken('ENDR03')).toBeNull()
     expect(store.canAttemptResume).toBe(false)

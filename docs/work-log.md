@@ -2227,6 +2227,30 @@
 
 ---
 
+## 2026-07-12 — ルーム解散メッセージを画面に出さない
+
+### 背景・目的
+- ホスト解散後にホーム等へ遷移したあと「ホストがルームを解散しました」が赤文字で残り、冗長
+
+### 実施内容
+1. `applyRoomClosed` / `endRoom` フォールバックで `lastErrorCode = ROOM_CLOSED` は維持し、`lastError` は null（トースト・ホームの sticky 文言を出さない）
+2. 関連テストを更新
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/stores/onlineGame.ts` | 解散時 UI メッセージ抑制 |
+| `tests/stores/onlineGame.test.ts` | lastError null を期待 |
+
+### 明示的にやっていないこと
+- `formatRoomClosedReason` 自体の削除（マッパは残置）
+- アイドル purge など他経路の文言整理以外の UI 変更
+
+### 確認結果
+- `vitest` onlineGame / errorMessages 23 tests 成功
+
+---
+
 ## ログの書き方
 
 **正規のルールは `AGENTS.md` を参照。** 変更のあったセッションでは、このファイルに日付見出しで **追記** する（過去エントリは消さない）。
