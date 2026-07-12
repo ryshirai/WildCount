@@ -289,7 +289,7 @@ interface RoomPlayer {
 | **P1-2** | done | 作成・参加・ロビー同期 | 2 タブでメンバー一覧更新、host 開始ボタン |
 | **P1-3** | done | start / bid / challenge / result | 同期進行 + 手札マスク |
 | **P1-4** | done | resumeToken 再接続 | リロードで席復帰 |
-| **P1-5** | **todo** | ホスト移譲・空ルーム削除 | 60s / idle alarm |
+| P1-5 | done | ホスト移譲・空ルーム削除 | 60s / idle alarm |
 | **P1-6** | **todo** | エラー UI・テスト・docs 更新 | test/build 緑 |
 
 ---
@@ -341,3 +341,4 @@ interface RoomPlayer {
 | 2026-07-12 | **P1-3 完了** — action（bid/challenge）・マスク済み game seats・pendingResult・Game/Result UI 接続 |
 | 2026-07-12 | **P1-4 完了** — resumeToken 再接続（localStorage lastRoom、ensureSession、自動再接続、切断バナー、ホーム復帰） |
 | 2026-07-12 | スライス状態列を追加。残タスク正本を `docs/backlog.md` に分離 |
+| 2026-07-12 | **P1-5 完了** — host 切断 60s 移譲（alarm）・idle TTL で storage 削除（open 10m / playing 30m） |

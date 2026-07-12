@@ -1,11 +1,37 @@
 import { describe, expect, it } from 'vitest'
 import {
+  HOST_DISCONNECT_GRACE_MS,
+  IDLE_TTL_OPEN_MS,
+  IDLE_TTL_PLAYING_MS,
+} from './types'
+import {
+  applyDueHostTransfer,
   buildPlayerView,
+  clearDisconnectDeadline,
+  connectedPlayerCount,
   createEmptyRoom,
   findPlayerByToken,
+  markPlayerDisconnected,
+  nextAlarmAt,
   parseClientMessage,
+  pickNextHost,
   sanitizeDisplayName,
+  shouldPurgeRoom,
+  type RoomPlayer,
 } from './roomLogic'
+
+function player(
+  partial: Partial<RoomPlayer> & Pick<RoomPlayer, 'id' | 'joinedAt'>,
+): RoomPlayer {
+  return {
+    displayName: partial.displayName ?? partial.id,
+    ready: false,
+    connected: true,
+    resumeToken: `tok-${partial.id}`,
+    avatarIndex: 0,
+    ...partial,
+  }
+}
 
 describe('roomLogic', () => {
   it('sanitizes display names', () => {
@@ -110,5 +136,168 @@ describe('roomLogic', () => {
     expect(parseClientMessage({ type: 'resume' })).toMatchObject({
       error: expect.stringContaining('resumeToken'),
     })
+  })
+})
+
+describe('lifecycle: host transfer + idle purge', () => {
+  it('marks host disconnect with 60s grace deadline', () => {
+    const room = createEmptyRoom('ABC234', 1_000)
+    room.hostId = 'h'
+    room.players = [
+      player({ id: 'h', joinedAt: 1 }),
+      player({ id: 'g', joinedAt: 2 }),
+    ]
+    const now = 10_000
+    markPlayerDisconnected(room, 'h', now)
+    expect(room.players[0]!.connected).toBe(false)
+    expect(room.disconnectDeadlines['h']).toBe(now + HOST_DISCONNECT_GRACE_MS)
+  })
+
+  it('non-host disconnect does not set transfer deadline', () => {
+    const room = createEmptyRoom('ABC234')
+    room.hostId = 'h'
+    room.players = [
+      player({ id: 'h', joinedAt: 1 }),
+      player({ id: 'g', joinedAt: 2 }),
+    ]
+    markPlayerDisconnected(room, 'g', 50_000)
+    expect(room.players[1]!.connected).toBe(false)
+    expect(room.disconnectDeadlines['g']).toBeUndefined()
+    expect(Object.keys(room.disconnectDeadlines)).toHaveLength(0)
+  })
+
+  it('clears deadline on resume helper', () => {
+    const room = createEmptyRoom('ABC234')
+    room.disconnectDeadlines['h'] = 99
+    clearDisconnectDeadline(room, 'h')
+    expect(room.disconnectDeadlines['h']).toBeUndefined()
+  })
+
+  it('picks oldest connected player as next host', () => {
+    const room = createEmptyRoom('ABC234')
+    room.players = [
+      player({ id: 'h', joinedAt: 1, connected: false }),
+      player({ id: 'late', joinedAt: 30 }),
+      player({ id: 'early', joinedAt: 10 }),
+    ]
+    expect(pickNextHost(room)?.id).toBe('early')
+  })
+
+  it('transfers host after grace when host still offline', () => {
+    const now = 100_000
+    const room = createEmptyRoom('ABC234', now - 10_000)
+    room.hostId = 'h'
+    room.revision = 5
+    room.players = [
+      player({ id: 'h', joinedAt: 1, connected: false }),
+      player({ id: 'g', joinedAt: 2, connected: true }),
+    ]
+    room.disconnectDeadlines['h'] = now - 1
+
+    const result = applyDueHostTransfer(room, now)
+    expect(result.changed).toBe(true)
+    expect(result.previousHostId).toBe('h')
+    expect(result.newHostId).toBe('g')
+    expect(result.emptied).toBe(false)
+    expect(room.hostId).toBe('g')
+    expect(room.revision).toBe(6)
+    expect(room.disconnectDeadlines['h']).toBeUndefined()
+  })
+
+  it('does not transfer before grace expires', () => {
+    const now = 100_000
+    const room = createEmptyRoom('ABC234')
+    room.hostId = 'h'
+    room.revision = 3
+    room.players = [
+      player({ id: 'h', joinedAt: 1, connected: false }),
+      player({ id: 'g', joinedAt: 2 }),
+    ]
+    room.disconnectDeadlines['h'] = now + 30_000
+
+    const result = applyDueHostTransfer(room, now)
+    expect(result.changed).toBe(false)
+    expect(room.hostId).toBe('h')
+    expect(room.revision).toBe(3)
+  })
+
+  it('clears host when grace expires and nobody is connected', () => {
+    const now = 100_000
+    const room = createEmptyRoom('ABC234')
+    room.hostId = 'h'
+    room.revision = 2
+    room.players = [
+      player({ id: 'h', joinedAt: 1, connected: false }),
+      player({ id: 'g', joinedAt: 2, connected: false }),
+    ]
+    room.disconnectDeadlines['h'] = now - 1
+
+    const result = applyDueHostTransfer(room, now)
+    expect(result.emptied).toBe(true)
+    expect(result.newHostId).toBeNull()
+    expect(room.hostId).toBeNull()
+    expect(room.revision).toBe(3)
+  })
+
+  it('shouldPurgeRoom: open idle 10m with 0 connected', () => {
+    const t0 = 1_000_000
+    const room = createEmptyRoom('ABC234', t0)
+    room.status = 'open'
+    room.lastActivityAt = t0
+    room.players = [player({ id: 'h', joinedAt: 1, connected: false })]
+    expect(shouldPurgeRoom(room, t0 + IDLE_TTL_OPEN_MS - 1)).toBe(false)
+    expect(shouldPurgeRoom(room, t0 + IDLE_TTL_OPEN_MS)).toBe(true)
+  })
+
+  it('shouldPurgeRoom: playing idle 30m', () => {
+    const t0 = 1_000_000
+    const room = createEmptyRoom('ABC234', t0)
+    room.status = 'playing'
+    room.lastActivityAt = t0
+    room.players = [player({ id: 'h', joinedAt: 1, connected: false })]
+    expect(shouldPurgeRoom(room, t0 + IDLE_TTL_PLAYING_MS - 1)).toBe(false)
+    expect(shouldPurgeRoom(room, t0 + IDLE_TTL_PLAYING_MS)).toBe(true)
+  })
+
+  it('shouldPurgeRoom: never while someone is connected', () => {
+    const t0 = 1_000_000
+    const room = createEmptyRoom('ABC234', t0)
+    room.status = 'open'
+    room.lastActivityAt = t0
+    room.players = [player({ id: 'h', joinedAt: 1, connected: true })]
+    expect(shouldPurgeRoom(room, t0 + IDLE_TTL_OPEN_MS * 10)).toBe(false)
+  })
+
+  it('shouldPurgeRoom: closed immediately', () => {
+    const room = createEmptyRoom('ABC234')
+    room.status = 'closed'
+    expect(shouldPurgeRoom(room, Date.now())).toBe(true)
+  })
+
+  it('nextAlarmAt prefers earliest host deadline or idle purge', () => {
+    const now = 50_000
+    const room = createEmptyRoom('ABC234', now)
+    room.hostId = 'h'
+    room.players = [
+      player({ id: 'h', joinedAt: 1, connected: false }),
+      player({ id: 'g', joinedAt: 2, connected: true }),
+    ]
+    room.disconnectDeadlines['h'] = now + 60_000
+    expect(nextAlarmAt(room, now)).toBe(now + 60_000)
+
+    // empty room → idle open TTL from lastActivityAt
+    room.players.forEach((p) => {
+      p.connected = false
+    })
+    room.lastActivityAt = now
+    room.disconnectDeadlines = {}
+    expect(nextAlarmAt(room, now)).toBe(now + IDLE_TTL_OPEN_MS)
+    expect(connectedPlayerCount(room)).toBe(0)
+  })
+
+  it('nextAlarmAt null when all connected and no deadlines', () => {
+    const room = createEmptyRoom('ABC234')
+    room.players = [player({ id: 'h', joinedAt: 1, connected: true })]
+    expect(nextAlarmAt(room, Date.now())).toBeNull()
   })
 })

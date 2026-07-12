@@ -25,7 +25,7 @@
 | P1-2 | done | 作成・参加・ロビー同期 | 2 タブで一覧・host 開始 | |
 | P1-3 | done | bid / challenge / マスク / 結果 | 同期進行 + 手札マスク | |
 | P1-4 | done | resumeToken 再接続 | リロードで席復帰 | 切断バナー・自動再接続含む |
-| **P1-5** | **todo** | **ホスト移譲・空ルーム削除** | host 切断 60s 移譲 / idle alarm で storage 削除 | 仕様: phase1 §7.5–7.6 |
+| P1-5 | done | ホスト移譲・空ルーム削除 | host 切断 60s 移譲 / idle alarm で storage 削除 | 仕様: phase1 §7.5–7.6 |
 | **P1-6** | **todo** | **エラー UI・テスト・docs 仕上げ** | test/build 緑、主要 error code が分かる UI | REVISION_MISMATCH 等 |
 
 ---
@@ -71,9 +71,9 @@
 
 ## 直近のおすすめ着手順
 
-1. **P1-5** — ホスト移譲 60s + 空ルーム / idle TTL（alarm）  
-2. **P1-6** — エラー UI と docs / テストの締め  
-3. 必要になったら **HOLD-1**（開始同期）を設計してから実装  
+1. **P1-6** — エラー UI と docs / テストの締め  
+2. 必要になったら **HOLD-1**（開始同期）を設計してから実装  
+3. UX-2（ホスト移譲カウントダウン表示）は任意  
 
 ---
 

@@ -1183,6 +1183,46 @@
 
 ---
 
+## 2026-07-12 — Phase 1 P1-5（ホスト移譲・空ルーム削除）
+
+### 背景・目的
+
+- ホスト切断後の 60s 猶予 → 最長参加者へ移譲、および空 / idle ルームの DO storage 削除（`docs/phase1-multiplayer.md` §7.5–7.6）。
+
+### 実施内容
+
+1. **roomLogic** — `disconnectDeadlines`、`markPlayerDisconnected` / `applyDueHostTransfer` / `pickNextHost`、`shouldPurgeRoom` / `nextAlarmAt` / `idleTtlMs`（open 10m・playing 30m・closed 即時）。
+2. **GameRoom** — `webSocketClose` で host に 60s deadline + alarm。`alarm()` で移譲（`HOST_TRANSFERRED` イベント）または `storage.deleteAll()`。resume 時に deadline 解除。init / WS upgrade でも idle alarm を設定。
+3. 単体テスト 13 件追加（lifecycle）。
+
+### 主なパス変更
+
+| パス | 内容 |
+|------|------|
+| `worker/roomLogic.ts` | ライフサイクル純粋関数 + RoomState.disconnectDeadlines |
+| `worker/GameRoom.ts` | alarm / purge / host grace |
+| `worker/roomLogic.test.ts` | host 移譲・idle TTL テスト |
+| `docs/backlog.md` / `phase1-multiplayer.md` | P1-5 → done |
+
+### 明示的にやっていないこと
+
+- UX-2（切断中ホストの「移譲まであと N 秒」表示）— idea のまま
+- エラーコード別 UI（P1-6）
+- ゲーム中の長時間切断キック（UX-3）
+- 本番 deploy
+
+### 確認結果
+
+- `npm test` 83 件成功
+- `npm run build` 成功
+
+### 次に考えられる作業
+
+1. **P1-6** — エラー UI・docs / テスト締め
+2. UX-2 カウントダウン表示（任意）
+
+---
+
 ## ログの書き方
 
 **正規のルールは `AGENTS.md` を参照。** 変更のあったセッションでは、このファイルに日付見出しで **追記** する（過去エントリは消さない）。

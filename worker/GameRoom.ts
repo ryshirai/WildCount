@@ -11,12 +11,18 @@ import {
   type BidHistoryEntry,
 } from './maskedView'
 import {
+  applyDueHostTransfer,
   buildPlayerView,
+  clearDisconnectDeadline,
   createEmptyRoom,
+  ensureLifecycleFields,
   findPlayerByToken,
+  markPlayerDisconnected,
+  nextAlarmAt,
   nextAvatarIndex,
   parseClientMessage,
   rememberAction,
+  shouldPurgeRoom,
   type RoomState,
   type WsAttachment,
 } from './roomLogic'
@@ -34,6 +40,8 @@ const STORAGE_ROOM = 'room'
  * One Durable Object per room.
  * P1-2: lobby join / ready / start + view broadcast.
  * P1-3: bid / challenge actions.
+ * P1-4: resumeToken reconnect.
+ * P1-5: host transfer 60s + idle purge via alarm.
  */
 export class GameRoom {
   private readonly state: DurableObjectState
@@ -89,6 +97,7 @@ export class GameRoom {
 
     const room = createEmptyRoom(roomCode)
     await this.saveRoom(room)
+    await this.scheduleNextAlarm(room)
 
     return json({ ok: true, roomCode, alreadyExisted: false })
   }
@@ -103,9 +112,12 @@ export class GameRoom {
       createdAt: room.createdAt,
       lastActivityAt: room.lastActivityAt,
       status: room.status,
+      hostId: room.hostId,
       playerCount: room.players.length,
+      connectedPlayers: room.players.filter((p) => p.connected).length,
       connectionCount: this.state.getWebSockets().length,
       revision: room.revision,
+      disconnectDeadlines: room.disconnectDeadlines ?? {},
     })
   }
 
@@ -128,6 +140,7 @@ export class GameRoom {
 
     room.lastActivityAt = Date.now()
     await this.saveRoom(room)
+    await this.scheduleNextAlarm(room)
 
     this.send(server, {
       type: 'event',
@@ -238,15 +251,54 @@ export class GameRoom {
     const player = room.players.find((p) => p.id === att.playerId)
     if (!player) return
 
-    player.connected = false
-    room.lastActivityAt = Date.now()
+    const now = Date.now()
+    markPlayerDisconnected(room, att.playerId, now)
+    room.lastActivityAt = now
     room.revision += 1
     await this.saveRoom(room)
+    await this.scheduleNextAlarm(room)
     this.broadcastView(room)
   }
 
   async webSocketError(_ws: WebSocket, _error: unknown): Promise<void> {
     // close handler covers disconnect bookkeeping
+  }
+
+  /**
+   * Host transfer deadlines + idle empty-room purge (phase1 §7.5–7.6).
+   */
+  async alarm(): Promise<void> {
+    const room = await this.loadRoom()
+    if (!room) {
+      await this.state.storage.deleteAlarm()
+      return
+    }
+
+    const now = Date.now()
+    const transfer = applyDueHostTransfer(room, now)
+
+    if (transfer.changed) {
+      await this.saveRoom(room)
+      if (transfer.newHostId && transfer.newHostId !== transfer.previousHostId) {
+        const name =
+          room.players.find((p) => p.id === transfer.newHostId)?.displayName ??
+          '誰か'
+        this.broadcast(room, {
+          type: 'event',
+          level: 'info',
+          message: `ホストが ${name} に移譲されました`,
+          code: 'HOST_TRANSFERRED',
+        })
+      }
+      this.broadcastView(room)
+    }
+
+    if (shouldPurgeRoom(room, now)) {
+      await this.purgeRoom()
+      return
+    }
+
+    await this.scheduleNextAlarm(room)
   }
 
   // ---------------------------------------------------------------------------
@@ -266,14 +318,22 @@ export class GameRoom {
       if (me && room.status === 'open') {
         me.displayName = displayName
         me.connected = true
+        clearDisconnectDeadline(room, me.id)
         room.lastActivityAt = Date.now()
         room.revision += 1
         await this.saveRoom(room)
+        await this.scheduleNextAlarm(room)
         this.sendHello(ws, room, me)
         this.broadcastView(room)
         return
       }
       if (me) {
+        me.connected = true
+        clearDisconnectDeadline(room, me.id)
+        room.lastActivityAt = Date.now()
+        room.revision += 1
+        await this.saveRoom(room)
+        await this.scheduleNextAlarm(room)
         this.sendHello(ws, room, me)
         this.sendView(ws, room, me.id)
         return
@@ -286,6 +346,7 @@ export class GameRoom {
       if (resumed) {
         this.detachOtherSockets(resumed.id, ws)
         resumed.connected = true
+        clearDisconnectDeadline(room, resumed.id)
         if (room.status === 'open' && displayName !== 'プレイヤー') {
           resumed.displayName = displayName
         }
@@ -293,6 +354,7 @@ export class GameRoom {
         room.lastActivityAt = Date.now()
         room.revision += 1
         await this.saveRoom(room)
+        await this.scheduleNextAlarm(room)
         this.sendHello(ws, room, resumed)
         this.broadcast(room, {
           type: 'event',
@@ -648,9 +710,32 @@ export class GameRoom {
   // ---------------------------------------------------------------------------
 
   private ensureRoomDefaults(room: RoomState): void {
-    if (!room.bidHistory) room.bidHistory = []
-    if (!room.appliedActions) room.appliedActions = {}
-    if (room.pendingResult === undefined) room.pendingResult = null
+    ensureLifecycleFields(room)
+  }
+
+  private async scheduleNextAlarm(room: RoomState): Promise<void> {
+    const at = nextAlarmAt(room, Date.now())
+    if (at == null) {
+      await this.state.storage.deleteAlarm()
+      return
+    }
+    // DO alarms: if scheduled in the past, fire soon
+    await this.state.storage.setAlarm(at)
+  }
+
+  private async purgeRoom(): Promise<void> {
+    for (const sock of this.state.getWebSockets()) {
+      try {
+        this.send(sock, {
+          type: 'room_closed',
+          reason: 'Room closed due to inactivity',
+        })
+        sock.close(4001, 'room purged')
+      } catch {
+        // ignore
+      }
+    }
+    await this.state.storage.deleteAll()
   }
 
   private playerIdOf(ws: WebSocket): string | undefined {
