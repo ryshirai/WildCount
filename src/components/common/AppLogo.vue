@@ -11,10 +11,17 @@ withDefaults(
 <template>
   <div class="flex items-center gap-2.5">
     <div
-      class="flex shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-gold-300/30 to-night-800 ring-1 ring-gold-400/40"
-      :class="size === 'lg' ? 'h-14 w-14 text-2xl' : size === 'sm' ? 'h-8 w-8 text-base' : 'h-10 w-10 text-xl'"
+      class="shrink-0 overflow-hidden rounded-full ring-1 ring-gold-400/40 shadow-gold-glow"
+      :class="size === 'lg' ? 'h-14 w-14' : size === 'sm' ? 'h-8 w-8' : 'h-10 w-10'"
     >
-      <span aria-hidden="true">🐺</span>
+      <img
+        src="/brand/logo-mark.webp"
+        alt=""
+        width="56"
+        height="56"
+        class="h-full w-full object-cover"
+        decoding="async"
+      />
     </div>
     <h1
       v-if="showWordmark"

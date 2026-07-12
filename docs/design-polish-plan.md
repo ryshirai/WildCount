@@ -23,7 +23,7 @@
 | ゲームエンジン | Phase 0 完了 |
 | UI ↔ エンジン（ローカル） | Phase 0.5 完了 |
 | アバター | **B0–B3 済**: フル 10 体 WebP + `PlayerAvatar` 画像表示（失敗時絵文字） |
-| ロゴ / favicon | 仮 |
+| ロゴ / favicon | **B2 済**: `favicon.svg` + `logo-mark.webp`（`AppLogo` / `GameHeader`）+ PWA 用 `icons/` |
 | 見た目 | Tailwind 夜砂漠トークン済み、モックより簡素 |
 
 参照: `docs/ui-mock.md` / `docs/design-overview.md` / `docs/画面イメージ.png`
@@ -269,8 +269,18 @@ Small horizontal logo mark for Wild Count: circular badge with wolf howling at a
 
 ### 完了条件
 
-- [ ] favicon 差し替え済み
-- [ ] ヘッダーにロゴマーク表示（任意でテキストロゴ併用）
+- [x] favicon 差し替え済み
+- [x] ヘッダーにロゴマーク表示（任意でテキストロゴ併用）
+
+配置済み:
+
+| パス | 用途 |
+|------|------|
+| `public/favicon.svg` | ブラウザタブ（SVG・金コヨーテ頭シルエット） |
+| `public/favicon-32.png` | PNG フォールバック |
+| `public/icons/app-192.png` / `app-512.png` | PWA（マニフェスト接続は B7） |
+| `public/icons/apple-touch-icon.png` | iOS ホーム画面 |
+| `public/brand/logo-mark.webp` | `AppLogo` / `GameHeader` |
 
 ---
 
@@ -395,9 +405,8 @@ Small horizontal logo mark for Wild Count: circular badge with wolf howling at a
 1. ~~**B0** 確定~~ → 完了
 2. ~~**B1** アバター~~ → フル 10 体配置済み
 3. ~~**B3** `PlayerAvatar` 接続~~ → `avatarSrc` + 絵文字フォールバック
-4. 余力で **B2** favicon、**B4** 席 UI
-
-生成ツールは Imagine / 外部ツールいずれでも可。実装接続は B3 で一括でも、1 体ずつ差し替えでもよい。
+4. ~~**B2** favicon / ロゴ~~ → 完了
+5. 次は **B4** 席・ゲーム画面ブラッシュアップ（B5 結果演出 / B6 UX も可）
 
 ---
 

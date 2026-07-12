@@ -566,6 +566,63 @@
 
 ---
 
+## 2026-07-12 — Phase B2 ブランドアイコン
+
+### 背景・目的
+
+- デザイン磨き Phase **B2**: favicon / アプリアイコン / ヘッダーロゴを、夜砂漠テーマのオリジナルマークに差し替える。
+
+### 実施内容
+
+1. **画像生成**（Imagine）
+   - アプリアイコン: 月下で遠吠えするコヨーテ／オオカミ + 砂漠
+   - favicon 素: 金コヨーテ頭シルエット on 紺円
+   - ヘッダー用円形バッジ: 遠吠え + 三日月 + 砂丘
+2. **配置**
+   - `public/favicon.svg` … タブ用（SVG・単純シルエット）
+   - `public/favicon-32.png` / `public/icons/apple-touch-icon.png`
+   - `public/icons/app-192.png` / `app-512.png`（PWA 用・マニフェスト未接続）
+   - `public/brand/logo-mark.webp`（256）
+3. **UI 接続**
+   - `AppLogo` … 絵文字 → ロゴマーク画像 + テキスト「Wild Count」
+   - `GameHeader` … PC / モバイルともマーク表示
+   - `index.html` … favicon / apple-touch / application-name
+4. **ドキュメント**
+   - `design-polish-plan.md` B2 完了条件チェック
+   - `public/brand/README.md` / `public/icons/README.md`
+
+### 主なパス変更
+
+| パス | 内容 |
+|------|------|
+| `public/favicon.svg` | 差し替え（金コヨーテ頭） |
+| `public/favicon-32.png` | PNG フォールバック |
+| `public/brand/logo-mark.webp` | ヘッダーマーク |
+| `public/icons/app-*.png` | PWA 用 192/512 |
+| `src/components/common/AppLogo.vue` | 画像マーク |
+| `src/components/game/GameHeader.vue` | 画像マーク |
+| `index.html` | icon リンク追加 |
+| `docs/design-polish-plan.md` | B2 完了 |
+
+### 明示的にやっていないこと
+
+- PWA マニフェスト / `vite-plugin-pwa`（B7）
+- 席 UI ブラッシュアップ（B4）
+- 結果画面演出（B5）
+
+### 確認結果
+
+- `npm run build` 成功
+- ホーム・ロビー・結果の `AppLogo`、ゲームヘッダーでマーク表示
+
+### 次に考えられる作業
+
+1. **B4** 席・ゲーム画面のブラッシュアップ
+2. **B5** 結果・カード演出
+3. 任意 **B7** マニフェストと `icons/` 接続
+
+---
+
 ## ログの書き方
 
 **正規のルールは `AGENTS.md` を参照。** 変更のあったセッションでは、このファイルに日付見出しで **追記** する（過去エントリは消さない）。

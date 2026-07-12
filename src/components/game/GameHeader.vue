@@ -22,10 +22,15 @@ const connectionLabel: Record<string, string> = {
   >
     <div class="flex items-center gap-4">
       <div class="flex items-center gap-2.5">
-        <div
-          class="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-gold-300/30 to-night-800 ring-1 ring-gold-400/40"
-        >
-          <span class="text-lg" aria-hidden="true">🐺</span>
+        <div class="h-9 w-9 shrink-0 overflow-hidden rounded-full ring-1 ring-gold-400/40 shadow-gold-glow">
+          <img
+            src="/brand/logo-mark.webp"
+            alt=""
+            width="36"
+            height="36"
+            class="h-full w-full object-cover"
+            decoding="async"
+          />
         </div>
         <h1 class="font-display text-xl font-bold tracking-wide text-gold-200">
           Wild Count
@@ -67,7 +72,19 @@ const connectionLabel: Record<string, string> = {
     class="flex items-center justify-between border-b border-gold-400/15 bg-night-900/80 px-3 py-2.5 backdrop-blur-md"
   >
     <button type="button" class="btn-ghost !p-2 text-base" aria-label="メニュー">☰</button>
-    <h1 class="font-display text-lg font-bold text-gold-200">Wild Count</h1>
+    <div class="flex items-center gap-2">
+      <div class="h-7 w-7 shrink-0 overflow-hidden rounded-full ring-1 ring-gold-400/35">
+        <img
+          src="/brand/logo-mark.webp"
+          alt=""
+          width="28"
+          height="28"
+          class="h-full w-full object-cover"
+          decoding="async"
+        />
+      </div>
+      <h1 class="font-display text-lg font-bold text-gold-200">Wild Count</h1>
+    </div>
     <button type="button" class="btn-ghost !p-2 text-base" aria-label="設定">⚙️</button>
   </header>
 
