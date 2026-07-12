@@ -128,6 +128,7 @@ export const useLocalGameStore = defineStore('localGame', () => {
     const item: EventLogItem = {
       id: `e${logSeq}`,
       avatar: profile.avatar,
+      avatarSrc: profile.avatarSrc,
       name: profile.name,
       message,
       timeLabel: 'たった今',

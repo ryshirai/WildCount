@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { EventLogItem } from '@/types/game'
+import PlayerAvatar from './PlayerAvatar.vue'
 
 defineProps<{
   items: EventLogItem[]
@@ -22,11 +23,14 @@ defineProps<{
         :key="item.id"
         class="flex gap-2.5 rounded-xl bg-night-900/40 px-2.5 py-2"
       >
-        <div
-          class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-night-700 text-base ring-1 ring-gold-400/20"
-        >
-          {{ item.avatar }}
-        </div>
+        <PlayerAvatar
+          class="shrink-0"
+          :avatar="item.avatar"
+          :avatar-src="item.avatarSrc"
+          :name="item.name"
+          size="sm"
+          hide-name
+        />
         <div class="min-w-0 flex-1">
           <p class="text-sm leading-snug text-sand">
             <span class="font-semibold text-gold-200">{{ item.name }}</span>

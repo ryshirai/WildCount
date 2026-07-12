@@ -22,7 +22,7 @@
 |------|------|
 | ゲームエンジン | Phase 0 完了 |
 | UI ↔ エンジン（ローカル） | Phase 0.5 完了 |
-| アバター | 絵文字暫定（`src/localGame/profiles.ts` 等） |
+| アバター | **B0–B3 済**: フル 10 体 WebP + `PlayerAvatar` 画像表示（失敗時絵文字） |
 | ロゴ / favicon | 仮 |
 | 見た目 | Tailwind 夜砂漠トークン済み、モックより簡素 |
 
@@ -51,39 +51,114 @@
 
 ### 目的
 
-生成と実装でブレないルールを先に決める。
+生成と実装でブレないルールを先に決める。  
+**このセクションを正本とする。** 機械可読コピー: `src/localGame/avatarCatalog.ts`。
 
-### 決定事項
+### 決定事項（確定）
 
-| 項目 | 採用案 |
-|------|--------|
-| アバター表示サイズ | 席: 約 44–56px / ログ・小: 約 28–36px |
-| マスター解像度 | 512×512（または 1024×1024）生成 → 表示用 256 / 128 WebP |
+| 項目 | 採用 |
+|------|------|
 | アスペクト | **1:1**（円形クリップ前提） |
-| 配置 | `public/avatars/{id}.webp` |
-| 命名（デモ 4） | `self.webp`, `owl.webp`, `fox.webp`, `wolf.webp` |
-| 命名（フル 10） | 下表 |
-| フォールバック | 画像失敗時は従来絵文字 |
+| マスター解像度 | **512×512** 生成（必要なら 1024 からダウン） |
+| リポジトリ配置 | `public/avatars/{assetId}.webp` |
+| 公開 URL | `/avatars/{assetId}.webp`（Vite `public/` 直出し） |
+| 表示用解像度 | **1 ファイル = 256×256 WebP**（帯域と鮮明さの折衷） |
+| 128 版 | 当面なし（必要になったら `{assetId}-128.webp` を追加検討） |
+| フォーマット | WebP、透過なし可（円クリップは CSS） |
+| フォールバック | 画像欠落・`onerror` 時は **絵文字**（下表 `emoji`） |
+| 著作権 | オリジナルのみ。公式・他社 IP の模倣禁止 |
 
-### フル 10 体 ID 案
+### 表示サイズ（UI トークン ↔ CSS）
 
-| id | 表示名 | 備考 |
-|----|--------|------|
-| `self` / `bear` | あなた / クマ | ローカルプレイヤー |
-| `owl` | フクロウ | カウボーイハット可（モック準拠） |
-| `kit` | キタロー | 子ギツネ |
-| `raccoon` | アライグマ | |
-| `wolf` | オオカミ | |
-| `fox` | キツネ | 成体 |
-| `deer` | シカ | |
-| `falcon` | ハヤブサ | |
-| `squirrel` | リス | |
-| `coyote` | コヨーテ | ブランド寄り・任意 |
+`PlayerAvatar` の `size` と対応。円直径の目安。
+
+| size | 用途 | 直径（概算） | Tailwind 相当（現状） |
+|------|------|--------------|----------------------|
+| `sm` | イベントログ・小 UI | **36px** | `h-9 w-9` |
+| `md` | 席（デフォルト） | **44px** | `h-11 w-11` |
+| `lg` | 強調・結果など | **56px** | `h-14 w-14` |
+
+- 画像は常に **256 WebP** を載せ、CSS で縮小する（srcset は後回しで可）。
+- リング（手番 gold / self teal）は画像の外側。クリップは `rounded-full` + `object-cover`。
+
+### アセット ID（フル 10 + ブランド任意）
+
+ファイル名の stem = **assetId**（小文字・ハイフンなし）。
+
+| assetId | 表示名（既定） | emoji | 備考 |
+|---------|----------------|-------|------|
+| `self` | あなた | 🐻 | ローカルプレイヤー用。**クマ肖像**。ファイル `self.webp` |
+| `owl` | フクロウ | 🦉 | カウボーイハット可（モック準拠） |
+| `kit` | キタロー | 🦊 | 子ギツネ（デモ 4 の 3 席目） |
+| `raccoon` | アライグマ | 🦝 | |
+| `wolf` | オオカミ | 🐺 | |
+| `fox` | キツネ | 🦊 | 成体（`kit` と別ファイル） |
+| `deer` | シカ | 🦌 | |
+| `falcon` | ハヤブサ | 🦅 | |
+| `squirrel` | リス | 🐿️ | |
+| `coyote` | コヨーテ | 🐺 | ブランド寄り・任意（B2 と共有可） |
+
+補足:
+
+- **`bear` は assetId にしない。** クマ肖像は `self.webp` のみ。10 人モックの「別席のクマ」も同じ `self` 画像を参照してよい（表示名だけ「クマ」）。
+- デモ 4 は **`kit`**（キタロー）。以前案のデモ `fox.webp` は不採用（成体 `fox` はフルセット用）。
+
+### デモ 4 体（B1 優先）
+
+| 優先 | assetId | ファイル | 既定表示名 |
+|------|---------|----------|------------|
+| 1 | `self` | `public/avatars/self.webp` | あなた |
+| 2 | `owl` | `public/avatars/owl.webp` | フクロウ |
+| 3 | `kit` | `public/avatars/kit.webp` | キタロー |
+| 4 | `wolf` | `public/avatars/wolf.webp` | オオカミ |
+
+### プレイヤー ID ↔ assetId（ローカルデモ）
+
+エンジン / `profiles.ts` の **player id** と、画像 **assetId** は分ける。
+
+| player id | assetId | 表示名 | 現状 emoji |
+|-----------|---------|--------|------------|
+| `self` | `self` | あなた | 🐻 |
+| `bot1` | `owl` | フクロウ | 🦉 |
+| `bot2` | `kit` | キタロー | 🦊 |
+| `bot3` | `wolf` | オオカミ | 🐺 |
+
+B3 では `PlayerProfile` に `avatarSrc?: string`（例: `/avatars/owl.webp`）を足し、`avatar` は emoji フォールバックのまま残す想定。
+
+### 10 人モック（`?mock=1`）対応目安
+
+| モック席名 | assetId |
+|------------|---------|
+| フクロウ | `owl` |
+| キタロー | `kit` |
+| アライグマ | `raccoon` |
+| オオカミ | `wolf` |
+| キツネ | `fox` |
+| シカ | `deer` |
+| ハヤブサ | `falcon` |
+| あなた | `self` |
+| クマ | `self`（同一画像） |
+| リス | `squirrel` |
+
+### ディレクトリ
+
+```
+public/avatars/
+  README.md          # 配置ルール（本仕様へのポインタ）
+  self.webp          # B1 で追加
+  owl.webp
+  kit.webp
+  wolf.webp
+  …（フル 10）
+```
+
+空ディレクトリは Git 用に README で保持。画像本体は B1。
 
 ### 完了条件
 
-- [ ] パス・ID・サイズをこのドキュメントで確定
-- [ ] `public/avatars/` ディレクトリ用意
+- [x] パス・ID・サイズをこのドキュメントで確定
+- [x] `public/avatars/` ディレクトリ用意
+- [x] `src/localGame/avatarCatalog.ts` に ID / パス / emoji をコード化（UI 未接続）
 
 ---
 
@@ -97,8 +172,8 @@
 
 1. **スタイル見本 1 枚**（クマ or フクロウ）を共通スタイル全文で生成
 2. 見本を固定し、Subject だけ差し替えて量産（可能なら参照生成で光・背景を揃える）
-3. デモ用 **4 体**を先に確定 → 問題なければ **10 体**
-4. 256 / 128 WebP に書き出し、`public/avatars/` へ配置
+3. デモ用 **4 体**（`self` / `owl` / `kit` / `wolf`）を先に確定 → 問題なければ **10 体**
+4. **256×256 WebP** に書き出し、`public/avatars/{assetId}.webp` へ配置
 
 ### 共通スタイル（英語・生成用）
 
@@ -152,9 +227,9 @@ Wild Count game avatar, original character art. A wise barn owl wearing a small 
 
 ### 完了条件
 
-- [ ] デモ 4 体が `public/avatars/` にある
-- [ ]（任意）フル 10 体
-- [ ] 小サイズでも誰の動物か判別できる
+- [x] デモ 4 体（`self.webp`, `owl.webp`, `kit.webp`, `wolf.webp`）が `public/avatars/` にある
+- [x] フル 10 体（+ raccoon / fox / deer / falcon / squirrel / coyote）
+- [x] 小サイズでも誰の動物か判別できる
 
 ---
 
@@ -224,9 +299,9 @@ Small horizontal logo mark for Wild Count: circular badge with wolf howling at a
 
 ### 完了条件
 
-- [ ] `/game` ローカルデモで画像アバター表示
-- [ ] イベントログ・モバイルカルーセルも同様
-- [ ] `npm run build` 成功
+- [x] `/game` ローカルデモで画像アバター表示
+- [x] イベントログ・モバイルカルーセルも同様
+- [x] `npm run build` 成功
 
 ---
 
@@ -317,9 +392,9 @@ Small horizontal logo mark for Wild Count: circular badge with wolf howling at a
 
 ## 次のアクション（すぐやるなら）
 
-1. **B0** 確定（このドキュメントを正とする）
-2. **B1** デモ 4 体生成 → `public/avatars/`
-3. **B3** `PlayerAvatar` 接続
+1. ~~**B0** 確定~~ → 完了
+2. ~~**B1** アバター~~ → フル 10 体配置済み
+3. ~~**B3** `PlayerAvatar` 接続~~ → `avatarSrc` + 絵文字フォールバック
 4. 余力で **B2** favicon、**B4** 席 UI
 
 生成ツールは Imagine / 外部ツールいずれでも可。実装接続は B3 で一括でも、1 体ずつ差し替えでもよい。
@@ -336,4 +411,6 @@ Small horizontal logo mark for Wild Count: circular badge with wolf howling at a
 | `docs/game-rules.md` | ルール・カード見え方 |
 | `docs/work-log.md` | 作業ログ |
 | `src/localGame/profiles.ts` | デモ用プレイヤー定義 |
+| `src/localGame/avatarCatalog.ts` | アセット ID / パス / emoji（B0） |
+| `public/avatars/` | ポートレート WebP 配置先 |
 | `src/components/game/PlayerAvatar.vue` | アバター表示 |

@@ -46,6 +46,10 @@ describe('toGameView', () => {
     expect(vm.players[0]!.isSelf).toBe(true)
     expect(vm.players[0]!.lives).toBe(3)
     expect(vm.players[0]!.seatIndex).toBe(1) // 1-based UI
+    // B3: portrait src from profiles, emoji still present as fallback
+    expect(vm.players[0]!.avatarSrc).toBe('/avatars/self.webp')
+    expect(vm.players[0]!.avatar).toBe('🐻')
+    expect(vm.players.find((p) => p.id === 'bot1')?.avatarSrc).toBe('/avatars/owl.webp')
     // Indian poker: own card hidden, others face-up
     expect(vm.players[0]!.handHidden).toBe(true)
     expect(vm.players[0]!.handLabel).toBeTruthy() // label kept for result; UI uses handHidden

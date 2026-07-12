@@ -1,3 +1,4 @@
+import { avatarSrc } from '@/localGame/avatarCatalog'
 import type { GameRoomMock, PlayerSeat } from '@/types/game'
 
 /**
@@ -10,6 +11,7 @@ const seats: Omit<PlayerSeat, 'handLabel' | 'handHidden'>[] = [
     seatIndex: 1,
     name: 'フクロウ',
     avatar: '🦉',
+    avatarSrc: avatarSrc('owl'),
     bid: -2,
     hasDeclared: true,
     isSelf: false,
@@ -21,6 +23,7 @@ const seats: Omit<PlayerSeat, 'handLabel' | 'handHidden'>[] = [
     seatIndex: 2,
     name: 'キタロー',
     avatar: '🦊',
+    avatarSrc: avatarSrc('kit'),
     bid: 5,
     hasDeclared: true,
     isSelf: false,
@@ -32,6 +35,7 @@ const seats: Omit<PlayerSeat, 'handLabel' | 'handHidden'>[] = [
     seatIndex: 3,
     name: 'アライグマ',
     avatar: '🦝',
+    avatarSrc: avatarSrc('raccoon'),
     bid: 10,
     hasDeclared: true,
     isSelf: false,
@@ -43,6 +47,7 @@ const seats: Omit<PlayerSeat, 'handLabel' | 'handHidden'>[] = [
     seatIndex: 4,
     name: 'オオカミ',
     avatar: '🐺',
+    avatarSrc: avatarSrc('wolf'),
     bid: 7,
     hasDeclared: true,
     isSelf: false,
@@ -54,6 +59,7 @@ const seats: Omit<PlayerSeat, 'handLabel' | 'handHidden'>[] = [
     seatIndex: 5,
     name: 'キツネ',
     avatar: '🦊',
+    avatarSrc: avatarSrc('fox'),
     bid: 14,
     hasDeclared: true,
     isSelf: false,
@@ -65,6 +71,7 @@ const seats: Omit<PlayerSeat, 'handLabel' | 'handHidden'>[] = [
     seatIndex: 6,
     name: 'シカ',
     avatar: '🦌',
+    avatarSrc: avatarSrc('deer'),
     bid: 16,
     hasDeclared: true,
     isSelf: false,
@@ -76,6 +83,7 @@ const seats: Omit<PlayerSeat, 'handLabel' | 'handHidden'>[] = [
     seatIndex: 7,
     name: 'ハヤブサ',
     avatar: '🦅',
+    avatarSrc: avatarSrc('falcon'),
     bid: 18,
     hasDeclared: true,
     isSelf: false,
@@ -87,6 +95,7 @@ const seats: Omit<PlayerSeat, 'handLabel' | 'handHidden'>[] = [
     seatIndex: 8,
     name: 'あなた',
     avatar: '🐻',
+    avatarSrc: avatarSrc('self'),
     bid: null,
     hasDeclared: false,
     isSelf: true,
@@ -98,6 +107,7 @@ const seats: Omit<PlayerSeat, 'handLabel' | 'handHidden'>[] = [
     seatIndex: 9,
     name: 'クマ',
     avatar: '🐻',
+    avatarSrc: avatarSrc('self'),
     bid: 3,
     hasDeclared: true,
     isSelf: false,
@@ -109,6 +119,7 @@ const seats: Omit<PlayerSeat, 'handLabel' | 'handHidden'>[] = [
     seatIndex: 10,
     name: 'リス',
     avatar: '🐿️',
+    avatarSrc: avatarSrc('squirrel'),
     bid: 11,
     hasDeclared: true,
     isSelf: false,
@@ -148,6 +159,7 @@ export const mockGameRoom: GameRoomMock = {
     {
       id: 'e1',
       avatar: '🦅',
+      avatarSrc: avatarSrc('falcon'),
       name: 'ハヤブサ',
       message: '18を宣言しました',
       timeLabel: 'たった今',
@@ -155,6 +167,7 @@ export const mockGameRoom: GameRoomMock = {
     {
       id: 'e2',
       avatar: '🦌',
+      avatarSrc: avatarSrc('deer'),
       name: 'シカ',
       message: '16を宣言しました',
       timeLabel: '1分前',
@@ -162,6 +175,7 @@ export const mockGameRoom: GameRoomMock = {
     {
       id: 'e3',
       avatar: '🦊',
+      avatarSrc: avatarSrc('fox'),
       name: 'キツネ',
       message: '14を宣言しました',
       timeLabel: '2分前',
@@ -169,6 +183,7 @@ export const mockGameRoom: GameRoomMock = {
     {
       id: 'e4',
       avatar: '🐿️',
+      avatarSrc: avatarSrc('squirrel'),
       name: 'リス',
       message: '11を宣言しました',
       timeLabel: '3分前',
@@ -176,6 +191,7 @@ export const mockGameRoom: GameRoomMock = {
     {
       id: 'e5',
       avatar: '🦝',
+      avatarSrc: avatarSrc('raccoon'),
       name: 'アライグマ',
       message: '10を宣言しました',
       timeLabel: '4分前',
@@ -183,6 +199,7 @@ export const mockGameRoom: GameRoomMock = {
     {
       id: 'e6',
       avatar: '🐺',
+      avatarSrc: avatarSrc('wolf'),
       name: 'オオカミ',
       message: '7を宣言しました',
       timeLabel: '5分前',

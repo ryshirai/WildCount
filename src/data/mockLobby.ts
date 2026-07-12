@@ -1,3 +1,4 @@
+import { avatarSrc } from '@/localGame/avatarCatalog'
 import type { LobbyMock } from '@/types/game'
 
 /** Waiting lobby mock — host can start, 6/10 joined */
@@ -10,6 +11,7 @@ export const mockLobby: LobbyMock = {
       id: 'p1',
       name: 'あなた',
       avatar: '🐻',
+      avatarSrc: avatarSrc('self'),
       isHost: true,
       isSelf: true,
       isReady: true,
@@ -18,6 +20,7 @@ export const mockLobby: LobbyMock = {
       id: 'p2',
       name: 'フクロウ',
       avatar: '🦉',
+      avatarSrc: avatarSrc('owl'),
       isHost: false,
       isSelf: false,
       isReady: true,
@@ -26,6 +29,7 @@ export const mockLobby: LobbyMock = {
       id: 'p3',
       name: 'キタロー',
       avatar: '🦊',
+      avatarSrc: avatarSrc('kit'),
       isHost: false,
       isSelf: false,
       isReady: true,
@@ -34,6 +38,7 @@ export const mockLobby: LobbyMock = {
       id: 'p4',
       name: 'オオカミ',
       avatar: '🐺',
+      avatarSrc: avatarSrc('wolf'),
       isHost: false,
       isSelf: false,
       isReady: false,
@@ -42,6 +47,7 @@ export const mockLobby: LobbyMock = {
       id: 'p5',
       name: 'シカ',
       avatar: '🦌',
+      avatarSrc: avatarSrc('deer'),
       isHost: false,
       isSelf: false,
       isReady: true,
@@ -50,6 +56,7 @@ export const mockLobby: LobbyMock = {
       id: 'p6',
       name: 'ハヤブサ',
       avatar: '🦅',
+      avatarSrc: avatarSrc('falcon'),
       isHost: false,
       isSelf: false,
       isReady: true,

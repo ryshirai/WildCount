@@ -18,6 +18,7 @@ defineProps<{
   >
     <PlayerAvatar
       :avatar="player.avatar"
+      :avatar-src="player.avatarSrc"
       :name="player.name"
       :seat-index="player.seatIndex"
       :highlighted="player.isCurrentTurn"

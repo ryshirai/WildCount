@@ -58,9 +58,14 @@ describe('toResultView', () => {
     const challengerProfile = DEFAULT_PROFILES.find((p) => p.id === challengerId)!
     expect(vm.bidderName).toBe(bidderProfile.name)
     expect(vm.challengerName).toBe(challengerProfile.name)
+    expect(vm.bidderAvatarSrc).toBe(bidderProfile.avatarSrc)
+    expect(vm.challengerAvatarSrc).toBe(challengerProfile.avatarSrc)
 
     const selfCard = vm.cards.find((c) => c.playerId === SELF_ID)
-    if (selfCard) expect(selfCard.isSelf).toBe(true)
+    if (selfCard) {
+      expect(selfCard.isSelf).toBe(true)
+      expect(selfCard.avatarSrc).toBe('/avatars/self.webp')
+    }
   })
 
   it('marks game over when winnerId is set', () => {

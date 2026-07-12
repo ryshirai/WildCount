@@ -6,8 +6,10 @@ export interface PlayerSeat {
   id: PlayerId
   seatIndex: number
   name: string
-  /** Emoji / short icon for avatar placeholder */
+  /** Emoji / short icon fallback */
   avatar: string
+  /** Portrait image URL when available */
+  avatarSrc?: string
   /** Declared bid this round; null if not yet declared */
   bid: number | null
   /** Whether this seat has already declared */
@@ -31,6 +33,7 @@ export interface PlayerSeat {
 export interface EventLogItem {
   id: string
   avatar: string
+  avatarSrc?: string
   name: string
   message: string
   timeLabel: string
@@ -56,6 +59,7 @@ export interface LobbyPlayer {
   id: PlayerId
   name: string
   avatar: string
+  avatarSrc?: string
   isHost: boolean
   isSelf: boolean
   isReady: boolean
@@ -76,6 +80,7 @@ export interface RevealedCard {
   playerId: PlayerId
   playerName: string
   avatar: string
+  avatarSrc?: string
   kind: CardKind
   /** Numeric value when kind is number or zero_mix; null for pure specials */
   value: number | null
@@ -99,8 +104,10 @@ export interface ResultMock {
   bidValue: number
   bidderName: string
   bidderAvatar: string
+  bidderAvatarSrc?: string
   challengerName: string
   challengerAvatar: string
+  challengerAvatarSrc?: string
   cards: RevealedCard[]
   calcSteps: CalcStep[]
   finalTotal: number
@@ -108,4 +115,5 @@ export interface ResultMock {
   bidderWins: boolean
   lifeLostName: string
   lifeLostAvatar: string
+  lifeLostAvatarSrc?: string
 }

@@ -1,12 +1,54 @@
 <script setup lang="ts">
-defineProps<{
-  avatar: string
-  name: string
-  seatIndex?: number
-  size?: 'sm' | 'md' | 'lg'
-  highlighted?: boolean
-  self?: boolean
-}>()
+import { computed, ref, watch } from 'vue'
+
+const props = withDefaults(
+  defineProps<{
+    /** Emoji fallback */
+    avatar: string
+    /** Portrait image URL (e.g. /avatars/owl.webp) */
+    avatarSrc?: string | null
+    name: string
+    seatIndex?: number
+    size?: 'sm' | 'md' | 'lg'
+    highlighted?: boolean
+    self?: boolean
+    /** When true, only the face circle is shown (for logs / compact lists) */
+    hideName?: boolean
+  }>(),
+  {
+    size: 'md',
+    hideName: false,
+  },
+)
+
+const imgFailed = ref(false)
+
+watch(
+  () => props.avatarSrc,
+  () => {
+    imgFailed.value = false
+  },
+)
+
+const showImage = computed(
+  () => Boolean(props.avatarSrc) && !imgFailed.value,
+)
+
+const sizeClass = computed(() => {
+  if (props.size === 'lg') return 'h-14 w-14 text-2xl'
+  if (props.size === 'sm') return 'h-9 w-9 text-base'
+  return 'h-11 w-11 text-xl'
+})
+
+const ringClass = computed(() => {
+  if (props.highlighted) return 'ring-gold-300 shadow-gold-glow'
+  if (props.self) return 'ring-teal-soft/80'
+  return 'ring-gold-400/30'
+})
+
+function onImgError() {
+  imgFailed.value = true
+}
 </script>
 
 <template>
@@ -19,20 +61,28 @@ defineProps<{
         {{ seatIndex }}
       </div>
       <div
-        class="flex items-center justify-center rounded-full bg-gradient-to-b from-night-600 to-night-800 ring-2"
-        :class="[
-          size === 'lg' ? 'h-14 w-14 text-2xl' : size === 'sm' ? 'h-9 w-9 text-base' : 'h-11 w-11 text-xl',
-          highlighted
-            ? 'ring-gold-300 shadow-gold-glow'
-            : self
-              ? 'ring-teal-soft/80'
-              : 'ring-gold-400/30',
-        ]"
+        class="flex items-center justify-center overflow-hidden rounded-full bg-gradient-to-b from-night-600 to-night-800 ring-2"
+        :class="[sizeClass, ringClass]"
       >
-        <span class="select-none leading-none" aria-hidden="true">{{ avatar }}</span>
+        <img
+          v-if="showImage"
+          :src="avatarSrc!"
+          :alt="name"
+          class="h-full w-full object-cover"
+          draggable="false"
+          @error="onImgError"
+        />
+        <span
+          v-else
+          class="select-none leading-none"
+          aria-hidden="true"
+        >{{ avatar }}</span>
       </div>
     </div>
-    <div class="max-w-[4.5rem] text-center leading-tight">
+    <div
+      v-if="!hideName"
+      class="max-w-[4.5rem] text-center leading-tight"
+    >
       <div
         class="truncate text-xs font-semibold"
         :class="self ? 'text-teal-soft' : 'text-sand'"

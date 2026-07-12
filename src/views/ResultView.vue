@@ -6,6 +6,7 @@ import { mockResult } from '@/data/mockResult'
 import { useLocalGameStore } from '@/stores/localGame'
 import AppLogo from '@/components/common/AppLogo.vue'
 import MockBadge from '@/components/common/MockBadge.vue'
+import PlayerAvatar from '@/components/game/PlayerAvatar.vue'
 import type { CardKind, ResultMock } from '@/types/game'
 
 const router = useRouter()
@@ -125,7 +126,13 @@ function goHome() {
           <div class="flex flex-col items-center gap-1">
             <span class="text-[10px] text-sand-dim">宣言</span>
             <div class="flex items-center gap-2">
-              <span class="text-2xl" aria-hidden="true">{{ result.bidderAvatar }}</span>
+              <PlayerAvatar
+                :avatar="result.bidderAvatar"
+                :avatar-src="result.bidderAvatarSrc"
+                :name="result.bidderName"
+                size="sm"
+                hide-name
+              />
               <span class="text-sm font-semibold text-sand">{{ result.bidderName }}</span>
             </div>
             <span class="font-display text-3xl font-bold text-gold-200">{{
@@ -138,7 +145,13 @@ function goHome() {
           <div class="flex flex-col items-center gap-1">
             <span class="text-[10px] text-sand-dim">チャレンジ</span>
             <div class="flex items-center gap-2">
-              <span class="text-2xl" aria-hidden="true">{{ result.challengerAvatar }}</span>
+              <PlayerAvatar
+                :avatar="result.challengerAvatar"
+                :avatar-src="result.challengerAvatarSrc"
+                :name="result.challengerName"
+                size="sm"
+                hide-name
+              />
               <span class="text-sm font-semibold text-sand">{{ result.challengerName }}</span>
             </div>
             <span class="text-xs text-sand-dim">コヨーテ！</span>
@@ -157,7 +170,13 @@ function goHome() {
         <p
           class="mt-4 inline-flex items-center gap-1.5 rounded-full border border-red-400/30 bg-red-950/40 px-3 py-1 text-xs text-red-200"
         >
-          <span aria-hidden="true">{{ result.lifeLostAvatar }}</span>
+          <PlayerAvatar
+            :avatar="result.lifeLostAvatar"
+            :avatar-src="result.lifeLostAvatarSrc"
+            :name="result.lifeLostName"
+            size="sm"
+            hide-name
+          />
           {{ result.lifeLostName }} がライフを 1 失った
         </p>
       </section>
@@ -172,7 +191,15 @@ function goHome() {
             class="flex flex-col items-center rounded-xl border border-gold-400/10 bg-night-900/40 px-2 py-3"
             :class="card.isSelf ? 'ring-1 ring-teal-soft/40' : ''"
           >
-            <div class="mb-1 text-xl" aria-hidden="true">{{ card.avatar }}</div>
+            <PlayerAvatar
+              class="mb-1"
+              :avatar="card.avatar"
+              :avatar-src="card.avatarSrc"
+              :name="card.playerName"
+              :self="card.isSelf"
+              size="sm"
+              hide-name
+            />
             <div
               class="mb-1 truncate text-[11px] font-medium"
               :class="card.isSelf ? 'text-teal-soft' : 'text-sand-dim'"

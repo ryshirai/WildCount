@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { PlayerSeat } from '@/types/game'
 import BidCard from './BidCard.vue'
+import PlayerAvatar from './PlayerAvatar.vue'
 
 defineProps<{
   players: PlayerSeat[]
@@ -17,30 +18,26 @@ defineProps<{
         v-for="player in players"
         :key="player.id"
         class="flex w-14 shrink-0 flex-col items-center gap-1"
-        :class="player.isCurrentTurn ? 'opacity-100' : 'opacity-95'"
+        :class="[
+          player.isCurrentTurn ? 'opacity-100' : 'opacity-95',
+          player.lives <= 0 ? 'opacity-40 grayscale' : '',
+        ]"
       >
         <div
           class="truncate text-[10px] font-medium"
-          :class="[
-            player.isSelf ? 'text-teal-soft' : 'text-sand-dim',
-            player.lives <= 0 ? 'opacity-40' : '',
-          ]"
+          :class="player.isSelf ? 'text-teal-soft' : 'text-sand-dim'"
         >
           {{ player.name }}
         </div>
-        <div
-          class="flex h-10 w-10 items-center justify-center rounded-full bg-night-700 text-lg ring-2"
-          :class="[
-            player.lives <= 0 ? 'opacity-40 grayscale' : '',
-            player.isCurrentTurn
-              ? 'ring-gold-300 shadow-gold-glow'
-              : player.isSelf
-                ? 'ring-teal-soft/70'
-                : 'ring-gold-400/25',
-          ]"
-        >
-          {{ player.avatar }}
-        </div>
+        <PlayerAvatar
+          :avatar="player.avatar"
+          :avatar-src="player.avatarSrc"
+          :name="player.name"
+          :highlighted="player.isCurrentTurn"
+          :self="player.isSelf"
+          size="sm"
+          hide-name
+        />
         <div class="text-[9px] text-sand-dim">
           <template v-if="player.lives <= 0">脱落</template>
           <template v-else>{{ '♥'.repeat(player.lives) }}</template>

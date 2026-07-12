@@ -402,6 +402,170 @@
 
 ---
 
+## 2026-07-12 — フル 10 体アバター完了 + B0–B3 まとめコミット
+
+### 背景・目的
+
+- 残り 6 体を生成し、モック 10 人席でも画像表示できるようにする。
+- B0〜B3（仕様・生成・UI 接続）を一括コミット。
+
+### 実施内容
+
+1. スタイル見本（クマ）参照で raccoon / fox / deer / falcon / squirrel / coyote を生成
+2. 256×256 WebP を `public/avatars/` に追加
+3. `mockGame` / `mockResult` / `mockLobby` の全席に `avatarSrc` を付与
+4. プラン・README・作業ログ更新
+
+### 主なパス変更
+
+| パス | 内容 |
+|------|------|
+| `public/avatars/{raccoon,fox,deer,falcon,squirrel,coyote}.webp` | 追加 6 体 |
+| `src/data/mock*.ts` | フルセット src |
+| `docs/design-polish-plan.md` | B1 フル完了 |
+
+### 確認結果
+
+- `public/avatars/` に 10 WebP + README
+- `npm test` / `npm run build`（コミット前に実行）
+
+### 次に考えられる作業
+
+1. B2 favicon / ブランド
+2. B4 席 UI ブラッシュアップ
+
+---
+
+## 2026-07-12 — Phase B3 アバター UI 接続
+
+### 背景・目的
+
+- B1 の WebP をゲーム・ロビー・結果・ログで表示し、失敗時は絵文字に戻す。
+
+### 実施内容
+
+1. `PlayerProfile.avatarSrc` + `DEFAULT_PROFILES` を `avatarCatalog` から構築
+2. `PlayerAvatar.vue`: `src` があれば `<img>`、`onerror` で絵文字フォールバック。`hideName` でログ等に再利用
+3. mapper / store イベントログ / Lobby / Result / mock データへ `avatarSrc` 伝播
+4. `MobilePlayerCarousel`・`EventLog` も画像対応
+
+### 主なパス変更
+
+| パス | 内容 |
+|------|------|
+| `src/localGame/profiles.ts` | avatarSrc 付きプロファイル |
+| `src/components/game/PlayerAvatar.vue` | 画像 + フォールバック |
+| `src/types/game.ts` | avatarSrc フィールド追加 |
+| `src/mappers/toGameView.ts` / `toResultView.ts` | 伝播 |
+| `src/components/game/EventLog.vue` / `MobilePlayerCarousel.vue` / `PlayerSeat.vue` | 接続 |
+| `src/views/LobbyView.vue` / `ResultView.vue` | 接続 |
+| `src/data/mock*.ts` | デモ資産がある席のみ src |
+| `tests/mappers/*` | avatarSrc 断言 |
+
+### 明示的にやっていないこと
+
+- フル 10 体画像
+- favicon（B2）
+- 席 UI ブラッシュアップ（B4）
+
+### 確認結果
+
+- `npm test` 46 件パス
+- `npm run build` 成功（`dist/avatars/*.webp` コピー確認）
+
+### 次に考えられる作業
+
+1. B2 favicon / ロゴ
+2. B4 席・手番演出
+3. 残り 6 アバター生成
+
+---
+
+## 2026-07-12 — Phase B1 デモ 4 体アバター生成
+
+### 背景・目的
+
+- B0 仕様に沿い、ローカルデモ用オリジナル動物ポートレートを揃える。
+
+### 実施内容
+
+1. 共通スタイルで `self`（クマ）をスタイル見本として生成
+2. 見本を参照して `owl`（カウボーイハット付きフクロウ）/ `kit`（子ギツネ）/ `wolf` を量産
+3. 白余白トリム → **256×256 WebP** で `public/avatars/` に配置
+
+### 主なパス変更
+
+| パス | 内容 |
+|------|------|
+| `public/avatars/self.webp` | あなた（クマ） |
+| `public/avatars/owl.webp` | フクロウ |
+| `public/avatars/kit.webp` | キタロー |
+| `public/avatars/wolf.webp` | オオカミ |
+| `public/avatars/README.md` | 配置状況更新 |
+| `docs/design-polish-plan.md` | B1 完了条件チェック |
+
+### 明示的にやっていないこと
+
+- フル 10 体
+- UI 接続（B3）
+- favicon（B2）
+
+### 確認結果
+
+- 4 ファイルとも 256×256 WebP
+- シルエットで個体判別可能
+
+### 次に考えられる作業
+
+1. **B3** `PlayerAvatar` + `profiles` で画像表示
+2. （任意）残り 6 体生成
+
+---
+
+## 2026-07-12 — Phase B0 アセット仕様の固定
+
+### 背景・目的
+
+- デザイン磨き（Phase B）の最初のステップとして、アバター生成・UI 接続でブレないパス / ID / サイズを確定する。
+
+### 実施内容
+
+1. `docs/design-polish-plan.md` の B0 を正本として拡充・確定
+   - 表示サイズ（sm 36 / md 44 / lg 56）、マスター 512 → 出荷 256 WebP
+   - 配置 `public/avatars/{assetId}.webp`、URL `/avatars/{assetId}.webp`
+   - デモ 4: `self` / `owl` / `kit` / `wolf`（旧案デモ `fox` は不採用 → キタローは `kit`）
+   - player id（`bot1` 等）↔ assetId 対応表、10 人モック対応目安
+2. `src/localGame/avatarCatalog.ts` に ID / パス / emoji / デモ対応をコード化（UI 未接続）
+3. `public/avatars/README.md` でディレクトリを確保
+
+### 主なパス変更
+
+| パス | 内容 |
+|------|------|
+| `docs/design-polish-plan.md` | B0 確定、B1/次アクション追随 |
+| `src/localGame/avatarCatalog.ts` | アセットカタログ（B0） |
+| `public/avatars/README.md` | 配置ルール |
+| `docs/work-log.md` | 本エントリ |
+
+### 明示的にやっていないこと
+
+- 画像生成・配置（B1）
+- `PlayerAvatar` / `profiles.ts` の画像接続（B3）
+- favicon / ブランド（B2）
+
+### 確認結果
+
+- 仕様をドキュメント + カタログに固定
+- UI は従来どおり絵文字のまま（破壊的変更なし）
+
+### 次に考えられる作業
+
+1. **B1** デモ 4 体（self / owl / kit / wolf）を生成し `public/avatars/` へ
+2. **B3** `avatarSrc` + フォールバック接続
+3. 余力で B2 favicon
+
+---
+
 ## ログの書き方
 
 **正規のルールは `AGENTS.md` を参照。** 変更のあったセッションでは、このファイルに日付見出しで **追記** する（過去エントリは消さない）。

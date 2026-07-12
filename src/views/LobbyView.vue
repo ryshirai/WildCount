@@ -35,6 +35,7 @@ const players = computed<LobbyPlayer[]>(() =>
     id: p.id,
     name: p.name,
     avatar: p.avatar,
+    avatarSrc: p.avatarSrc,
     isHost: i === 0,
     isSelf: i === 0,
     isReady: true,
@@ -130,6 +131,7 @@ function leaveLobby() {
           >
             <PlayerAvatar
               :avatar="p.avatar"
+              :avatar-src="p.avatarSrc"
               :name="p.name"
               :self="p.isSelf"
               size="md"
