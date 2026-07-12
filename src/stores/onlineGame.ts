@@ -14,6 +14,13 @@ import type {
   ServerMessage,
 } from '@/online/protocol'
 import {
+  formatHttpErrorBody,
+  formatRoomClosedReason,
+  formatServerError,
+  isKnownErrorCode,
+  isSoftActionError,
+} from '@/online/errorMessages'
+import {
   clearResumeToken,
   loadLastRoomCode,
   loadResumeToken,
@@ -45,7 +52,10 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
   const revision = ref(0)
   const view = ref<PlayerView | null>(null)
   const connection = ref<OnlineConnection>('idle')
+  /** User-facing Japanese message */
   const lastError = ref<string | null>(null)
+  /** Wire / client error code (e.g. REVISION_MISMATCH). Null for local-only msgs. */
+  const lastErrorCode = ref<string | null>(null)
   const lastEvent = ref<string | null>(null)
   const displayName = ref(loadSavedDisplayName())
   const eventLog = ref<EventLogItem[]>([])
@@ -117,12 +127,30 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     return view.value.game.isMyTurn && view.value.game.phase === 'bidding'
   })
 
+  function setError(code: string | null, message?: string | null): void {
+    lastErrorCode.value = code
+    if (code && isKnownErrorCode(code)) {
+      lastError.value = formatServerError(code, message)
+    } else if (message?.trim()) {
+      lastError.value = message.trim()
+    } else if (code) {
+      lastError.value = formatServerError(code, message)
+    } else {
+      lastError.value = 'エラーが発生しました'
+    }
+  }
+
+  function clearError(): void {
+    lastError.value = null
+    lastErrorCode.value = null
+  }
+
   async function createRoom(name?: string): Promise<string> {
     if (name != null) {
       displayName.value = name
       saveDisplayName(name)
     }
-    lastError.value = null
+    clearError()
     clearReconnectTimer()
     reconnectAttempt.value = 0
     let res: Response
@@ -141,19 +169,24 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
             : e instanceof Error
               ? e.message
               : 'ルーム作成に失敗しました'
-      lastError.value = msg
+      setError(null, msg)
       throw new Error(msg)
     }
-    let data: { roomCode?: string; message?: string }
+    let data: { roomCode?: string; message?: string; error?: string }
     try {
-      data = (await res.json()) as { roomCode?: string; message?: string }
+      data = (await res.json()) as {
+        roomCode?: string
+        message?: string
+        error?: string
+      }
     } catch {
       const msg = `ルーム作成に失敗しました (HTTP ${res.status})`
-      lastError.value = msg
+      setError(null, msg)
       throw new Error(msg)
     }
     if (!res.ok || !data.roomCode) {
-      const msg = data.message ?? `ルーム作成に失敗しました (${res.status})`
+      const msg = formatHttpErrorBody(data, res.status)
+      lastErrorCode.value = data.error ?? null
       lastError.value = msg
       throw new Error(msg)
     }
@@ -166,12 +199,14 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
       displayName.value = name
       saveDisplayName(name)
     }
-    lastError.value = null
+    clearError()
     clearReconnectTimer()
     reconnectAttempt.value = 0
     const normalized = code.replace(/[^A-Za-z0-9]/g, '').toUpperCase()
     if (normalized.length < 4) {
-      throw new Error('ルームコードを入力してください')
+      const msg = 'ルームコードを入力してください'
+      setError('BAD_REQUEST', msg)
+      throw new Error(msg)
     }
     await connectAndJoin(normalized, displayName.value, { clearView: true })
   }
@@ -200,7 +235,7 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
       saveDisplayName(opts.name)
     }
 
-    lastError.value = null
+    clearError()
     reconnecting.value = true
     try {
       await connectAndJoin(code, displayName.value || 'プレイヤー', {
@@ -220,11 +255,11 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
   async function reconnect(): Promise<void> {
     const code = roomCode.value ?? loadLastRoomCode()
     if (!code) {
-      lastError.value = '復帰するルームがありません'
-      throw new Error(lastError.value)
+      setError(null, '復帰するルームがありません')
+      throw new Error(lastError.value!)
     }
     clearReconnectTimer()
-    lastError.value = null
+    clearError()
     reconnecting.value = true
     try {
       await connectAndJoin(code, displayName.value || 'プレイヤー', {
@@ -269,7 +304,10 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
         if (settled || myGen !== socketGen) return
         settled = true
         connection.value = preserveOnFail && view.value ? 'closed' : 'error'
-        lastError.value = err.message
+        // Prefer server-formatted message already on lastError (join errors)
+        if (!lastError.value) {
+          setError(null, err.message)
+        }
         clearHelloWait(err)
         reject(err)
       }
@@ -342,7 +380,9 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
           return
         }
         connection.value = 'closed'
-        lastError.value = lastError.value ?? '接続が切断されました'
+        if (!lastError.value) {
+          setError('CONNECTION', '接続が切断されました')
+        }
         scheduleReconnect()
       })
 
@@ -366,8 +406,10 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     if (!code || !loadResumeToken(code)) return
     if (reconnectTimer) return
     if (reconnectAttempt.value >= MAX_RECONNECT_ATTEMPTS) {
-      lastError.value =
-        '再接続に失敗しました。「再接続」を押すか、ホームから復帰してください'
+      setError(
+        'CONNECTION',
+        '再接続に失敗しました。「再接続」を押すか、ホームから復帰してください',
+      )
       reconnecting.value = false
       return
     }
@@ -391,7 +433,7 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
           )
           reconnectAttempt.value = 0
           reconnecting.value = false
-          lastError.value = null
+          clearError()
           pushLog('再接続しました', 'RESUME')
         } catch {
           scheduleReconnect()
@@ -457,14 +499,19 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
         lastEvent.value = msg.message
         pushLog(msg.message, msg.code)
         break
-      case 'error':
-        lastError.value = msg.message
+      case 'error': {
+        const friendly = formatServerError(msg.code, msg.message)
+        setError(msg.code, msg.message)
+        // Soft action errors (revision / illegal): keep session open; toast only
         if (helloWait) {
-          clearHelloWait(new Error(msg.message))
+          clearHelloWait(new Error(friendly))
+        } else if (isSoftActionError(msg.code)) {
+          pushLog(friendly, msg.code)
         }
         break
+      }
       case 'room_closed':
-        lastError.value = msg.reason
+        setError('ROOM_CLOSED', formatRoomClosedReason(msg.reason))
         connection.value = 'closed'
         clearReconnectTimer()
         reconnecting.value = false
@@ -499,7 +546,7 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
 
   function send(msg: ClientMessage): void {
     if (!ws || ws.readyState !== WebSocket.OPEN) {
-      lastError.value = '未接続です'
+      setError('CONNECTION', '未接続です')
       return
     }
     ws.send(JSON.stringify(msg))
@@ -510,12 +557,12 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
   }
 
   function startGame(): void {
-    lastError.value = null
+    clearError()
     send({ type: 'start' })
   }
 
   function sendAction(action: ClientGameAction): void {
-    lastError.value = null
+    clearError()
     const actionId =
       typeof crypto !== 'undefined' && crypto.randomUUID
         ? crypto.randomUUID()
@@ -557,7 +604,7 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     revision.value = 0
     view.value = null
     connection.value = 'idle'
-    lastError.value = null
+    clearError()
     eventLog.value = []
     resultDismissed.value = false
     heldPendingResult.value = null
@@ -586,7 +633,9 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     view,
     connection,
     lastError,
+    lastErrorCode,
     lastEvent,
+    clearError,
     displayName,
     eventLog,
     reconnecting,

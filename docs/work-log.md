@@ -1223,6 +1223,49 @@
 
 ---
 
+## 2026-07-12 — Phase 1 P1-6（エラー UI・テスト・docs 仕上げ）
+
+### 背景・目的
+
+- Phase 1 本線の締め。サーバ error code をプレイヤー向け日本語で表示し、test/build 緑と docs を揃える。
+
+### 実施内容
+
+1. **`src/online/errorMessages.ts`** — §11 の主要 code → 日本語。`ILLEGAL_ACTION` はサーバ英語 detail を手番/終了等に refine。`room_closed` / HTTP body も同系。
+2. **`onlineGame` store** — `lastErrorCode` + `setError` / `clearError`。error / room_closed / 切断 / 作成失敗をマッパ経由に。soft エラー（`REVISION_MISMATCH` / `ILLEGAL_ACTION`）はイベントログにも残す。
+3. **HomeView** — 参加セクションでも `lastError` を表示。
+4. **テスト** — `tests/online/errorMessages.test.ts`（10 件）。
+5. **docs** — backlog / phase1 §11・スライス / work-log。UX-1 を done に。
+
+### 主なパス変更
+
+| パス | 内容 |
+|------|------|
+| `src/online/errorMessages.ts` | code→日本語（新設） |
+| `src/stores/onlineGame.ts` | lastErrorCode / setError |
+| `src/views/HomeView.vue` | join 時エラー表示 |
+| `tests/online/errorMessages.test.ts` | 単体テスト |
+| `docs/backlog.md` / `phase1-multiplayer.md` | P1-6 done |
+
+### 明示的にやっていないこと
+
+- Playwright E2E（TEST-1）
+- UX-2 ホスト移譲カウントダウン
+- サーバ側 message の日本語化（ワイヤは code 正本のまま）
+- 本番 deploy（HOLD-5）
+
+### 確認結果
+
+- `npm test` 93 件成功
+- `npm run build` 成功
+
+### 次に考えられる作業
+
+1. HOLD-1（開始同期）が必要なら設計から
+2. UX-2 カウントダウン（任意）
+
+---
+
 ## ログの書き方
 
 **正規のルールは `AGENTS.md` を参照。** 変更のあったセッションでは、このファイルに日付見出しで **追記** する（過去エントリは消さない）。

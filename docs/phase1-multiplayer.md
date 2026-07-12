@@ -290,7 +290,7 @@ interface RoomPlayer {
 | **P1-3** | done | start / bid / challenge / result | 同期進行 + 手札マスク |
 | **P1-4** | done | resumeToken 再接続 | リロードで席復帰 |
 | P1-5 | done | ホスト移譲・空ルーム削除 | 60s / idle alarm |
-| **P1-6** | **todo** | エラー UI・テスト・docs 更新 | test/build 緑 |
+| **P1-6** | **done** | エラー UI・テスト・docs 更新 | test/build 緑・code→日本語 |
 
 ---
 
@@ -308,6 +308,13 @@ interface RoomPlayer {
 | `ILLEGAL_ACTION` | domain / 手番違反 |
 | `INVALID_TOKEN` | resume 失敗（開始後） |
 | `BAD_REQUEST` | バリデーション |
+
+**クライアント表示（P1-6）**
+
+- ワイヤ上の `message` は英語の技術文のままでよい  
+- UI 文言は `src/online/errorMessages.ts` が `code` から日本語へ変換する  
+- `REVISION_MISMATCH` / `ILLEGAL_ACTION` は soft（接続は維持・トースト／ログのみ。mismatch 時はサーバが最新 `view` を再送）  
+- HTTP 作成失敗も `{ error, message }` を同じマッパで表示
 
 ---
 
@@ -342,3 +349,4 @@ interface RoomPlayer {
 | 2026-07-12 | **P1-4 完了** — resumeToken 再接続（localStorage lastRoom、ensureSession、自動再接続、切断バナー、ホーム復帰） |
 | 2026-07-12 | スライス状態列を追加。残タスク正本を `docs/backlog.md` に分離 |
 | 2026-07-12 | **P1-5 完了** — host 切断 60s 移譲（alarm）・idle TTL で storage 削除（open 10m / playing 30m） |
+| 2026-07-12 | **P1-6 完了** — error code→日本語 UI（`errorMessages.ts`）・テスト・docs 締め |

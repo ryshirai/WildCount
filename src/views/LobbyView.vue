@@ -121,7 +121,7 @@ function showToast(msg: string) {
   }, 2200)
 }
 
-// Surface store errors / events
+// Surface store errors / events (Japanese copy from errorMessages)
 watch(
   () => onlineGame.lastError,
   (msg) => {

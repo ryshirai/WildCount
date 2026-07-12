@@ -379,6 +379,12 @@ onMounted(() => {
         >
           {{ onlineBusy ? '接続中…' : '参加する' }}
         </button>
+        <p
+          v-if="!onlineBusy && onlineGame.lastError"
+          class="mt-2 text-center text-[11px] text-red-200"
+        >
+          {{ onlineGame.lastError }}
+        </p>
       </section>
 
       <!-- Dev mock nav -->
