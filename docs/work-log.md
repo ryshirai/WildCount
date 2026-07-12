@@ -119,6 +119,55 @@
 
 ---
 
+## 2026-07-12 — 非ゲーム画面 UI モック（トップ / ロビー / 結果）
+
+### 背景・目的
+
+- ゲーム画面以外の UI 骨格を揃え、ルーム作成〜待機〜対局〜結果の画面遷移をモックで確認できるようにする。
+- 方針: `docs/画面イメージ.png` / `docs/ui-mock.md` / `docs/design-overview.md`（夜砂漠トークン、ロジック未接続）
+
+### 実施内容
+
+1. **トップ**（`/`）— ルーム作成 / コード入力で参加。モック導線リンク付き
+2. **待機ロビー**（`/lobby`）— ルームコード表示・コピー、参加者一覧、ホストの開始ボタン
+3. **結果・カード公開**（`/result`）— 勝敗バナー、全カード公開、合計計算過程の仮置き（game-rules 順序）
+4. **ルーティング** — `/` `/lobby` `/game` `/result`（`/game-mock` → `/game`）
+5. ゲーム画面の「コヨーテ！」から結果へモック遷移。共通 `AppLogo` / `MockBadge`
+6. `docs/ui-mock.md` 更新
+
+### 主なパス変更
+
+| パス | 内容 |
+|------|------|
+| `src/views/HomeView.vue` | トップ |
+| `src/views/LobbyView.vue` | 待機ロビー |
+| `src/views/ResultView.vue` | 結果・公開 |
+| `src/views/GameView.vue` | 結果遷移・モックナビ |
+| `src/router/index.ts` | ルート定義 |
+| `src/data/mockLobby.ts` / `mockResult.ts` | 固定モック |
+| `src/types/game.ts` | Lobby / Result 型 |
+| `src/components/common/*` | ロゴ・バッジ |
+| `docs/ui-mock.md` / `docs/work-log.md` | ドキュメント |
+
+### 明示的にやっていないこと
+
+- ゲームエンジン・Worker / WebSocket 接続
+- ルームコード生成・参加の実ロジック
+- ゲーム終了（勝者表示）画面
+- 計算過程の実エンジン連携（仮置きデータのまま）
+
+### 確認結果
+
+- `npm run build` 成功
+
+### 次に考えられる作業
+
+1. ゲーム終了（勝者表示）モック
+2. 見た目の詰め（アバター・背景）
+3. Phase 0 ゲームエンジン接続
+
+---
+
 ## ログの書き方
 
 **正規のルールは `AGENTS.md` を参照。** 変更のあったセッションでは、このファイルに日付見出しで **追記** する（過去エントリは消さない）。

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { mockGameRoom } from '@/data/mockGame'
 import GameHeader from '@/components/game/GameHeader.vue'
 import PlayerCircle from '@/components/game/PlayerCircle.vue'
@@ -7,7 +8,9 @@ import CurrentBidDisplay from '@/components/game/CurrentBidDisplay.vue'
 import EventLog from '@/components/game/EventLog.vue'
 import BidControls from '@/components/game/BidControls.vue'
 import MobilePlayerCarousel from '@/components/game/MobilePlayerCarousel.vue'
+import MockBadge from '@/components/common/MockBadge.vue'
 
+const router = useRouter()
 const room = reactive({ ...mockGameRoom })
 const draftBid = ref(room.draftBid)
 const toast = ref<string | null>(null)
@@ -25,7 +28,10 @@ function onDeclare(value: number) {
 }
 
 function onChallenge() {
-  showToast('（モック）コヨーテ！チャレンジ')
+  showToast('（モック）コヨーテ！→ 結果画面へ')
+  window.setTimeout(() => {
+    void router.push({ name: 'result' })
+  }, 600)
 }
 </script>
 
@@ -166,11 +172,16 @@ function onChallenge() {
       </div>
     </Transition>
 
-    <!-- Design mock badge -->
-    <div
-      class="pointer-events-none fixed left-3 top-auto z-30 hidden rounded bg-night-800/80 px-2 py-1 text-[10px] text-sand-dim ring-1 ring-gold-400/20 lg:bottom-3 lg:block"
+    <!-- Mock screen links (desktop) -->
+    <nav
+      class="pointer-events-auto fixed bottom-3 right-3 z-30 hidden gap-1.5 lg:flex"
+      aria-label="モック画面リンク"
     >
-      UI Mock · ゲームロジック未接続
-    </div>
+      <RouterLink to="/" class="btn-ghost !px-2 !py-1 text-[10px]">トップ</RouterLink>
+      <RouterLink to="/lobby" class="btn-ghost !px-2 !py-1 text-[10px]">ロビー</RouterLink>
+      <RouterLink to="/result" class="btn-ghost !px-2 !py-1 text-[10px]">結果</RouterLink>
+    </nav>
+
+    <MockBadge />
   </div>
 </template>
