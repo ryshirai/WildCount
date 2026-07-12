@@ -87,6 +87,65 @@ const serverDeck = computed(() => wireToComposition(props.deck))
 
 const serverLabel = computed(() => deckSummaryLabel(serverDeck.value))
 
+const serverTotal = computed(() => countCards(serverDeck.value))
+
+const isStandard = computed(() => isStandardDeckComposition(serverDeck.value))
+
+const numberCardTotal = computed(() =>
+  serverDeck.value.numbers.reduce((sum, n) => sum + n.count, 0),
+)
+
+const specialCardTotal = computed(() => {
+  const s = serverDeck.value.specials
+  return s.double + s.max_to_zero + s.redraw + s.zero_mix
+})
+
+/** High-to-low number rows with count > 0 for summary strip */
+const summaryNumbers = computed(() =>
+  [...serverDeck.value.numbers]
+    .filter((n) => n.count > 0)
+    .sort((a, b) => b.value - a.value),
+)
+
+const summarySpecials = computed(() =>
+  SPECIAL_ROWS.filter((row) => serverDeck.value.specials[row.key] > 0).map(
+    (row) => ({
+      ...row,
+      count: serverDeck.value.specials[row.key],
+    }),
+  ),
+)
+
+/** Mini face samples for the stack preview (distinct values / specials) */
+const previewFaces = computed(() => {
+  const faces: Array<{
+    key: string
+    label: string
+    kind: 'number' | 'special' | 'mystery'
+    value?: number
+  }> = []
+  const highs = summaryNumbers.value.filter((n) => n.value >= 5).slice(0, 3)
+  for (const n of highs) {
+    faces.push({
+      key: `n-${n.value}`,
+      label: formatValue(n.value),
+      kind: 'number',
+      value: n.value,
+    })
+  }
+  for (const s of summarySpecials.value.slice(0, 2)) {
+    faces.push({
+      key: `sp-${s.key}`,
+      label: s.label,
+      kind: 'special',
+    })
+  }
+  if (faces.length < 3) {
+    faces.push({ key: 'mystery', label: '?', kind: 'mystery' })
+  }
+  return faces.slice(0, 4)
+})
+
 const draftTotal = computed(() => countCards(draft.value))
 
 const isDirty = computed(
@@ -132,6 +191,12 @@ watch(
 function formatValue(v: number): string {
   if (v > 0) return `+${v}`
   return String(v)
+}
+
+function numberToneClass(value: number): string {
+  if (value > 0) return 'text-night-900'
+  if (value < 0) return 'text-red-800'
+  return 'text-night-800'
 }
 
 function bumpNumber(value: number, delta: number) {
@@ -185,48 +250,230 @@ function apply() {
 function numberCount(value: number): number {
   return draft.value.numbers.find((n) => n.value === value)?.count ?? 0
 }
+
+function openEditor() {
+  expanded.value = true
+}
+
+function closeEditor() {
+  if (isDirty.value) {
+    // keep draft; host may still apply
+  }
+  expanded.value = false
+}
 </script>
 
 <template>
-  <section class="panel p-4 sm:p-5" aria-label="山札設定">
-    <div class="mb-3 flex items-start justify-between gap-2">
-      <div class="min-w-0">
-        <h2 class="text-sm font-semibold text-gold-200">山札</h2>
-        <p class="mt-0.5 text-xs text-sand-dim">
-          {{ serverLabel }}
-          <span v-if="isDirty" class="text-gold-200"> · 未適用の変更あり</span>
-        </p>
+  <section
+    class="panel relative overflow-hidden p-0"
+    aria-label="山札設定"
+  >
+    <!-- Ambient desert glow -->
+    <div
+      class="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_10%_0%,rgba(201,168,76,0.12),transparent_55%),radial-gradient(ellipse_70%_50%_at_100%_100%,rgba(42,138,138,0.1),transparent_50%)]"
+      aria-hidden="true"
+    />
+
+    <!-- ========== Collapsed: polished summary ========== -->
+    <div v-if="!expanded" class="relative">
+      <div class="flex flex-col gap-4 p-4 sm:flex-row sm:items-stretch sm:gap-5 sm:p-5">
+        <!-- Card stack preview -->
+        <div
+          class="relative mx-auto flex h-[7.5rem] w-[6.5rem] shrink-0 items-end justify-center sm:mx-0 sm:h-32 sm:w-28"
+          aria-hidden="true"
+        >
+          <!-- Back layers -->
+          <div
+            class="absolute bottom-1 left-1/2 h-[4.75rem] w-[3.25rem] -translate-x-1/2 rotate-[-14deg] rounded-lg border border-gold-400/30 bg-gradient-to-b from-night-700 to-night-900 shadow-md ring-1 ring-gold-400/10"
+          />
+          <div
+            class="absolute bottom-1.5 left-1/2 h-[5rem] w-[3.4rem] -translate-x-[42%] rotate-[-6deg] rounded-lg border border-gold-400/35 bg-gradient-to-b from-night-600 to-night-800 shadow-md"
+          />
+          <!-- Face cards fanned -->
+          <div
+            v-for="(face, i) in previewFaces"
+            :key="face.key"
+            class="absolute bottom-0 flex h-[5.25rem] w-[3.5rem] items-center justify-center rounded-lg border shadow-lg ring-1 ring-inset transition-transform"
+            :class="[
+              face.kind === 'number'
+                ? 'border-gold-400/55 bg-gradient-to-b from-gold-50 via-gold-100 to-gold-300 ring-white/30'
+                : face.kind === 'special'
+                  ? 'border-teal-soft/50 bg-gradient-to-b from-teal-soft/30 via-night-800 to-night-900 ring-teal-soft/20'
+                  : 'border-gold-400/60 bg-gradient-to-b from-night-700 to-night-950 ring-gold-400/25',
+            ]"
+            :style="{
+              transform: `translateX(calc(-50% + ${(i - (previewFaces.length - 1) / 2) * 14}px)) rotate(${(i - (previewFaces.length - 1) / 2) * 7}deg)`,
+              left: '50%',
+              zIndex: i + 2,
+            }"
+          >
+            <span
+              class="font-display text-sm font-bold leading-none tracking-tight sm:text-base"
+              :class="
+                face.kind === 'number'
+                  ? numberToneClass(face.value ?? 0)
+                  : face.kind === 'special'
+                    ? 'text-teal-soft'
+                    : 'text-gold-300'
+              "
+            >
+              {{ face.label }}
+            </span>
+          </div>
+        </div>
+
+        <!-- Meta + CTA -->
+        <div class="min-w-0 flex-1">
+          <div class="mb-2 flex flex-wrap items-center gap-2">
+            <h2 class="font-display text-base font-semibold tracking-wide text-gold-200 sm:text-lg">
+              山札
+            </h2>
+            <span
+              class="rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
+              :class="
+                isStandard
+                  ? 'border border-gold-400/30 bg-gold-400/10 text-gold-200'
+                  : 'border border-teal-soft/35 bg-teal-deep/40 text-teal-soft'
+              "
+            >
+              {{ isStandard ? 'スタンダード' : 'カスタム' }}
+            </span>
+            <span
+              v-if="isDirty"
+              class="rounded-full border border-amber-400/40 bg-amber-950/50 px-2 py-0.5 text-[10px] font-medium text-amber-200"
+            >
+              未適用の変更
+            </span>
+          </div>
+
+          <p class="mb-3 text-xs leading-relaxed text-sand-dim sm:text-[13px]">
+            {{ serverLabel }}
+            <template v-if="editable">
+              · ホストは枚数を自由に調整できます
+            </template>
+            <template v-else>
+              · ホストが設定した構成です
+            </template>
+          </p>
+
+          <!-- Big total + breakdown -->
+          <div class="mb-3 flex flex-wrap items-end gap-4">
+            <div class="flex items-baseline gap-1.5">
+              <span
+                class="font-display text-4xl font-bold tabular-nums leading-none text-gold-100 sm:text-5xl"
+              >
+                {{ serverTotal }}
+              </span>
+              <span class="pb-1 text-sm font-medium text-sand-dim">枚</span>
+            </div>
+            <div class="flex flex-wrap gap-2 pb-1">
+              <span
+                class="inline-flex items-center gap-1.5 rounded-xl border border-gold-400/20 bg-night-900/70 px-2.5 py-1.5 text-[11px] text-sand"
+              >
+                <span class="h-1.5 w-1.5 rounded-full bg-gold-300" aria-hidden="true" />
+                数字
+                <span class="font-mono font-semibold tabular-nums text-gold-100">
+                  {{ numberCardTotal }}
+                </span>
+              </span>
+              <span
+                class="inline-flex items-center gap-1.5 rounded-xl border border-teal-soft/25 bg-night-900/70 px-2.5 py-1.5 text-[11px] text-sand"
+              >
+                <span class="h-1.5 w-1.5 rounded-full bg-teal-soft" aria-hidden="true" />
+                特殊
+                <span class="font-mono font-semibold tabular-nums text-teal-soft">
+                  {{ specialCardTotal }}
+                </span>
+              </span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            class="w-full sm:w-auto"
+            :class="editable ? 'btn-teal !px-4 !py-2.5 text-sm' : 'btn-ghost text-xs'"
+            :disabled="disabled"
+            @click="openEditor"
+          >
+            <span v-if="editable" aria-hidden="true">✦</span>
+            {{ editable ? '山札をカスタマイズ' : '構成の詳細を見る' }}
+          </button>
+        </div>
       </div>
-      <button
-        type="button"
-        class="btn-ghost shrink-0 text-xs"
-        @click="expanded = !expanded"
+
+      <!-- Composition strip: mini tiles -->
+      <div
+        class="border-t border-gold-400/15 bg-night-950/40 px-4 py-3 sm:px-5"
       >
-        {{ expanded ? '閉じる' : editable ? 'カスタマイズ' : '詳細' }}
-      </button>
+        <p class="mb-2 text-[10px] font-medium uppercase tracking-[0.14em] text-sand-dim">
+          構成プレビュー
+        </p>
+        <div class="flex gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <!-- Number mini tiles -->
+          <div
+            v-for="n in summaryNumbers"
+            :key="`sum-n-${n.value}`"
+            class="group relative flex shrink-0 flex-col items-center"
+          >
+            <div
+              class="flex h-11 w-9 items-center justify-center rounded-md border border-gold-400/50 bg-gradient-to-b from-gold-50 via-gold-100 to-gold-300 font-display text-[11px] font-bold leading-none shadow-md ring-1 ring-inset ring-white/25 sm:h-12 sm:w-10 sm:text-xs"
+              :class="numberToneClass(n.value)"
+            >
+              {{ formatValue(n.value) }}
+            </div>
+            <span
+              class="mt-1 rounded-full border border-gold-400/20 bg-night-900/80 px-1.5 py-px font-mono text-[10px] tabular-nums text-sand-dim"
+            >
+              ×{{ n.count }}
+            </span>
+          </div>
+
+          <div
+            v-if="summarySpecials.length > 0"
+            class="mx-0.5 w-px shrink-0 self-stretch bg-gradient-to-b from-transparent via-gold-400/30 to-transparent"
+            aria-hidden="true"
+          />
+
+          <!-- Special mini tiles -->
+          <div
+            v-for="s in summarySpecials"
+            :key="`sum-s-${s.key}`"
+            class="flex shrink-0 flex-col items-center"
+            :title="s.hint"
+          >
+            <div
+              class="flex h-11 w-9 items-center justify-center rounded-md border border-teal-soft/45 bg-gradient-to-b from-teal-soft/25 via-night-800 to-night-900 font-display text-[11px] font-bold leading-none text-teal-soft shadow-md ring-1 ring-inset ring-teal-soft/20 sm:h-12 sm:w-10 sm:text-xs"
+            >
+              {{ s.label }}
+            </div>
+            <span
+              class="mt-1 rounded-full border border-teal-soft/20 bg-night-900/80 px-1.5 py-px font-mono text-[10px] tabular-nums text-teal-soft/90"
+            >
+              ×{{ s.count }}
+            </span>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <!-- Compact summary when collapsed -->
-    <div v-if="!expanded" class="flex flex-wrap gap-1.5">
-      <span
-        v-for="n in serverDeck.numbers.filter((x) => x.count > 0)"
-        :key="`s-${n.value}`"
-        class="rounded-lg border border-gold-400/20 bg-night-900/60 px-2 py-1 font-mono text-[11px] text-sand"
-      >
-        {{ formatValue(n.value) }}×{{ n.count }}
-      </span>
-      <span
-        v-for="row in SPECIAL_ROWS"
-        :key="`ss-${row.key}`"
-        v-show="serverDeck.specials[row.key] > 0"
-        class="rounded-lg border border-teal-soft/25 bg-night-900/60 px-2 py-1 font-mono text-[11px] text-teal-soft"
-      >
-        {{ row.label }}×{{ serverDeck.specials[row.key] }}
-      </span>
-    </div>
+    <!-- ========== Expanded: editor ========== -->
+    <div v-else class="relative space-y-4 p-4 sm:p-5">
+      <div class="flex items-start justify-between gap-2">
+        <div class="min-w-0">
+          <h2 class="font-display text-base font-semibold text-gold-200 sm:text-lg">
+            山札をカスタマイズ
+          </h2>
+          <p class="mt-0.5 text-xs text-sand-dim">
+            {{ serverLabel }}
+            <span v-if="isDirty" class="text-gold-200"> · 未適用の変更あり</span>
+          </p>
+        </div>
+        <button type="button" class="btn-ghost shrink-0 text-xs" @click="closeEditor">
+          閉じる
+        </button>
+      </div>
 
-    <div v-else class="space-y-4">
-      <p v-if="!editable" class="text-xs text-sand-dim">
+      <p v-if="!editable" class="rounded-xl border border-gold-400/15 bg-night-900/50 px-3 py-2 text-xs text-sand-dim">
         ホストのみ山札を変更できます
       </p>
 
@@ -241,7 +488,10 @@ function numberCount(value: number): number {
             :key="value"
             class="flex items-center justify-between gap-2 rounded-xl border border-gold-400/15 bg-night-900/50 px-3 py-2"
           >
-            <span class="font-mono text-sm font-semibold text-gold-100">
+            <span
+              class="inline-flex h-9 w-8 items-center justify-center rounded-md border border-gold-400/45 bg-gradient-to-b from-gold-50 via-gold-100 to-gold-300 font-display text-xs font-bold shadow-sm"
+              :class="numberToneClass(value)"
+            >
               {{ formatValue(value) }}
             </span>
             <div class="flex items-center gap-2">
@@ -284,11 +534,13 @@ function numberCount(value: number): number {
             :key="row.key"
             class="flex items-center justify-between gap-2 rounded-xl border border-teal-soft/20 bg-night-900/50 px-3 py-2"
           >
-            <div class="min-w-0">
-              <span class="font-mono text-sm font-semibold text-teal-soft">
+            <div class="flex min-w-0 items-center gap-2">
+              <span
+                class="inline-flex h-9 w-8 shrink-0 items-center justify-center rounded-md border border-teal-soft/40 bg-gradient-to-b from-teal-soft/25 via-night-800 to-night-900 font-display text-[10px] font-bold text-teal-soft shadow-sm"
+              >
                 {{ row.label }}
               </span>
-              <span class="ml-1.5 text-[11px] text-sand-dim">{{ row.hint }}</span>
+              <span class="text-[11px] text-sand-dim">{{ row.hint }}</span>
             </div>
             <div class="flex items-center gap-2">
               <button
