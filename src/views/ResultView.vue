@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * Result screen after game-side card reveal.
+ * Focus: verdict + calculation steps (cards are a static recap).
+ */
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
@@ -46,44 +50,27 @@ const verdictDetail = computed(() => {
   return `合計 ${result.value.finalTotal} < 宣言 ${result.value.bidValue} → 宣言者がライフを失う`
 })
 
-/** How many cards have finished their stagger reveal */
-const revealedCount = ref(0)
 /** Active calc step index (-1 = not started; steps.length = all done) */
 const activeStepIndex = ref(-1)
-/** Whether calc section has finished sequencing */
 const calcDone = ref(false)
 
-let cardTimers: ReturnType<typeof setTimeout>[] = []
 let stepTimers: ReturnType<typeof setTimeout>[] = []
 
-const CARD_STAGGER_MS = 90
-const CARD_START_MS = 180
-const STEP_INTERVAL_MS = 520
-const STEP_START_AFTER_CARDS_MS = 280
+const STEP_INTERVAL_MS = 480
+const STEP_START_MS = 220
 
-function clearRevealTimers() {
-  for (const t of cardTimers) clearTimeout(t)
+function clearStepTimers() {
   for (const t of stepTimers) clearTimeout(t)
-  cardTimers = []
   stepTimers = []
 }
 
-function runRevealSequence() {
-  clearRevealTimers()
-  revealedCount.value = 0
+function runCalcSequence() {
+  clearStepTimers()
   activeStepIndex.value = -1
   calcDone.value = false
 
   const r = result.value
   if (!r) return
-
-  const n = r.cards.length
-  for (let i = 0; i < n; i++) {
-    const t = setTimeout(() => {
-      revealedCount.value = i + 1
-    }, CARD_START_MS + i * CARD_STAGGER_MS)
-    cardTimers.push(t)
-  }
 
   const steps = r.calcSteps
   if (steps.length === 0) {
@@ -91,19 +78,17 @@ function runRevealSequence() {
     return
   }
 
-  const cardsDoneMs = CARD_START_MS + Math.max(0, n - 1) * CARD_STAGGER_MS + STEP_START_AFTER_CARDS_MS
-
   for (let i = 0; i < steps.length; i++) {
     const t = setTimeout(() => {
       activeStepIndex.value = i
-    }, cardsDoneMs + i * STEP_INTERVAL_MS)
+    }, STEP_START_MS + i * STEP_INTERVAL_MS)
     stepTimers.push(t)
   }
 
   const doneT = setTimeout(() => {
     activeStepIndex.value = steps.length
     calcDone.value = true
-  }, cardsDoneMs + steps.length * STEP_INTERVAL_MS)
+  }, STEP_START_MS + steps.length * STEP_INTERVAL_MS)
   stepTimers.push(doneT)
 }
 
@@ -114,10 +99,9 @@ function stepClass(i: number) {
   return ''
 }
 
-function skipReveal() {
-  clearRevealTimers()
+function skipCalc() {
+  clearStepTimers()
   if (result.value) {
-    revealedCount.value = result.value.cards.length
     activeStepIndex.value = result.value.calcSteps.length
     calcDone.value = true
   }
@@ -126,7 +110,7 @@ function skipReveal() {
 watch(
   result,
   () => {
-    runRevealSequence()
+    runCalcSequence()
   },
   { immediate: true },
 )
@@ -138,7 +122,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  clearRevealTimers()
+  clearStepTimers()
 })
 
 function goNextRound() {
@@ -177,7 +161,7 @@ function goHome() {
           v-if="!calcDone"
           type="button"
           class="btn-ghost !px-2 !py-1 text-[11px]"
-          @click="skipReveal"
+          @click="skipCalc"
         >
           スキップ
         </button>
@@ -199,7 +183,7 @@ function goHome() {
         </h2>
       </section>
 
-      <!-- Verdict banner -->
+      <!-- Verdict banner (main “結果”) -->
       <section
         class="panel result-banner-in mb-6 overflow-hidden p-5 text-center sm:p-6"
         :class="result.bidderWins ? 'ring-1 ring-gold-400/35' : 'ring-1 ring-teal-soft/45'"
@@ -264,7 +248,6 @@ function goHome() {
           </div>
         </div>
 
-        <!-- Life lost callout -->
         <div
           class="life-lost-pulse mt-5 inline-flex max-w-full items-center gap-2 rounded-2xl border border-red-400/35 bg-gradient-to-r from-red-950/70 to-night-900/80 px-4 py-2.5 text-sm text-red-100 shadow-[0_0_24px_rgba(248,113,113,0.12)]"
           style="animation-delay: 400ms"
@@ -287,51 +270,7 @@ function goHome() {
         </div>
       </section>
 
-      <!-- Revealed cards (staggered) -->
-      <section class="panel mb-6 p-4 sm:p-5">
-        <div class="mb-4 flex items-baseline justify-between gap-2">
-          <h3 class="text-sm font-semibold text-gold-200">カード公開</h3>
-          <p class="text-[11px] text-sand-dim">
-            {{ revealedCount }} / {{ result.cards.length }}
-          </p>
-        </div>
-        <ul class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <li
-            v-for="(card, i) in result.cards"
-            :key="card.playerId"
-            class="flex flex-col items-center rounded-xl border border-gold-400/10 bg-night-900/40 px-2 py-3 transition-shadow duration-300"
-            :class="[
-              card.isSelf ? 'ring-1 ring-teal-soft/40' : '',
-              i < revealedCount ? 'shadow-md' : 'opacity-50',
-            ]"
-          >
-            <PlayerAvatar
-              class="mb-1"
-              :avatar="card.avatar"
-              :avatar-src="card.avatarSrc"
-              :name="card.playerName"
-              :self="card.isSelf"
-              size="sm"
-              hide-name
-            />
-            <div
-              class="mb-2 max-w-full truncate text-[11px] font-medium"
-              :class="card.isSelf ? 'text-teal-soft' : 'text-sand-dim'"
-            >
-              {{ card.playerName }}
-            </div>
-            <RevealCardTile
-              :kind="card.kind"
-              :label="card.label"
-              :value="card.value"
-              size="lg"
-              :revealed="i < revealedCount"
-            />
-          </li>
-        </ul>
-      </section>
-
-      <!-- Calculation steps (progressive highlight) -->
+      <!-- Calculation steps (main animation on this screen) -->
       <section class="panel mb-6 p-4 sm:p-5">
         <h3 class="mb-1 text-sm font-semibold text-gold-200">合計計算の過程</h3>
         <p class="mb-4 text-[11px] text-sand-dim">
@@ -379,6 +318,42 @@ function goHome() {
             result.bidValue
           }}</span>
         </div>
+      </section>
+
+      <!-- Card recap (already revealed on game screen) -->
+      <section class="panel mb-6 p-4 sm:p-5">
+        <h3 class="mb-3 text-sm font-semibold text-gold-200">公開カード（再掲）</h3>
+        <ul class="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
+          <li
+            v-for="card in result.cards"
+            :key="card.playerId"
+            class="flex flex-col items-center rounded-xl border border-gold-400/10 bg-night-900/40 px-1.5 py-2"
+            :class="card.isSelf ? 'ring-1 ring-teal-soft/40' : ''"
+          >
+            <PlayerAvatar
+              class="mb-0.5"
+              :avatar="card.avatar"
+              :avatar-src="card.avatarSrc"
+              :name="card.playerName"
+              :self="card.isSelf"
+              size="sm"
+              hide-name
+            />
+            <div
+              class="mb-1 max-w-full truncate text-[10px] font-medium"
+              :class="card.isSelf ? 'text-teal-soft' : 'text-sand-dim'"
+            >
+              {{ card.playerName }}
+            </div>
+            <RevealCardTile
+              :kind="card.kind"
+              :label="card.label"
+              :value="card.value"
+              size="md"
+              :revealed="true"
+            />
+          </li>
+        </ul>
       </section>
 
       <!-- Actions -->

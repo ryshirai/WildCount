@@ -113,7 +113,7 @@ src/
 - 共通クラス: `.panel` / `.btn-gold` / `.btn-teal` / `.chip` / `.desert-bg` / `.seat-chip-*` / `.bid-chip`
 - 席 UI（B4）: 手番金リング、宣言済みチップ、手札下宣言チップ、ステータスバー色分け
 - 結果 UI（B5）: `RevealCardTile`、公開スタッガー、計算ステップハイライト
-- コヨーテ成立: `CoyoteCutIn` フルスクリーン衝撃演出 → 「結果を見る」
+- コヨーテ成立: `CoyoteCutIn` → **ゲーム画面でカード公開** → 「結果を見る」→ 勝敗・合計計算
 
 ## 次の画面候補
 

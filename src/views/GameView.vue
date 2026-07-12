@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { mockGameRoom } from '@/data/mockGame'
@@ -12,9 +12,10 @@ import EventLog from '@/components/game/EventLog.vue'
 import BidControls from '@/components/game/BidControls.vue'
 import MobilePlayerCarousel from '@/components/game/MobilePlayerCarousel.vue'
 import CoyoteCutIn from '@/components/game/CoyoteCutIn.vue'
+import RevealCardTile from '@/components/game/RevealCardTile.vue'
 import PlayerAvatar from '@/components/game/PlayerAvatar.vue'
 import MockBadge from '@/components/common/MockBadge.vue'
-import type { GameRoomMock } from '@/types/game'
+import type { GameRoomMock, RevealedCard } from '@/types/game'
 
 const router = useRouter()
 const route = useRoute()
@@ -35,10 +36,21 @@ const mobileTab = ref<'chat' | 'players' | 'log'>('players')
 const draftBid = ref(0)
 const acting = ref(false)
 
-/** Full-screen コヨーテ！ cut-in (once per challenge) */
+/**
+ * Post-challenge beat:
+ * cut-in → card reveal on game → “結果を見る” → ResultView (calc / verdict)
+ */
 const cutInVisible = ref(false)
 const cutInPlayed = ref(false)
-/** Mock-only cut-in preview (no pendingResult) */
+/** How many challenge cards have flipped open on the game screen */
+const revealedCount = ref(0)
+const cardsRevealDone = ref(false)
+
+const CARD_STAGGER_MS = 100
+const CARD_START_MS = 120
+let cardTimers: ReturnType<typeof setTimeout>[] = []
+
+/** Mock-only cut-in + optional card preview */
 const mockCutIn = ref<{
   challengerName: string
   challengerAvatar: string
@@ -46,6 +58,7 @@ const mockCutIn = ref<{
   bidderName: string
   bidValue: number
 } | null>(null)
+const mockRevealCards = ref<RevealedCard[] | null>(null)
 
 const cutInPayload = computed(() => {
   if (mockCutIn.value) return mockCutIn.value
@@ -94,7 +107,9 @@ const isGameOver = computed(() => {
 const paceHint = computed(() => {
   if (useMock.value) return null
   if (awaitingResultView.value) {
-    return statusMessage.value ?? 'コヨーテ！ 結果を確認してください'
+    if (cutInVisible.value) return statusMessage.value ?? 'コヨーテ！'
+    if (!cardsRevealDone.value) return 'カードを公開しています…'
+    return '合計と勝敗を確認しましょう'
   }
   if (statusMessage.value) return statusMessage.value
   if (botsRunning.value) return 'ボット進行中…'
@@ -102,10 +117,29 @@ const paceHint = computed(() => {
   return null
 })
 
+/** Cards to flip on the game screen (live challenge or mock preview) */
+const revealCards = computed<RevealedCard[]>(() => {
+  if (mockRevealCards.value) return mockRevealCards.value
+  return pendingResult.value?.cards ?? []
+})
+
 const coyoteBanner = computed(() => {
-  if (useMock.value || !pendingResult.value) return null
-  // Hide banner under the cut-in so the impact lands first
+  // Live challenge after cut-in, or mock card-reveal preview
   if (cutInVisible.value) return null
+  if (mockRevealCards.value) {
+    const m = mockResult
+    return {
+      challengerName: m.challengerName,
+      challengerAvatar: m.challengerAvatar,
+      challengerAvatarSrc: m.challengerAvatarSrc,
+      bidderName: m.bidderName,
+      bidderAvatar: m.bidderAvatar,
+      bidderAvatarSrc: m.bidderAvatarSrc,
+      bid: m.bidValue,
+      isMock: true as const,
+    }
+  }
+  if (useMock.value || !pendingResult.value) return null
   const r = pendingResult.value
   return {
     challengerName: r.challengerName,
@@ -115,8 +149,48 @@ const coyoteBanner = computed(() => {
     bidderAvatar: r.bidderAvatar,
     bidderAvatarSrc: r.bidderAvatarSrc,
     bid: r.bidValue,
+    isMock: false as const,
   }
 })
+
+function clearCardTimers() {
+  for (const t of cardTimers) clearTimeout(t)
+  cardTimers = []
+}
+
+function startCardReveal(cards: readonly RevealedCard[]) {
+  clearCardTimers()
+  revealedCount.value = 0
+  cardsRevealDone.value = false
+  const n = cards.length
+  if (n === 0) {
+    cardsRevealDone.value = true
+    return
+  }
+  for (let i = 0; i < n; i++) {
+    const t = setTimeout(() => {
+      revealedCount.value = i + 1
+      if (i + 1 >= n) cardsRevealDone.value = true
+    }, CARD_START_MS + i * CARD_STAGGER_MS)
+    cardTimers.push(t)
+  }
+}
+
+function skipCardReveal() {
+  clearCardTimers()
+  revealedCount.value = revealCards.value.length
+  cardsRevealDone.value = true
+}
+
+function resetPostChallengeUi() {
+  clearCardTimers()
+  cutInVisible.value = false
+  cutInPlayed.value = false
+  revealedCount.value = 0
+  cardsRevealDone.value = false
+  mockRevealCards.value = null
+  mockCutIn.value = null
+}
 
 /** Fire cut-in once when a challenge result becomes pending */
 watch(
@@ -125,10 +199,11 @@ watch(
     if (r && !cutInPlayed.value) {
       cutInVisible.value = true
       cutInPlayed.value = true
+      revealedCount.value = 0
+      cardsRevealDone.value = false
     }
     if (!r) {
-      cutInVisible.value = false
-      cutInPlayed.value = false
+      resetPostChallengeUi()
     }
   },
   { immediate: true },
@@ -137,6 +212,12 @@ watch(
 function onCutInDone() {
   cutInVisible.value = false
   mockCutIn.value = null
+  // After impact: flip cards on the game table, then offer “結果を見る”
+  if (pendingResult.value) {
+    startCardReveal(pendingResult.value.cards)
+  } else if (mockRevealCards.value) {
+    startCardReveal(mockRevealCards.value)
+  }
 }
 
 watch(
@@ -162,6 +243,11 @@ function showToast(msg: string) {
 }
 
 function openResult() {
+  if (!cardsRevealDone.value) skipCardReveal()
+  if (coyoteBanner.value?.isMock) {
+    void router.push({ name: 'result', query: { mock: '1' } })
+    return
+  }
   void router.push({ name: 'result' })
 }
 
@@ -169,12 +255,16 @@ onMounted(() => {
   void bootstrap()
 })
 
+onUnmounted(() => {
+  clearCardTimers()
+})
+
 async function bootstrap() {
   if (useMock.value) {
     draftBid.value = mockGameRoom.draftBid
     return
   }
-  // Challenge already pending — stay here and show “結果を見る”
+  // Challenge already pending — stay here for cut-in / card reveal
   if (pendingResult.value) {
     if (gameView.value) draftBid.value = gameView.value.draftBid
     return
@@ -212,7 +302,10 @@ async function onDeclare(value: number) {
 
 async function onChallenge() {
   if (useMock.value) {
-    // Preview cut-in with mockResult cast
+    // Preview: cut-in → card flip → 結果を見る
+    mockRevealCards.value = mockResult.cards
+    revealedCount.value = 0
+    cardsRevealDone.value = false
     mockCutIn.value = {
       challengerName: mockResult.challengerName,
       challengerAvatar: mockResult.challengerAvatar,
@@ -241,92 +334,7 @@ async function onChallenge() {
 <template>
   <div class="relative flex h-full min-h-dvh flex-col overflow-hidden desert-bg">
     <template v-if="room">
-      <!-- Pace / turn status -->
-      <div
-        v-if="paceHint"
-        class="relative z-20 flex items-center justify-center gap-2.5 border-b px-3 py-2.5 text-center text-sm font-medium backdrop-blur-md"
-        :class="
-          awaitingResultView
-            ? 'border-teal-soft/35 bg-teal-deep/40 text-teal-soft'
-            : botsRunning
-              ? 'border-gold-400/30 bg-night-800/90 text-gold-200'
-              : 'border-gold-400/20 bg-night-900/90 text-teal-soft'
-        "
-        role="status"
-        aria-live="polite"
-      >
-        <span
-          v-if="botsRunning"
-          class="inline-flex h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-gold-300 shadow-[0_0_8px_rgba(201,168,76,0.7)]"
-          aria-hidden="true"
-        />
-        <span
-          v-else-if="awaitingResultView"
-          class="inline-flex h-2.5 w-2.5 shrink-0 rounded-full bg-teal-soft shadow-[0_0_8px_rgba(42,138,138,0.6)]"
-          aria-hidden="true"
-        />
-        <span
-          v-else
-          class="inline-flex h-2.5 w-2.5 shrink-0 rounded-full bg-teal-soft/80"
-          aria-hidden="true"
-        />
-        {{ paceHint }}
-      </div>
-
-      <!-- Coyote: wait for player before result screen (after cut-in) -->
-      <div
-        v-if="coyoteBanner"
-        class="relative z-20 border-b border-teal-soft/40 bg-gradient-to-b from-teal-deep/50 to-night-900/98 px-4 py-5 sm:py-6"
-      >
-        <div class="mx-auto flex max-w-md flex-col items-center gap-3.5 text-center">
-          <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-sand-dim">
-            チャレンジ成立
-          </p>
-          <p
-            class="font-display text-2xl font-bold text-teal-soft sm:text-3xl"
-            style="text-shadow: 0 0 24px rgba(42, 138, 138, 0.45)"
-          >
-            コヨーテ！
-          </p>
-          <p class="max-w-sm text-sm leading-relaxed text-sand-dim">
-            <span class="inline-flex items-center gap-1.5 font-medium text-sand">
-              <PlayerAvatar
-                :avatar="coyoteBanner.challengerAvatar"
-                :avatar-src="coyoteBanner.challengerAvatarSrc"
-                :name="coyoteBanner.challengerName"
-                size="sm"
-                hide-name
-              />
-              {{ coyoteBanner.challengerName }}
-            </span>
-            が
-            <span class="inline-flex items-center gap-1.5 font-medium text-sand">
-              <PlayerAvatar
-                :avatar="coyoteBanner.bidderAvatar"
-                :avatar-src="coyoteBanner.bidderAvatarSrc"
-                :name="coyoteBanner.bidderName"
-                size="sm"
-                hide-name
-              />
-              {{ coyoteBanner.bidderName }}
-            </span>
-            の宣言
-            <span class="mx-0.5 inline-flex items-center rounded-md border border-gold-400/40 bg-night-900/80 px-1.5 py-0.5 font-display text-base font-bold text-gold-200">
-              {{ coyoteBanner.bid }}
-            </span>
-            にチャレンジ
-          </p>
-          <button
-            type="button"
-            class="btn-gold mt-1 w-full max-w-xs !py-3.5 text-base shadow-gold-glow"
-            @click="openResult"
-          >
-            結果を見る
-          </button>
-        </div>
-      </div>
-
-      <!-- ========== Desktop / tablet layout ========== -->
+      <!-- ========== Desktop / tablet ========== -->
       <div class="hidden h-full min-h-0 flex-1 flex-col lg:flex">
         <GameHeader
           :room-code="room.roomCode"
@@ -334,7 +342,136 @@ async function onChallenge() {
           :round="room.round"
         />
 
-        <div class="relative flex min-h-0 flex-1">
+        <!-- Status under header -->
+        <div
+          v-if="paceHint"
+          class="flex items-center justify-center gap-2.5 border-b px-3 py-2.5 text-center text-sm font-medium backdrop-blur-md"
+          :class="
+            awaitingResultView
+              ? 'border-teal-soft/35 bg-teal-deep/40 text-teal-soft'
+              : botsRunning
+                ? 'border-gold-400/30 bg-night-800/90 text-gold-200'
+                : 'border-gold-400/20 bg-night-900/90 text-teal-soft'
+          "
+          role="status"
+          aria-live="polite"
+        >
+          <span
+            v-if="botsRunning"
+            class="inline-flex h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-gold-300 shadow-[0_0_8px_rgba(201,168,76,0.7)]"
+            aria-hidden="true"
+          />
+          <span
+            v-else-if="awaitingResultView"
+            class="inline-flex h-2.5 w-2.5 shrink-0 rounded-full bg-teal-soft shadow-[0_0_8px_rgba(42,138,138,0.6)]"
+            aria-hidden="true"
+          />
+          <span
+            v-else
+            class="inline-flex h-2.5 w-2.5 shrink-0 rounded-full bg-teal-soft/80"
+            aria-hidden="true"
+          />
+          {{ paceHint }}
+        </div>
+
+        <!-- Card reveal (main body under header) -->
+        <div
+          v-if="coyoteBanner"
+          class="min-h-0 flex-1 overflow-y-auto bg-gradient-to-b from-teal-deep/35 to-night-950/80 px-4 py-5 sm:py-6"
+        >
+          <div class="mx-auto flex w-full max-w-2xl flex-col items-center gap-3.5 text-center">
+            <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-sand-dim">
+              カード公開
+            </p>
+            <p class="max-w-sm text-sm leading-relaxed text-sand-dim">
+              <span class="inline-flex items-center gap-1 font-medium text-sand">
+                <PlayerAvatar
+                  :avatar="coyoteBanner.challengerAvatar"
+                  :avatar-src="coyoteBanner.challengerAvatarSrc"
+                  :name="coyoteBanner.challengerName"
+                  size="sm"
+                  hide-name
+                />
+                {{ coyoteBanner.challengerName }}
+              </span>
+              →
+              <span class="font-display font-bold text-gold-200">{{ coyoteBanner.bid }}</span>
+              （{{ coyoteBanner.bidderName }}）
+            </p>
+
+            <ul
+              class="grid w-full gap-2.5"
+              :class="
+                revealCards.length <= 4
+                  ? 'grid-cols-2 sm:grid-cols-4'
+                  : 'grid-cols-3 sm:grid-cols-5'
+              "
+            >
+              <li
+                v-for="(card, i) in revealCards"
+                :key="card.playerId"
+                class="flex flex-col items-center rounded-xl border border-gold-400/10 bg-night-900/50 px-1.5 py-2.5"
+                :class="[
+                  card.isSelf ? 'ring-1 ring-teal-soft/40' : '',
+                  i < revealedCount ? '' : 'opacity-40',
+                ]"
+              >
+                <PlayerAvatar
+                  class="mb-0.5"
+                  :avatar="card.avatar"
+                  :avatar-src="card.avatarSrc"
+                  :name="card.playerName"
+                  :self="card.isSelf"
+                  size="sm"
+                  hide-name
+                />
+                <div
+                  class="mb-1 max-w-full truncate text-[10px] font-medium"
+                  :class="card.isSelf ? 'text-teal-soft' : 'text-sand-dim'"
+                >
+                  {{ card.playerName }}
+                </div>
+                <RevealCardTile
+                  :kind="card.kind"
+                  :label="card.label"
+                  :value="card.value"
+                  size="md"
+                  :revealed="i < revealedCount"
+                />
+              </li>
+            </ul>
+
+            <p class="text-[11px] tabular-nums text-sand-dim">
+              {{ Math.min(revealedCount, revealCards.length) }} / {{ revealCards.length }}
+            </p>
+
+            <div class="flex w-full max-w-xs flex-col gap-2 pb-4">
+              <button
+                v-if="!cardsRevealDone"
+                type="button"
+                class="btn-ghost w-full !py-2.5 text-sm"
+                @click="skipCardReveal"
+              >
+                すべて公開
+              </button>
+              <button
+                type="button"
+                class="btn-gold w-full !py-3.5 text-base shadow-gold-glow"
+                :class="!cardsRevealDone ? 'opacity-50' : ''"
+                :disabled="!cardsRevealDone"
+                @click="openResult"
+              >
+                結果を見る
+              </button>
+              <p v-if="!cardsRevealDone" class="text-[10px] text-sand-dim">
+                札が開いたら合計と勝敗へ
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Normal play area -->
+        <div v-else class="relative flex min-h-0 flex-1">
           <main class="relative flex min-w-0 flex-1 flex-col">
             <div class="relative flex flex-1 items-center justify-center px-4 py-6">
               <div class="pointer-events-none absolute inset-0 z-0 flex items-center justify-center">
@@ -371,7 +508,7 @@ async function onChallenge() {
         </div>
       </div>
 
-      <!-- ========== Mobile layout ========== -->
+      <!-- ========== Mobile ========== -->
       <div class="flex h-full min-h-0 flex-1 flex-col lg:hidden">
         <GameHeader
           mobile
@@ -381,84 +518,185 @@ async function onChallenge() {
           :connection-status="room.connectionStatus"
         />
 
-        <MobilePlayerCarousel :players="room.players" />
-
         <div
-          class="flex items-center justify-between gap-2 border-b border-gold-400/10 bg-night-950/30 px-4 py-1.5 text-xs text-sand-dim"
+          v-if="paceHint"
+          class="flex items-center justify-center gap-2 border-b px-3 py-2 text-center text-xs font-medium backdrop-blur-md"
+          :class="
+            awaitingResultView
+              ? 'border-teal-soft/35 bg-teal-deep/40 text-teal-soft'
+              : botsRunning
+                ? 'border-gold-400/30 bg-night-800/90 text-gold-200'
+                : 'border-gold-400/20 bg-night-900/90 text-teal-soft'
+          "
+          role="status"
+          aria-live="polite"
         >
-          <span class="chip !px-2 !py-0.5 !text-[10px]">
-            {{ room.players.filter((p) => p.hasDeclared).length }}/{{ room.playerCount }} 宣言
-          </span>
-          <span>
-            あなたまであと
-            <span class="font-semibold text-gold-200">{{ room.turnsUntilSelf }}人</span>
-          </span>
-          <span class="text-[10px] text-sand-dim/80">自分の札は？</span>
+          {{ paceHint }}
         </div>
 
-        <main class="flex flex-1 flex-col items-center justify-center px-4 py-4">
-          <div class="panel w-full max-w-sm px-6 py-8 shadow-panel">
-            <CurrentBidDisplay
-              compact
-              :show-turns-hint="false"
-              :current-bid="room.currentBid"
-            />
+        <!-- Card reveal under header -->
+        <div
+          v-if="coyoteBanner"
+          class="min-h-0 flex-1 overflow-y-auto bg-gradient-to-b from-teal-deep/35 to-night-950/80 px-3 py-4 safe-bottom"
+        >
+          <div class="mx-auto flex w-full max-w-md flex-col items-center gap-3 text-center">
+            <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-sand-dim">
+              カード公開
+            </p>
+            <p class="text-xs leading-relaxed text-sand-dim">
+              <span class="font-medium text-sand">{{ coyoteBanner.challengerName }}</span>
+              →
+              <span class="font-display font-bold text-gold-200">{{ coyoteBanner.bid }}</span>
+              （{{ coyoteBanner.bidderName }}）
+            </p>
+
+            <ul
+              class="grid w-full gap-2"
+              :class="
+                revealCards.length <= 4 ? 'grid-cols-2' : 'grid-cols-3'
+              "
+            >
+              <li
+                v-for="(card, i) in revealCards"
+                :key="card.playerId"
+                class="flex flex-col items-center rounded-xl border border-gold-400/10 bg-night-900/50 px-1 py-2"
+                :class="[
+                  card.isSelf ? 'ring-1 ring-teal-soft/40' : '',
+                  i < revealedCount ? '' : 'opacity-40',
+                ]"
+              >
+                <PlayerAvatar
+                  class="mb-0.5"
+                  :avatar="card.avatar"
+                  :avatar-src="card.avatarSrc"
+                  :name="card.playerName"
+                  :self="card.isSelf"
+                  size="sm"
+                  hide-name
+                />
+                <div
+                  class="mb-1 max-w-full truncate text-[10px] font-medium"
+                  :class="card.isSelf ? 'text-teal-soft' : 'text-sand-dim'"
+                >
+                  {{ card.playerName }}
+                </div>
+                <RevealCardTile
+                  :kind="card.kind"
+                  :label="card.label"
+                  :value="card.value"
+                  size="md"
+                  :revealed="i < revealedCount"
+                />
+              </li>
+            </ul>
+
+            <p class="text-[11px] tabular-nums text-sand-dim">
+              {{ Math.min(revealedCount, revealCards.length) }} / {{ revealCards.length }}
+            </p>
+
+            <div class="flex w-full max-w-xs flex-col gap-2">
+              <button
+                v-if="!cardsRevealDone"
+                type="button"
+                class="btn-ghost w-full !py-2.5 text-sm"
+                @click="skipCardReveal"
+              >
+                すべて公開
+              </button>
+              <button
+                type="button"
+                class="btn-gold w-full !py-3.5 text-base shadow-gold-glow"
+                :class="!cardsRevealDone ? 'opacity-50' : ''"
+                :disabled="!cardsRevealDone"
+                @click="openResult"
+              >
+                結果を見る
+              </button>
+            </div>
           </div>
-        </main>
-
-        <BidControls
-          v-if="!awaitingResultView"
-          v-model="draftBid"
-          mobile
-          :min-bid="minBid"
-          :can-declare="canDeclare"
-          :can-challenge="canChallenge"
-          @declare="onDeclare"
-          @challenge="onChallenge"
-        />
-
-        <nav
-          class="flex border-t border-gold-400/15 bg-night-950/95 safe-bottom"
-          aria-label="モバイルメニュー"
-        >
-          <button
-            type="button"
-            class="flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[11px] transition"
-            :class="mobileTab === 'chat' ? 'text-gold-200' : 'text-sand-dim'"
-            @click="
-              mobileTab = 'chat';
-              showToast('チャットはMVP外です')
-            "
-          >
-            <span class="text-base">💬</span>
-            チャット
-          </button>
-          <button
-            type="button"
-            class="flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[11px] transition"
-            :class="mobileTab === 'players' ? 'text-gold-200' : 'text-sand-dim'"
-            @click="mobileTab = 'players'"
-          >
-            <span class="text-base">👥</span>
-            プレイヤー一覧
-          </button>
-          <button
-            type="button"
-            class="flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[11px] transition"
-            :class="mobileTab === 'log' ? 'text-gold-200' : 'text-sand-dim'"
-            @click="mobileTab = 'log'"
-          >
-            <span class="text-base">☰</span>
-            イベントログ
-          </button>
-        </nav>
-
-        <div
-          v-if="mobileTab === 'log'"
-          class="absolute inset-x-0 bottom-16 top-24 z-20 px-3"
-        >
-          <EventLog :items="room.eventLog" class="h-full" />
         </div>
+
+        <!-- Normal mobile play -->
+        <template v-else>
+          <MobilePlayerCarousel :players="room.players" />
+
+          <div
+            class="flex items-center justify-between gap-2 border-b border-gold-400/10 bg-night-950/30 px-4 py-1.5 text-xs text-sand-dim"
+          >
+            <span class="chip !px-2 !py-0.5 !text-[10px]">
+              {{ room.players.filter((p) => p.hasDeclared).length }}/{{ room.playerCount }} 宣言
+            </span>
+            <span>
+              あなたまであと
+              <span class="font-semibold text-gold-200">{{ room.turnsUntilSelf }}人</span>
+            </span>
+            <span class="text-[10px] text-sand-dim/80">自分の札は？</span>
+          </div>
+
+          <main class="flex flex-1 flex-col items-center justify-center px-4 py-4">
+            <div class="panel w-full max-w-sm px-6 py-8 shadow-panel">
+              <CurrentBidDisplay
+                compact
+                :show-turns-hint="false"
+                :current-bid="room.currentBid"
+              />
+            </div>
+          </main>
+
+          <BidControls
+            v-if="!awaitingResultView"
+            v-model="draftBid"
+            mobile
+            :min-bid="minBid"
+            :can-declare="canDeclare"
+            :can-challenge="canChallenge"
+            @declare="onDeclare"
+            @challenge="onChallenge"
+          />
+
+          <nav
+            class="flex border-t border-gold-400/15 bg-night-950/95 safe-bottom"
+            aria-label="モバイルメニュー"
+          >
+            <button
+              type="button"
+              class="flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[11px] transition"
+              :class="mobileTab === 'chat' ? 'text-gold-200' : 'text-sand-dim'"
+              @click="
+                mobileTab = 'chat';
+                showToast('チャットはMVP外です')
+              "
+            >
+              <span class="text-base">💬</span>
+              チャット
+            </button>
+            <button
+              type="button"
+              class="flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[11px] transition"
+              :class="mobileTab === 'players' ? 'text-gold-200' : 'text-sand-dim'"
+              @click="mobileTab = 'players'"
+            >
+              <span class="text-base">👥</span>
+              プレイヤー一覧
+            </button>
+            <button
+              type="button"
+              class="flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[11px] transition"
+              :class="mobileTab === 'log' ? 'text-gold-200' : 'text-sand-dim'"
+              @click="mobileTab = 'log'"
+            >
+              <span class="text-base">☰</span>
+              イベントログ
+            </button>
+          </nav>
+
+          <div
+            v-if="mobileTab === 'log'"
+            class="absolute inset-x-0 bottom-16 top-24 z-20 px-3"
+          >
+            <EventLog :items="room.eventLog" class="h-full" />
+          </div>
+        </template>
       </div>
     </template>
 
