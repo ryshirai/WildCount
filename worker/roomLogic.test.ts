@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildPlayerView,
   createEmptyRoom,
+  findPlayerByToken,
   parseClientMessage,
   sanitizeDisplayName,
 } from './roomLogic'
@@ -81,5 +82,33 @@ describe('roomLogic', () => {
       },
     ]
     expect(buildPlayerView(room, 'p1').canStart).toBe(false)
+  })
+
+  it('finds player by resume token', () => {
+    const room = createEmptyRoom('ABC234')
+    room.players = [
+      {
+        id: 'p1',
+        displayName: 'Host',
+        joinedAt: 1,
+        ready: false,
+        connected: false,
+        resumeToken: 'tok-aaa',
+        avatarIndex: 0,
+      },
+    ]
+    room.resumeTokens['tok-aaa'] = 'p1'
+    expect(findPlayerByToken(room, 'tok-aaa')?.id).toBe('p1')
+    expect(findPlayerByToken(room, 'missing')).toBeUndefined()
+  })
+
+  it('parses resume message', () => {
+    expect(parseClientMessage({ type: 'resume', resumeToken: 't' })).toEqual({
+      type: 'resume',
+      resumeToken: 't',
+    })
+    expect(parseClientMessage({ type: 'resume' })).toMatchObject({
+      error: expect.stringContaining('resumeToken'),
+    })
   })
 })

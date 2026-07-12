@@ -337,3 +337,4 @@ interface RoomPlayer {
 | 2026-07-12 | P1-1 Worker 足場（init / WS accept / health） |
 | 2026-07-12 | **P1-2 完了** — join/ready/start・view broadcast・onlineGame・Home/Lobby 本線接続。action は P1-3 |
 | 2026-07-12 | **P1-3 完了** — action（bid/challenge）・マスク済み game seats・pendingResult・Game/Result UI 接続 |
+| 2026-07-12 | **P1-4 完了** — resumeToken 再接続（localStorage lastRoom、ensureSession、自動再接続、切断バナー、ホーム復帰） |

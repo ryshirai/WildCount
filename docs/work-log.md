@@ -1066,6 +1066,99 @@
 
 ---
 
+## 2026-07-12 — Phase 1 P1-4（resumeToken 再接続）
+
+### 背景・目的
+
+- リロード・一時切断後に同一席へ復帰できるようにする（`docs/phase1-multiplayer.md` §7.4）。
+
+### 実施内容
+
+1. **resumeStorage** — `wc:lastRoom` とトークン連動、`loadLastRoomCode` / `hasResumableSession`。
+2. **onlineGame** — `ensureSession`（リロード復帰）、`reconnect`（手動）、切断時の指数バックオフ自動再接続（最大 8 回）、socketGen で stale close を無効化。view 保持オプション。
+3. **GameRoom** — 再接続成功時に `RESUME` イベント broadcast。
+4. **UI** — Home「前回のルームに戻る」、Lobby/Game 切断バナー、`/lobby|/game|/result` の mount 時 ensureSession。クエリに `code` を載せて deep-link しやすく。
+
+### 主なパス変更
+
+| パス | 内容 |
+|------|------|
+| `src/online/resumeStorage.ts` | lastRoom / helpers |
+| `src/stores/onlineGame.ts` | ensureSession / reconnect / auto-reconnect |
+| `worker/GameRoom.ts` | RESUME イベント |
+| `src/views/HomeView.vue` 他 | 復帰 UI |
+| `tests/online/resumeStorage.test.ts` | 単体テスト |
+| `docs/phase1-multiplayer.md` | 変更履歴 |
+
+### 明示的にやっていないこと
+
+- ホスト移譲 60s / idle TTL（P1-5）
+- エラーコード別の丁寧な UI（P1-6）
+- 本番 deploy
+
+### 確認結果
+
+- `npm test` 70 件成功（resumeStorage 4 + roomLogic resume 2 追加）
+- `npm run build` 成功
+- wrangler 手動 WS スモークは本環境で workerd が accept せずタイムアウトしたため未実施（実装は既存 join/resume 経路の延長）
+
+### 次に考えられる作業
+
+1. **P1-5** — host 移譲・空ルーム alarm
+2. **P1-6** — エラー UI 磨き・docs 仕上げ
+
+---
+
+## 2026-07-12 — ルーム作成が「接続中」のまま進まない調査
+
+### 背景・目的
+
+- ホームの「ルームを作成する」が接続中から進まない報告への対応。
+
+### 実施内容
+
+1. 原因切り分け: workerd が 8787 で LISTEN しているが HTTP を accept せずハング（Recv-Q 滞留）。`POST /api/rooms` が完了せず `onlineBusy` が true のまま。
+2. ハングしていた wrangler/workerd を PID で落として再起動 → health / create / WS join は正常。
+3. **再発時の UX**: `createRoom` の fetch に 8s タイムアウト、失敗理由を `lastError` とホームに表示。join 送信失敗も fail に落とす。
+
+### 主なパス変更
+
+| パス | 内容 |
+|------|------|
+| `src/stores/onlineGame.ts` | createRoom AbortSignal.timeout / エラー文言 |
+| `src/views/HomeView.vue` | 接続中ヒント・lastError 表示 |
+
+### 確認結果
+
+- 再起動後: `GET /api/health` ok、`POST /api/rooms` で roomCode、WS join → hello + view
+- Vite proxy (`:5173/api/health`) も ok
+
+### 次に考えられる作業
+
+1. P1-5 へ戻る
+2. wrangler 長時間稼働時のハング再現条件調査（必要なら）
+
+---
+
+## 2026-07-12 — 結果表示のローカル保持 + コミット前メモ
+
+### 背景・目的
+
+- 動確で、結果表示中に他プレイヤーが次宣言すると `pendingResult` が消え結果 UI が消える問題を指摘された。
+- ゲーム開始の「全員そろえてから」は **待機（後回し）**。
+
+### 実施内容
+
+1. `onlineGame` に `heldPendingResult` — サーバが次 `PLACE_BID` で pending を消しても、クライアントが dismiss するまで結果を保持。
+2. 本セッションの P1-4 / 接続タイムアウト改善と合わせてコミット。
+
+### 明示的にやっていないこと（待機）
+
+- ホスト開始前に全員 ready を必須にする同期開始
+- サーバ側での pendingResult 全員 ACK 待ち
+
+---
+
 ## ログの書き方
 
 **正規のルールは `AGENTS.md` を参照。** 変更のあったセッションでは、このファイルに日付見出しで **追記** する（過去エントリは消さない）。

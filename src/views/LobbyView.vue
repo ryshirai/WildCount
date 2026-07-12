@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppLogo from '@/components/common/AppLogo.vue'
 import MockBadge from '@/components/common/MockBadge.vue'
@@ -19,6 +19,8 @@ const onlineGame = useOnlineGameStore()
 const toast = ref<string | null>(null)
 const copied = ref(false)
 const starting = ref(false)
+const resumeBusy = ref(false)
+const resumeFailed = ref(false)
 
 const isOnline = computed(
   () =>
@@ -84,6 +86,7 @@ const canStart = computed(() => {
 })
 
 const connectionLabel = computed(() => {
+  if (onlineGame.reconnecting) return '再接続中…'
   switch (onlineGame.connection) {
     case 'open':
       return '接続中'
@@ -97,6 +100,14 @@ const connectionLabel = computed(() => {
       return ''
   }
 })
+
+const showDisconnectBanner = computed(
+  () =>
+    isOnline.value &&
+    (onlineGame.connection === 'closed' ||
+      onlineGame.connection === 'error' ||
+      (onlineGame.reconnecting && onlineGame.connection !== 'open')),
+)
 
 const selfReady = computed(() => {
   const me = players.value.find((p) => p.isSelf)
@@ -124,15 +135,81 @@ watch(
   },
 )
 
-// When host starts → navigate all clients to game (P1-3 will flesh out controls)
+// When host starts → navigate all clients to game
 watch(
   () => onlineGame.isPlaying,
   (playing) => {
     if (playing && isOnline.value) {
-      void router.push({ name: 'game', query: { online: '1' } })
+      const code = onlineGame.roomCode ?? roomCode.value
+      void router.push({
+        name: 'game',
+        query: { online: '1', ...(code ? { code } : {}) },
+      })
     }
   },
 )
+
+async function manualReconnect() {
+  if (resumeBusy.value) return
+  resumeBusy.value = true
+  try {
+    await onlineGame.reconnect()
+    showToast('再接続しました')
+  } catch (e) {
+    showToast(e instanceof Error ? e.message : '再接続に失敗しました')
+  } finally {
+    resumeBusy.value = false
+  }
+}
+
+onMounted(() => {
+  void bootstrapOnline()
+})
+
+async function bootstrapOnline() {
+  const wantsOnline =
+    route.query.online === '1' ||
+    typeof route.query.code === 'string' ||
+    onlineGame.isOnlineSession
+  if (!wantsOnline) return
+
+  // Already live
+  if (onlineGame.connection === 'open' && onlineGame.view) {
+    if (onlineGame.isPlaying) {
+      const code = onlineGame.roomCode
+      void router.replace({
+        name: 'game',
+        query: { online: '1', ...(code ? { code } : {}) },
+      })
+    }
+    return
+  }
+
+  const qCode =
+    typeof route.query.code === 'string' ? route.query.code : undefined
+  resumeBusy.value = true
+  resumeFailed.value = false
+  try {
+    const ok = await onlineGame.ensureSession({ code: qCode })
+    if (!ok && !onlineGame.view) {
+      resumeFailed.value = true
+      showToast('ルームへの復帰に失敗しました')
+      return
+    }
+    if (onlineGame.isPlaying) {
+      const code = onlineGame.roomCode ?? qCode
+      void router.replace({
+        name: 'game',
+        query: { online: '1', ...(code ? { code } : {}) },
+      })
+    }
+  } catch (e) {
+    resumeFailed.value = true
+    showToast(e instanceof Error ? e.message : '接続に失敗しました')
+  } finally {
+    resumeBusy.value = false
+  }
+}
 
 async function copyCode() {
   try {
@@ -214,6 +291,38 @@ function leaveLobby() {
     <div
       class="relative z-10 mx-auto flex w-full max-w-2xl flex-1 flex-col px-4 py-6 safe-bottom sm:py-8"
     >
+      <!-- Disconnect / reconnect (P1-4) -->
+      <div
+        v-if="showDisconnectBanner"
+        class="mb-4 flex flex-col gap-2 rounded-2xl border border-red-400/30 bg-red-950/40 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+      >
+        <p class="text-sm text-red-100">
+          {{
+            onlineGame.reconnecting
+              ? `再接続中…（試行 ${onlineGame.reconnectAttempt}）`
+              : onlineGame.lastError ?? '接続が切断されました'
+          }}
+        </p>
+        <button
+          type="button"
+          class="btn-ghost shrink-0 text-xs"
+          :disabled="resumeBusy || onlineGame.reconnecting"
+          @click="manualReconnect"
+        >
+          再接続
+        </button>
+      </div>
+
+      <div
+        v-if="isOnline && resumeFailed && !onlineGame.view"
+        class="mb-4 rounded-2xl border border-gold-400/20 bg-night-900/60 px-4 py-3 text-center text-sm text-sand-dim"
+      >
+        ルームに接続できませんでした。ホームからコードで再参加するか、Worker を確認してください。
+        <button type="button" class="btn-ghost mt-2 text-xs" @click="leaveLobby">
+          ホームへ
+        </button>
+      </div>
+
       <!-- Room code block -->
       <section class="panel mb-6 p-5 text-center sm:p-6">
         <p class="mb-1 text-xs text-sand-dim">ルームコード</p>

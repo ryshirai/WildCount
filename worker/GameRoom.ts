@@ -294,6 +294,12 @@ export class GameRoom {
         room.revision += 1
         await this.saveRoom(room)
         this.sendHello(ws, room, resumed)
+        this.broadcast(room, {
+          type: 'event',
+          level: 'info',
+          message: `${resumed.displayName} が再接続しました`,
+          code: 'RESUME',
+        })
         this.broadcastView(room)
         return
       }

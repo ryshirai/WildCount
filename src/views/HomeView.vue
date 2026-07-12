@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import AppLogo from '@/components/common/AppLogo.vue'
 import MockBadge from '@/components/common/MockBadge.vue'
@@ -7,7 +7,11 @@ import {
   buildDemoLineup,
   type DemoPlayerCount,
 } from '@/localGame/profiles'
-import { loadSavedDisplayName } from '@/online/resumeStorage'
+import {
+  clearResumeToken,
+  loadLastRoomCode,
+  loadSavedDisplayName,
+} from '@/online/resumeStorage'
 import { useLocalGameStore } from '@/stores/localGame'
 import { useOnlineGameStore } from '@/stores/onlineGame'
 
@@ -19,6 +23,9 @@ const roomCode = ref('')
 const playerName = ref(loadSavedDisplayName())
 const toast = ref<string | null>(null)
 const onlineBusy = ref(false)
+/** Room code with a saved resumeToken (reload recovery). */
+const resumableCode = ref<string | null>(null)
+const resumeBusy = ref(false)
 
 /** Local demo options (B6) */
 const demoPlayerCount = ref<DemoPlayerCount>(4)
@@ -110,6 +117,55 @@ async function startLocalDemo() {
     demoStarting.value = false
   }
 }
+
+function refreshResumable() {
+  resumableCode.value = loadLastRoomCode()
+}
+
+async function resumeLastRoom() {
+  const code = resumableCode.value
+  if (!code || resumeBusy.value) return
+  resumeBusy.value = true
+  try {
+    if (onlineGame.isOnlineSession && onlineGame.roomCode !== code) {
+      onlineGame.leave()
+    }
+    const ok = await onlineGame.ensureSession({
+      code,
+      name: playerName.value,
+    })
+    if (!ok) {
+      showToast('復帰に失敗しました（ルームが消えた可能性があります）')
+      clearResumeToken(code)
+      refreshResumable()
+      return
+    }
+    const phase = onlineGame.phase
+    if (phase === 'playing' || phase === 'result') {
+      await router.push({
+        name: phase === 'result' && onlineGame.pendingResult ? 'result' : 'game',
+        query: { online: '1', code },
+      })
+    } else {
+      await router.push({ name: 'lobby', query: { code, online: '1' } })
+    }
+  } catch (e) {
+    showToast(e instanceof Error ? e.message : '復帰に失敗しました')
+    refreshResumable()
+  } finally {
+    resumeBusy.value = false
+  }
+}
+
+function dismissResumable() {
+  const code = resumableCode.value
+  if (code) clearResumeToken(code)
+  resumableCode.value = null
+}
+
+onMounted(() => {
+  refreshResumable()
+})
 </script>
 
 <template>
@@ -124,6 +180,42 @@ async function startLocalDemo() {
           数字推理・ブラフのリアルタイム対戦
         </p>
       </header>
+
+      <!-- Resume previous online seat (P1-4) -->
+      <section
+        v-if="resumableCode"
+        class="panel mb-4 border border-teal-soft/25 p-4 ring-1 ring-teal-soft/20 sm:p-5"
+      >
+        <div class="mb-2 flex items-center gap-2">
+          <span class="chip !border-teal-soft/30 !text-teal-soft text-[10px]">
+            再接続
+          </span>
+          <h2 class="text-sm font-semibold text-gold-200">前回のルームに戻る</h2>
+        </div>
+        <p class="mb-3 text-xs text-sand-dim">
+          ルーム
+          <span class="font-mono tracking-wider text-gold-100">{{ resumableCode }}</span>
+          の席を保持しています（リロード後も復帰できます）
+        </p>
+        <div class="flex flex-col gap-2 sm:flex-row">
+          <button
+            type="button"
+            class="btn-teal flex-1"
+            :disabled="resumeBusy"
+            @click="resumeLastRoom"
+          >
+            {{ resumeBusy ? '復帰中…' : 'ルームに復帰' }}
+          </button>
+          <button
+            type="button"
+            class="btn-ghost sm:w-auto"
+            :disabled="resumeBusy"
+            @click="dismissResumable"
+          >
+            破棄
+          </button>
+        </div>
+      </section>
 
       <!-- Local engine demo (primary for solo demo) -->
       <section class="panel mb-4 p-5 ring-1 ring-gold-400/25 sm:p-6">
@@ -239,6 +331,15 @@ async function startLocalDemo() {
         >
           {{ onlineBusy ? '接続中…' : 'ルームを作成する' }}
         </button>
+        <p v-if="onlineBusy" class="mt-2 text-center text-[11px] text-sand-dim">
+          Worker（:8787）へ接続しています。進まないときは worker:dev を再起動してください
+        </p>
+        <p
+          v-else-if="onlineGame.lastError"
+          class="mt-2 text-center text-[11px] text-red-200"
+        >
+          {{ onlineGame.lastError }}
+        </p>
       </section>
 
       <!-- Divider -->

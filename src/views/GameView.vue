@@ -286,9 +286,12 @@ function openResult() {
     void router.push({ name: 'result', query: { mock: '1' } })
     return
   }
+  const code = onlineGame.roomCode
   void router.push({
     name: 'result',
-    query: isOnline.value ? { online: '1' } : undefined,
+    query: isOnline.value
+      ? { online: '1', ...(code ? { code } : {}) }
+      : undefined,
   })
 }
 
@@ -306,7 +309,25 @@ async function bootstrap() {
     return
   }
   // Online: server is source of truth — do not start local bots
-  if (isOnline.value) {
+  if (isOnline.value || route.query.online === '1') {
+    const qCode =
+      typeof route.query.code === 'string' ? route.query.code : undefined
+    if (onlineGame.connection !== 'open' || !onlineGame.view) {
+      await onlineGame.ensureSession({ code: qCode })
+    }
+    // Mid-game reload while still in lobby phase → send to lobby
+    if (
+      onlineGame.view &&
+      onlineGame.view.phase === 'lobby' &&
+      onlineGame.view.status === 'open'
+    ) {
+      const code = onlineGame.roomCode ?? qCode
+      void router.replace({
+        name: 'lobby',
+        query: { online: '1', ...(code ? { code } : {}) },
+      })
+      return
+    }
     if (gameView.value) draftBid.value = gameView.value.draftBid
     return
   }
@@ -332,10 +353,28 @@ watch(
   },
 )
 
+async function manualReconnect() {
+  try {
+    await onlineGame.reconnect()
+    showToast('再接続しました')
+    if (gameView.value) draftBid.value = gameView.value.draftBid
+  } catch (e) {
+    showToast(e instanceof Error ? e.message : '再接続に失敗しました')
+  }
+}
+
 function leaveOnline() {
   onlineGame.leave()
   void router.push({ name: 'home' })
 }
+
+const showOnlineDisconnect = computed(
+  () =>
+    isOnline.value &&
+    (onlineGame.connection === 'closed' ||
+      onlineGame.connection === 'error' ||
+      onlineGame.reconnecting),
+)
 
 async function onDeclare(value: number) {
   if (useMock.value) {
@@ -404,18 +443,55 @@ async function onChallenge() {
       v-if="isOnline && !room"
       class="relative z-10 mx-auto flex h-full w-full max-w-lg flex-col items-center justify-center gap-4 px-4 safe-top safe-bottom"
     >
-      <p class="text-sm text-sand-dim">ゲーム状態を同期中…</p>
+      <p class="text-sm text-sand-dim">
+        {{
+          onlineGame.reconnecting || onlineGame.connection === 'connecting'
+            ? 'ルームに再接続中…'
+            : 'ゲーム状態を同期中…'
+        }}
+      </p>
       <p v-if="onlineGame.lastError" class="text-center text-xs text-red-200">
         {{ onlineGame.lastError }}
       </p>
-      <button type="button" class="btn-ghost" @click="leaveOnline">退出</button>
+      <div class="flex flex-wrap items-center justify-center gap-2">
+        <button
+          v-if="onlineGame.connection !== 'open'"
+          type="button"
+          class="btn-teal text-sm"
+          :disabled="onlineGame.reconnecting"
+          @click="manualReconnect"
+        >
+          再接続
+        </button>
+        <button type="button" class="btn-ghost" @click="leaveOnline">退出</button>
+      </div>
       <MockBadge />
     </div>
 
     <template v-else-if="room">
       <!-- ========== Desktop / tablet ========== -->
       <div class="hidden h-full min-h-0 flex-1 flex-col lg:flex">
-        <div class="shrink-0 safe-top">
+        <div
+          v-if="showOnlineDisconnect"
+          class="flex shrink-0 items-center justify-between gap-2 border-b border-red-400/25 bg-red-950/50 px-4 py-2 text-sm text-red-100 safe-top"
+        >
+          <span>
+            {{
+              onlineGame.reconnecting
+                ? `再接続中…（試行 ${onlineGame.reconnectAttempt}）`
+                : onlineGame.lastError ?? '接続が切断されました'
+            }}
+          </span>
+          <button
+            type="button"
+            class="btn-ghost shrink-0 text-xs"
+            :disabled="onlineGame.reconnecting"
+            @click="manualReconnect"
+          >
+            再接続
+          </button>
+        </div>
+        <div class="shrink-0" :class="showOnlineDisconnect ? '' : 'safe-top'">
           <GameHeader
             :room-code="room.roomCode"
             :player-count="room.playerCount"
@@ -599,7 +675,27 @@ async function onChallenge() {
 
       <!-- ========== Mobile ========== -->
       <div class="relative flex h-full min-h-0 flex-1 flex-col lg:hidden">
-        <div class="shrink-0 safe-top">
+        <div
+          v-if="showOnlineDisconnect"
+          class="flex shrink-0 items-center justify-between gap-2 border-b border-red-400/25 bg-red-950/50 px-3 py-2 text-xs text-red-100 safe-top"
+        >
+          <span class="min-w-0 truncate">
+            {{
+              onlineGame.reconnecting
+                ? `再接続中…（${onlineGame.reconnectAttempt}）`
+                : onlineGame.lastError ?? '切断されました'
+            }}
+          </span>
+          <button
+            type="button"
+            class="btn-ghost shrink-0 !px-2 !py-1 text-[10px]"
+            :disabled="onlineGame.reconnecting"
+            @click="manualReconnect"
+          >
+            再接続
+          </button>
+        </div>
+        <div class="shrink-0" :class="showOnlineDisconnect ? '' : 'safe-top'">
           <GameHeader
             mobile
             :room-code="room.roomCode"

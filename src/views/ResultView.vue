@@ -131,13 +131,32 @@ watch(
 )
 
 onMounted(() => {
-  if (!useMock.value && !activeResult.value) {
-    void router.replace({
-      name: 'game',
-      query: isOnline.value ? { online: '1' } : undefined,
-    })
-  }
+  void bootstrapResult()
 })
+
+async function bootstrapResult() {
+  if (useMock.value) return
+
+  if (isOnline.value || route.query.online === '1') {
+    const qCode =
+      typeof route.query.code === 'string' ? route.query.code : undefined
+    if (onlineGame.connection !== 'open' || !onlineGame.view) {
+      await onlineGame.ensureSession({ code: qCode })
+    }
+    if (!onlineGame.pendingResult) {
+      const code = onlineGame.roomCode ?? qCode
+      void router.replace({
+        name: 'game',
+        query: { online: '1', ...(code ? { code } : {}) },
+      })
+    }
+    return
+  }
+
+  if (!activeResult.value) {
+    void router.replace({ name: 'game' })
+  }
+}
 
 onUnmounted(() => {
   clearStepTimers()
@@ -150,7 +169,11 @@ function goNextRound() {
   }
   if (isOnline.value) {
     onlineGame.clearPendingResult()
-    void router.push({ name: 'game', query: { online: '1' } })
+    const code = onlineGame.roomCode
+    void router.push({
+      name: 'game',
+      query: { online: '1', ...(code ? { code } : {}) },
+    })
     return
   }
   store.clearPendingResult()

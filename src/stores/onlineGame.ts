@@ -9,11 +9,13 @@ import type { GameViewModel } from '@/mappers/toGameView'
 import type {
   ClientGameAction,
   ClientMessage,
+  PendingResultSnapshot,
   PlayerView,
   ServerMessage,
 } from '@/online/protocol'
 import {
   clearResumeToken,
+  loadLastRoomCode,
   loadResumeToken,
   loadSavedDisplayName,
   saveDisplayName,
@@ -28,6 +30,8 @@ export type OnlineConnection =
   | 'open'
   | 'closed'
   | 'error'
+
+const MAX_RECONNECT_ATTEMPTS = 8
 
 /**
  * Online multiplayer session (Worker / DO WebSocket).
@@ -45,10 +49,20 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
   const lastEvent = ref<string | null>(null)
   const displayName = ref(loadSavedDisplayName())
   const eventLog = ref<EventLogItem[]>([])
-  /** Client-side dismiss of result cut-in flow without clearing server pending */
+  /**
+   * Client-side dismiss of result cut-in / ResultView.
+   * Server may clear `view.pendingResult` when the next player bids;
+   * we keep a local hold so slower clients can still finish the reveal.
+   */
   const resultDismissed = ref(false)
+  const heldPendingResult = ref<PendingResultSnapshot | null>(null)
+  /** True while an automatic or manual reconnect is in flight */
+  const reconnecting = ref(false)
+  const reconnectAttempt = ref(0)
 
   let ws: WebSocket | null = null
+  /** Bumped on each new socket so stale close handlers never reconnect. */
+  let socketGen = 0
   let intentionalClose = false
   let logSeq = 0
   let helloWait: {
@@ -56,6 +70,7 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     reject: (e: Error) => void
     timer: ReturnType<typeof setTimeout>
   } | null = null
+  let reconnectTimer: ReturnType<typeof setTimeout> | null = null
 
   const isOnlineSession = computed(
     () => roomCode.value != null && connection.value !== 'idle',
@@ -71,14 +86,23 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
       view.value?.phase === 'result',
   )
 
+  const isDisconnected = computed(
+    () =>
+      connection.value === 'closed' ||
+      connection.value === 'error' ||
+      (connection.value === 'connecting' && reconnecting.value),
+  )
+
   const gameView = computed<GameViewModel | null>(() => {
     if (!view.value?.game) return null
     return onlineToGameView(view.value, eventLog.value)
   })
 
   const pendingResult = computed<ResultViewModel | null>(() => {
-    if (!view.value?.pendingResult || resultDismissed.value) return null
-    return onlineToResultView(view.value, view.value.pendingResult)
+    if (!view.value || resultDismissed.value || !heldPendingResult.value) {
+      return null
+    }
+    return onlineToResultView(view.value, heldPendingResult.value)
   })
 
   const awaitingResultView = computed(() => pendingResult.value != null)
@@ -89,6 +113,7 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
 
   const canHumanAct = computed(() => {
     if (!view.value?.game || pendingResult.value) return false
+    if (connection.value !== 'open') return false
     return view.value.game.isMyTurn && view.value.game.phase === 'bidding'
   })
 
@@ -98,12 +123,41 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
       saveDisplayName(name)
     }
     lastError.value = null
-    const res = await fetch(roomsCreateUrl(), { method: 'POST' })
-    const data = (await res.json()) as { roomCode?: string; message?: string }
-    if (!res.ok || !data.roomCode) {
-      throw new Error(data.message ?? `ルーム作成に失敗しました (${res.status})`)
+    clearReconnectTimer()
+    reconnectAttempt.value = 0
+    let res: Response
+    try {
+      res = await fetch(roomsCreateUrl(), {
+        method: 'POST',
+        // Worker 未起動 / ハング時に UI が永遠に「接続中」にならないようにする
+        signal: AbortSignal.timeout(8_000),
+      })
+    } catch (e) {
+      const msg =
+        e instanceof DOMException && e.name === 'TimeoutError'
+          ? 'ルーム作成がタイムアウトしました。別ターミナルで npm run worker:dev を起動（または再起動）してください'
+          : e instanceof TypeError
+            ? 'Worker に接続できません。npm run worker:dev を確認してください'
+            : e instanceof Error
+              ? e.message
+              : 'ルーム作成に失敗しました'
+      lastError.value = msg
+      throw new Error(msg)
     }
-    await connectAndJoin(data.roomCode, displayName.value)
+    let data: { roomCode?: string; message?: string }
+    try {
+      data = (await res.json()) as { roomCode?: string; message?: string }
+    } catch {
+      const msg = `ルーム作成に失敗しました (HTTP ${res.status})`
+      lastError.value = msg
+      throw new Error(msg)
+    }
+    if (!res.ok || !data.roomCode) {
+      const msg = data.message ?? `ルーム作成に失敗しました (${res.status})`
+      lastError.value = msg
+      throw new Error(msg)
+    }
+    await connectAndJoin(data.roomCode, displayName.value, { clearView: true })
     return data.roomCode
   }
 
@@ -113,23 +167,98 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
       saveDisplayName(name)
     }
     lastError.value = null
+    clearReconnectTimer()
+    reconnectAttempt.value = 0
     const normalized = code.replace(/[^A-Za-z0-9]/g, '').toUpperCase()
     if (normalized.length < 4) {
       throw new Error('ルームコードを入力してください')
     }
-    await connectAndJoin(normalized, displayName.value)
+    await connectAndJoin(normalized, displayName.value, { clearView: true })
   }
 
-  async function connectAndJoin(code: string, name: string): Promise<void> {
-    disconnectInternal()
+  /**
+   * Reload / deep-link entry: reconnect with saved resumeToken if any.
+   * Returns true if a session is open (or already was).
+   */
+  async function ensureSession(opts?: {
+    code?: string | null
+    name?: string
+  }): Promise<boolean> {
+    if (connection.value === 'open' && view.value) return true
+
+    const code =
+      (opts?.code && opts.code.replace(/[^A-Za-z0-9]/g, '').toUpperCase()) ||
+      roomCode.value ||
+      loadLastRoomCode()
+    if (!code) return false
+
+    const token = loadResumeToken(code)
+    if (!token) return false
+
+    if (opts?.name != null && opts.name.trim()) {
+      displayName.value = opts.name
+      saveDisplayName(opts.name)
+    }
+
+    lastError.value = null
+    reconnecting.value = true
+    try {
+      await connectAndJoin(code, displayName.value || 'プレイヤー', {
+        clearView: view.value == null,
+        preserveOnFail: true,
+      })
+      reconnectAttempt.value = 0
+      return connection.value === 'open'
+    } catch {
+      return false
+    } finally {
+      reconnecting.value = false
+    }
+  }
+
+  /** Manual reconnect (disconnect banner). Keeps last view when possible. */
+  async function reconnect(): Promise<void> {
+    const code = roomCode.value ?? loadLastRoomCode()
+    if (!code) {
+      lastError.value = '復帰するルームがありません'
+      throw new Error(lastError.value)
+    }
+    clearReconnectTimer()
+    lastError.value = null
+    reconnecting.value = true
+    try {
+      await connectAndJoin(code, displayName.value || 'プレイヤー', {
+        clearView: false,
+        preserveOnFail: true,
+      })
+      reconnectAttempt.value = 0
+    } finally {
+      reconnecting.value = false
+    }
+  }
+
+  async function connectAndJoin(
+    code: string,
+    name: string,
+    opts?: { clearView?: boolean; preserveOnFail?: boolean },
+  ): Promise<void> {
+    const clearView = opts?.clearView !== false
+    const preserveOnFail = opts?.preserveOnFail === true
+
+    // Drop prior socket; its close handler is invalidated via socketGen.
+    closeSocketOnly()
     intentionalClose = false
+    const myGen = ++socketGen
     connection.value = 'connecting'
     roomCode.value = code
-    view.value = null
-    playerId.value = null
-    eventLog.value = []
-    resultDismissed.value = false
-    logSeq = 0
+    if (clearView) {
+      view.value = null
+      playerId.value = null
+      eventLog.value = []
+      resultDismissed.value = false
+      heldPendingResult.value = null
+      logSeq = 0
+    }
 
     const token = loadResumeToken(code)
     const url = roomWebSocketUrl(code)
@@ -137,15 +266,15 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     await new Promise<void>((resolve, reject) => {
       let settled = false
       const fail = (err: Error) => {
-        if (settled) return
+        if (settled || myGen !== socketGen) return
         settled = true
-        connection.value = 'error'
+        connection.value = preserveOnFail && view.value ? 'closed' : 'error'
         lastError.value = err.message
         clearHelloWait(err)
         reject(err)
       }
       const ok = () => {
-        if (settled) return
+        if (settled || myGen !== socketGen) return
         settled = true
         resolve()
       }
@@ -160,13 +289,14 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
       const openTimer = setTimeout(() => {
         fail(new Error('接続がタイムアウトしました（Worker は起動していますか？）'))
         try {
-          ws?.close()
+          if (myGen === socketGen) ws?.close()
         } catch {
           // ignore
         }
       }, 12_000)
 
       ws.addEventListener('open', () => {
+        if (myGen !== socketGen) return
         connection.value = 'open'
         clearTimeout(openTimer)
         const joinMsg: ClientMessage = {
@@ -174,7 +304,6 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
           displayName: name.trim() || 'プレイヤー',
           resumeToken: token ?? undefined,
         }
-        send(joinMsg)
 
         helloWait = {
           resolve: ok,
@@ -183,27 +312,42 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
             fail(new Error('参加応答がタイムアウトしました'))
           }, 10_000),
         }
+
+        // send() 失敗時は hello 待ちのまま固まらないよう明示的に fail
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+          fail(new Error('WebSocket がオープン状態ではありません'))
+          return
+        }
+        try {
+          ws.send(JSON.stringify(joinMsg))
+        } catch (e) {
+          fail(e instanceof Error ? e : new Error('join の送信に失敗しました'))
+        }
       })
 
       ws.addEventListener('message', (ev) => {
+        if (myGen !== socketGen) return
         onMessage(String(ev.data))
       })
 
       ws.addEventListener('close', () => {
+        if (myGen !== socketGen) return
         clearTimeout(openTimer)
-        if (!intentionalClose) {
-          connection.value = 'closed'
-          lastError.value = lastError.value ?? '接続が切断されました'
-        } else {
-          connection.value = 'idle'
-        }
         ws = null
         if (helloWait) {
           clearHelloWait(new Error('接続が切断されました'))
         }
+        if (intentionalClose) {
+          connection.value = 'idle'
+          return
+        }
+        connection.value = 'closed'
+        lastError.value = lastError.value ?? '接続が切断されました'
+        scheduleReconnect()
       })
 
       ws.addEventListener('error', () => {
+        if (myGen !== socketGen) return
         clearTimeout(openTimer)
         if (connection.value === 'connecting') {
           fail(
@@ -214,6 +358,53 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
         }
       })
     })
+  }
+
+  function scheduleReconnect(): void {
+    if (intentionalClose) return
+    const code = roomCode.value
+    if (!code || !loadResumeToken(code)) return
+    if (reconnectTimer) return
+    if (reconnectAttempt.value >= MAX_RECONNECT_ATTEMPTS) {
+      lastError.value =
+        '再接続に失敗しました。「再接続」を押すか、ホームから復帰してください'
+      reconnecting.value = false
+      return
+    }
+
+    const attempt = reconnectAttempt.value
+    const delay = Math.min(1000 * 2 ** attempt, 15_000)
+    reconnectAttempt.value = attempt + 1
+    reconnecting.value = true
+    reconnectTimer = setTimeout(() => {
+      reconnectTimer = null
+      void (async () => {
+        if (intentionalClose || !roomCode.value) {
+          reconnecting.value = false
+          return
+        }
+        try {
+          await connectAndJoin(
+            roomCode.value,
+            displayName.value || 'プレイヤー',
+            { clearView: false, preserveOnFail: true },
+          )
+          reconnectAttempt.value = 0
+          reconnecting.value = false
+          lastError.value = null
+          pushLog('再接続しました', 'RESUME')
+        } catch {
+          scheduleReconnect()
+        }
+      })()
+    }, delay)
+  }
+
+  function clearReconnectTimer(): void {
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer)
+      reconnectTimer = null
+    }
   }
 
   function onMessage(raw: string): void {
@@ -239,26 +430,26 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
         }
         break
       case 'view': {
-        const prevPending = view.value?.pendingResult
         revision.value = msg.revision
         view.value = msg.view
         if (msg.view.selfPlayerId) {
           playerId.value = msg.view.selfPlayerId
         }
         isHost.value = msg.view.hostId === playerId.value
-        // New challenge result arrives → show again
-        if (msg.view.pendingResult && msg.view.pendingResult !== prevPending) {
-          if (
-            !prevPending ||
-            prevPending.round !== msg.view.pendingResult.round ||
-            prevPending.outcome.challengerId !==
-              msg.view.pendingResult.outcome.challengerId
-          ) {
+        // Capture challenge snapshots locally. Do not drop hold when server
+        // clears pendingResult on the next PLACE_BID (slow client still viewing).
+        if (msg.view.pendingResult) {
+          const next = msg.view.pendingResult
+          const prev = heldPendingResult.value
+          const isNewChallenge =
+            !prev ||
+            prev.round !== next.round ||
+            prev.outcome.challengerId !== next.outcome.challengerId ||
+            prev.outcome.bid !== next.outcome.bid
+          heldPendingResult.value = next
+          if (isNewChallenge) {
             resultDismissed.value = false
           }
-        }
-        if (!msg.view.pendingResult) {
-          resultDismissed.value = false
         }
         break
       }
@@ -275,6 +466,9 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
       case 'room_closed':
         lastError.value = msg.reason
         connection.value = 'closed'
+        clearReconnectTimer()
+        reconnecting.value = false
+        if (roomCode.value) clearResumeToken(roomCode.value)
         break
       case 'pong':
         break
@@ -345,12 +539,16 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
   /** Local dismiss so GameView can return to bidding UI for next round. */
   function clearPendingResult(): void {
     resultDismissed.value = true
+    heldPendingResult.value = null
   }
 
   function leave(): void {
     const code = roomCode.value
     intentionalClose = true
-    disconnectInternal()
+    clearReconnectTimer()
+    reconnecting.value = false
+    reconnectAttempt.value = 0
+    closeSocketOnly()
     if (code) clearResumeToken(code)
     roomCode.value = null
     playerId.value = null
@@ -362,17 +560,20 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     lastError.value = null
     eventLog.value = []
     resultDismissed.value = false
+    heldPendingResult.value = null
   }
 
-  function disconnectInternal(): void {
-    intentionalClose = true
-    if (ws) {
+  /** Close current WS and invalidate its handlers (no reconnect). */
+  function closeSocketOnly(): void {
+    socketGen += 1
+    const old = ws
+    ws = null
+    if (old) {
       try {
-        ws.close(1000, 'client leave')
+        old.close(1000, 'client leave')
       } catch {
         // ignore
       }
-      ws = null
     }
   }
 
@@ -388,7 +589,10 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     lastEvent,
     displayName,
     eventLog,
+    reconnecting,
+    reconnectAttempt,
     isOnlineSession,
+    isDisconnected,
     phase,
     players,
     canStart,
@@ -401,6 +605,8 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     canHumanAct,
     createRoom,
     joinRoom,
+    ensureSession,
+    reconnect,
     setReady,
     startGame,
     placeBid,
