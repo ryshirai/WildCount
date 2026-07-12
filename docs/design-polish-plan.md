@@ -24,7 +24,7 @@
 | UI ↔ エンジン（ローカル） | Phase 0.5 完了 |
 | アバター | **B0–B3 済**: フル 10 体 WebP + `PlayerAvatar` 画像表示（失敗時絵文字） |
 | ロゴ / favicon | **B2 済**: `favicon.svg` + `logo-mark.webp`（`AppLogo` / `GameHeader`）+ PWA 用 `icons/` |
-| 見た目 | Tailwind 夜砂漠トークン済み、モックより簡素 |
+| 見た目 | **B4 済**: 手番リング / 宣言チップ / ステータスバー等をモック寄せ |
 
 参照: `docs/ui-mock.md` / `docs/design-overview.md` / `docs/画面イメージ.png`
 
@@ -38,7 +38,7 @@
 | **B1** | アバター生成・配置 | デモ 4 体 → フル 10 体 | B0 |
 | **B2** | ブランドアイコン | favicon / アプリアイコン / ヘッダーマーク | B0 |
 | **B3** | アバターを UI に接続 | `PlayerAvatar` 画像化、profiles 更新 | B1 |
-| **B4** | 席・ゲーム画面のブラッシュアップ | 手番リング、宣言チップ、モック寄せ | B3 |
+| **B4** | 席・ゲーム画面のブラッシュアップ | **済**: 手番リング、宣言チップ、モック寄せ | B3 |
 | **B5** | 結果・カード演出 | 公開アニメ、特殊札は CSS/SVG | B3 |
 | **B6** | ローカルデモ UX | ボット賢さ、終了フロー、人数など | B3 推奨 |
 | **B7**（任意） | 背景・PWA 仕上げ | 砂漠背景強化、マニフェスト | B2 |
@@ -333,10 +333,24 @@ Small horizontal logo mark for Wild Count: circular badge with wolf howling at a
 | ステータスバー | ボット思考・コヨーテ待ちの視認性 |
 | 「結果を見る」 | バナー余白・階層 |
 
+### 実施内容（B4）
+
+| 項目 | 対応 |
+|------|------|
+| 手番強調 | `PlayerAvatar` 金リング 3px + `shadow-turn-glow` + パルス（`avatar-turn-ring`） |
+| 宣言済み | `seat-chip-declared` 等の状態チップ（手番 / 済 / あなた / 待機 / 脱落） |
+| 手札タイル | `card-tile` / `card-tile-mystery` の質感改善、self・手番で `emphasized` |
+| 宣言チップ | 手札下の `bid-chip`（金枠・display 数字） |
+| ライフ | ♥ を rose で明示、5 超は ×N |
+| ステータスバー | ボット思考 / 手番 / コヨーテ待ちで色分け |
+| 「結果を見る」 | バナー余白・宣言数値バッジ・ボタン階層 |
+
+主なパス: `PlayerSeat.vue` / `PlayerAvatar.vue` / `BidCard.vue` / `MobilePlayerCarousel.vue` / `GameView.vue` / `main.css`
+
 ### 完了条件
 
-- [ ] PC / モバイル両方で「仮モック感」が一段減る
-- [ ] インディアンポーカー見え方を壊さない
+- [x] PC / モバイル両方で「仮モック感」が一段減る
+- [x] インディアンポーカー見え方を壊さない
 
 ---
 
@@ -406,7 +420,8 @@ Small horizontal logo mark for Wild Count: circular badge with wolf howling at a
 2. ~~**B1** アバター~~ → フル 10 体配置済み
 3. ~~**B3** `PlayerAvatar` 接続~~ → `avatarSrc` + 絵文字フォールバック
 4. ~~**B2** favicon / ロゴ~~ → 完了
-5. 次は **B4** 席・ゲーム画面ブラッシュアップ（B5 結果演出 / B6 UX も可）
+5. ~~**B4** 席・ゲーム画面~~ → 完了
+6. 次は **B5** 結果・カード演出（**B6** ローカルデモ UX も可）
 
 ---
 

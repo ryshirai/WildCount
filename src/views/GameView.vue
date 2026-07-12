@@ -183,20 +183,30 @@ async function onChallenge() {
       <!-- Pace / turn status -->
       <div
         v-if="paceHint"
-        class="relative z-20 flex items-center justify-center gap-2 border-b border-gold-400/15 bg-night-900/85 px-3 py-2 text-center text-sm backdrop-blur-sm"
+        class="relative z-20 flex items-center justify-center gap-2.5 border-b px-3 py-2.5 text-center text-sm font-medium backdrop-blur-md"
         :class="
           awaitingResultView
-            ? 'text-teal-soft'
-            : busy
-              ? 'text-gold-200'
-              : 'text-teal-soft'
+            ? 'border-teal-soft/35 bg-teal-deep/40 text-teal-soft'
+            : botsRunning
+              ? 'border-gold-400/30 bg-night-800/90 text-gold-200'
+              : 'border-gold-400/20 bg-night-900/90 text-teal-soft'
         "
         role="status"
         aria-live="polite"
       >
         <span
           v-if="botsRunning"
-          class="inline-block h-2 w-2 animate-pulse rounded-full bg-gold-300"
+          class="inline-flex h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-gold-300 shadow-[0_0_8px_rgba(201,168,76,0.7)]"
+          aria-hidden="true"
+        />
+        <span
+          v-else-if="awaitingResultView"
+          class="inline-flex h-2.5 w-2.5 shrink-0 rounded-full bg-teal-soft shadow-[0_0_8px_rgba(42,138,138,0.6)]"
+          aria-hidden="true"
+        />
+        <span
+          v-else
+          class="inline-flex h-2.5 w-2.5 shrink-0 rounded-full bg-teal-soft/80"
           aria-hidden="true"
         />
         {{ paceHint }}
@@ -205,18 +215,33 @@ async function onChallenge() {
       <!-- Coyote: wait for player before result screen -->
       <div
         v-if="coyoteBanner"
-        class="relative z-20 border-b border-teal-soft/30 bg-night-900/95 px-4 py-4"
+        class="relative z-20 border-b border-teal-soft/40 bg-gradient-to-b from-teal-deep/50 to-night-900/98 px-4 py-5 sm:py-6"
       >
-        <div class="mx-auto flex max-w-lg flex-col items-center gap-3 text-center">
-          <p class="text-xs uppercase tracking-wider text-sand-dim">チャレンジ成立</p>
-          <p class="font-display text-xl font-bold text-teal-soft sm:text-2xl">コヨーテ！</p>
-          <p class="text-sm text-sand-dim">
-            {{ coyoteBanner.challenger }} が
-            {{ coyoteBanner.bidder }} の宣言
-            <span class="font-display font-bold text-gold-200">{{ coyoteBanner.bid }}</span>
+        <div class="mx-auto flex max-w-md flex-col items-center gap-3.5 text-center">
+          <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-sand-dim">
+            チャレンジ成立
+          </p>
+          <p
+            class="font-display text-2xl font-bold text-teal-soft sm:text-3xl"
+            style="text-shadow: 0 0 24px rgba(42, 138, 138, 0.45)"
+          >
+            コヨーテ！
+          </p>
+          <p class="max-w-sm text-sm leading-relaxed text-sand-dim">
+            <span class="font-medium text-sand">{{ coyoteBanner.challenger }}</span>
+            が
+            <span class="font-medium text-sand">{{ coyoteBanner.bidder }}</span>
+            の宣言
+            <span class="mx-0.5 inline-flex items-center rounded-md border border-gold-400/40 bg-night-900/80 px-1.5 py-0.5 font-display text-base font-bold text-gold-200">
+              {{ coyoteBanner.bid }}
+            </span>
             にチャレンジ
           </p>
-          <button type="button" class="btn-gold w-full max-w-xs" @click="openResult">
+          <button
+            type="button"
+            class="btn-gold mt-1 w-full max-w-xs !py-3.5 text-base shadow-gold-glow"
+            @click="openResult"
+          >
             結果を見る
           </button>
         </div>
@@ -279,16 +304,21 @@ async function onChallenge() {
 
         <MobilePlayerCarousel :players="room.players" />
 
-        <div class="flex items-center justify-between px-4 pb-1 text-xs text-sand-dim">
-          <span
-            >{{ room.players.filter((p) => p.hasDeclared).length }}/{{ room.playerCount }}</span
-          >
-          <span>あなたまであと {{ room.turnsUntilSelf }}人</span>
-          <span class="text-[10px] text-sand-dim/80">自分の札は見えない</span>
+        <div
+          class="flex items-center justify-between gap-2 border-b border-gold-400/10 bg-night-950/30 px-4 py-1.5 text-xs text-sand-dim"
+        >
+          <span class="chip !px-2 !py-0.5 !text-[10px]">
+            {{ room.players.filter((p) => p.hasDeclared).length }}/{{ room.playerCount }} 宣言
+          </span>
+          <span>
+            あなたまであと
+            <span class="font-semibold text-gold-200">{{ room.turnsUntilSelf }}人</span>
+          </span>
+          <span class="text-[10px] text-sand-dim/80">自分の札は？</span>
         </div>
 
         <main class="flex flex-1 flex-col items-center justify-center px-4 py-4">
-          <div class="panel w-full max-w-sm px-6 py-8">
+          <div class="panel w-full max-w-sm px-6 py-8 shadow-panel">
             <CurrentBidDisplay
               compact
               :show-turns-hint="false"

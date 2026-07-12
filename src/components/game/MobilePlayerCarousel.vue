@@ -9,23 +9,33 @@ defineProps<{
 </script>
 
 <template>
-  <div class="relative">
+  <div class="relative border-b border-gold-400/10 bg-night-950/40">
     <div
-      class="flex gap-2 overflow-x-auto px-3 py-3 scrollbar-none"
+      class="flex gap-2.5 overflow-x-auto px-3 py-3 scrollbar-none"
       style="scrollbar-width: none"
     >
       <div
         v-for="player in players"
         :key="player.id"
-        class="flex w-14 shrink-0 flex-col items-center gap-1"
+        class="flex w-[3.6rem] shrink-0 flex-col items-center gap-0.5 rounded-xl px-0.5 py-1 transition"
         :class="[
-          player.isCurrentTurn ? 'opacity-100' : 'opacity-95',
+          player.isCurrentTurn
+            ? 'bg-gold-400/10 ring-1 ring-gold-400/35'
+            : player.isSelf
+              ? 'bg-teal-deep/25 ring-1 ring-teal-soft/25'
+              : '',
           player.lives <= 0 ? 'opacity-40 grayscale' : '',
         ]"
       >
         <div
-          class="truncate text-[10px] font-medium"
-          :class="player.isSelf ? 'text-teal-soft' : 'text-sand-dim'"
+          class="max-w-full truncate text-[10px] font-medium"
+          :class="
+            player.isCurrentTurn
+              ? 'text-gold-200'
+              : player.isSelf
+                ? 'text-teal-soft'
+                : 'text-sand-dim'
+          "
         >
           {{ player.name }}
         </div>
@@ -38,20 +48,43 @@ defineProps<{
           size="sm"
           hide-name
         />
-        <div class="text-[9px] text-sand-dim">
-          <template v-if="player.lives <= 0">脱落</template>
-          <template v-else>{{ '♥'.repeat(player.lives) }}</template>
+        <!-- Lives -->
+        <div
+          v-if="player.lives > 0"
+          class="flex items-center gap-px"
+          :aria-label="`ライフ ${player.lives}`"
+        >
+          <span
+            v-for="i in Math.min(player.lives, 3)"
+            :key="i"
+            class="text-[9px] leading-none text-rose-400"
+            aria-hidden="true"
+          >♥</span>
         </div>
+        <div v-else class="text-[9px] text-red-300/80">脱落</div>
+
+        <!-- Declared / turn chip (compact) -->
+        <span
+          v-if="player.lives > 0 && player.isCurrentTurn"
+          class="seat-chip-turn !px-1 !text-[8px]"
+        >手番</span>
+        <span
+          v-else-if="player.lives > 0 && player.hasDeclared"
+          class="seat-chip-declared !px-1 !text-[8px]"
+        >済</span>
+
         <!-- Hand: others face-up, self ? -->
         <BidCard
           v-if="player.lives > 0"
           :label="player.handHidden ? null : player.handLabel"
           :mystery="player.handHidden || player.handLabel == null"
+          :emphasized="player.isCurrentTurn || player.isSelf"
           compact
         />
         <div
           v-if="player.lives > 0 && player.bid != null"
-          class="font-display text-[10px] font-bold text-gold-200"
+          class="bid-chip-sm"
+          :title="`宣言 ${player.bid}`"
         >
           {{ player.bid }}
         </div>

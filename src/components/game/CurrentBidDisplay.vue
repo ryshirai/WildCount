@@ -15,7 +15,7 @@ withDefaults(
 <template>
   <div class="flex flex-col items-center text-center">
     <p
-      class="font-medium tracking-wide text-gold-300/90"
+      class="font-medium tracking-[0.15em] text-gold-300/90"
       :class="compact ? 'text-xs' : 'text-sm'"
     >
       現在の宣言
@@ -23,13 +23,13 @@ withDefaults(
     <p
       class="font-display font-bold leading-none text-gold-100"
       :class="compact ? 'mt-1 text-6xl' : 'mt-2 text-7xl sm:text-8xl'"
-      style="text-shadow: 0 0 40px rgba(201, 168, 76, 0.35)"
+      style="text-shadow: 0 0 48px rgba(201, 168, 76, 0.4), 0 0 12px rgba(201, 168, 76, 0.25)"
     >
       {{ currentBid == null ? '—' : currentBid }}
     </p>
     <p
       v-if="showTurnsHint && turnsUntilSelf != null"
-      class="mt-3 rounded-full border border-gold-400/20 bg-night-800/60 px-3 py-1 text-sand-dim"
+      class="mt-3 rounded-full border border-gold-400/25 bg-night-800/70 px-3.5 py-1 text-sand-dim shadow-sm backdrop-blur-sm"
       :class="compact ? 'text-xs' : 'text-sm'"
     >
       あなたまであと

@@ -41,9 +41,11 @@ const sizeClass = computed(() => {
 })
 
 const ringClass = computed(() => {
-  if (props.highlighted) return 'ring-gold-300 shadow-gold-glow'
-  if (props.self) return 'ring-teal-soft/80'
-  return 'ring-gold-400/30'
+  if (props.highlighted) {
+    return 'ring-[3px] ring-gold-300 shadow-turn-glow avatar-turn-ring'
+  }
+  if (props.self) return 'ring-2 ring-teal-soft/90 shadow-[0_0_12px_rgba(42,138,138,0.35)]'
+  return 'ring-2 ring-gold-400/35'
 })
 
 function onImgError() {
@@ -56,12 +58,12 @@ function onImgError() {
     <div class="relative">
       <div
         v-if="seatIndex != null"
-        class="absolute -left-1 -top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-night-900 text-[10px] font-bold text-gold-300 ring-1 ring-gold-400/40"
+        class="absolute -left-1 -top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-night-900 text-[10px] font-bold text-gold-300 ring-1 ring-gold-400/50 shadow-sm"
       >
         {{ seatIndex }}
       </div>
       <div
-        class="flex items-center justify-center overflow-hidden rounded-full bg-gradient-to-b from-night-600 to-night-800 ring-2"
+        class="flex items-center justify-center overflow-hidden rounded-full bg-gradient-to-b from-night-600 to-night-800"
         :class="[sizeClass, ringClass]"
       >
         <img
@@ -81,11 +83,14 @@ function onImgError() {
     </div>
     <div
       v-if="!hideName"
-      class="max-w-[4.5rem] text-center leading-tight"
+      class="max-w-[5rem] text-center leading-tight"
     >
       <div
         class="truncate text-xs font-semibold"
-        :class="self ? 'text-teal-soft' : 'text-sand'"
+        :class="[
+          self ? 'text-teal-soft' : 'text-sand',
+          highlighted ? 'text-gold-100' : '',
+        ]"
       >
         {{ name }}
       </div>

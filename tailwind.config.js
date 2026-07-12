@@ -37,6 +37,8 @@ export default {
       boxShadow: {
         gold: '0 0 0 1px rgba(201, 168, 76, 0.35), 0 8px 24px rgba(0,0,0,0.45)',
         'gold-glow': '0 0 20px rgba(201, 168, 76, 0.35)',
+        'turn-glow':
+          '0 0 0 1px rgba(201, 168, 76, 0.55), 0 0 18px rgba(201, 168, 76, 0.55), 0 0 36px rgba(201, 168, 76, 0.25)',
         panel: '0 8px 32px rgba(0,0,0,0.5)',
       },
       backgroundImage: {

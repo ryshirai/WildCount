@@ -10,9 +10,9 @@ defineProps<{
 
 <template>
   <div
-    class="flex flex-col items-center gap-1.5 transition-transform"
+    class="flex flex-col items-center gap-1 transition-transform duration-200"
     :class="[
-      player.isCurrentTurn ? 'scale-105' : '',
+      player.isCurrentTurn ? 'scale-105 z-10' : '',
       player.lives <= 0 ? 'opacity-40 grayscale' : '',
     ]"
   >
@@ -26,43 +26,65 @@ defineProps<{
       size="md"
     >
       <template #status>
-        <div class="mt-0.5 text-[10px] font-medium text-sand-dim">
-          <span v-if="player.lives <= 0" class="text-red-300/80">脱落</span>
-          <span v-else class="tracking-tight" :aria-label="`ライフ ${player.lives}`">
-            {{ '♥'.repeat(Math.max(0, player.lives)) }}
-          </span>
-        </div>
+        <!-- Lives: readable heart row -->
         <div
-          class="mt-0.5 text-[10px] font-medium"
-          :class="
-            player.hasDeclared
-              ? 'text-emerald-400/90'
-              : player.isCurrentTurn
-                ? 'text-gold-300'
-                : 'text-sand-dim'
-          "
+          v-if="player.lives > 0"
+          class="mt-0.5 flex items-center justify-center gap-px"
+          :aria-label="`ライフ ${player.lives}`"
         >
-          <template v-if="player.lives <= 0">—</template>
-          <template v-else-if="player.isCurrentTurn && !player.isSelf">現在の手番</template>
-          <template v-else-if="player.hasDeclared">宣言済み</template>
-          <template v-else-if="player.isSelf">あなた</template>
-          <template v-else>待機中</template>
+          <span
+            v-for="i in Math.min(player.lives, 5)"
+            :key="i"
+            class="text-[10px] leading-none text-rose-400 drop-shadow-[0_0_4px_rgba(251,113,133,0.45)]"
+            aria-hidden="true"
+          >♥</span>
+          <span
+            v-if="player.lives > 5"
+            class="ml-0.5 text-[9px] font-semibold text-rose-300/90"
+          >×{{ player.lives }}</span>
+        </div>
+
+        <!-- Status chip -->
+        <div class="mt-0.5 flex justify-center">
+          <span v-if="player.lives <= 0" class="seat-chip-out">脱落</span>
+          <span
+            v-else-if="player.isCurrentTurn"
+            class="seat-chip-turn"
+          >現在の手番</span>
+          <span
+            v-else-if="player.hasDeclared"
+            class="seat-chip-declared"
+          >宣言済み</span>
+          <span
+            v-else-if="player.isSelf"
+            class="seat-chip-self"
+          >あなた</span>
+          <span
+            v-else
+            class="seat-chip-wait"
+          >待機中</span>
         </div>
       </template>
     </PlayerAvatar>
 
     <!-- Hand card: Indian poker — others face-up, self always ? -->
-    <BidCard
-      v-if="player.lives > 0"
-      :label="player.handHidden ? null : player.handLabel"
-      :mystery="player.handHidden || player.handLabel == null"
-    />
-    <div v-else class="card-tile-mystery !h-10 !w-8 !text-base opacity-50">—</div>
+    <div class="relative mt-0.5">
+      <BidCard
+        v-if="player.lives > 0"
+        :label="player.handHidden ? null : player.handLabel"
+        :mystery="player.handHidden || player.handLabel == null"
+        :emphasized="player.isCurrentTurn || player.isSelf"
+      />
+      <div
+        v-else
+        class="card-tile-mystery !h-10 !w-8 !text-base opacity-50"
+      >—</div>
+    </div>
 
-    <!-- Bid chip (declared number), separate from hand -->
+    <!-- Bid chip (declared number), gold frame under hand -->
     <div
       v-if="player.lives > 0 && player.bid != null"
-      class="rounded-full border border-gold-400/30 bg-night-900/90 px-2 py-0.5 font-display text-xs font-bold text-gold-200"
+      class="bid-chip"
       :title="`宣言 ${player.bid}`"
     >
       {{ player.bid }}

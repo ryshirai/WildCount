@@ -623,6 +623,56 @@
 
 ---
 
+## 2026-07-12 — Phase B4 席・ゲーム画面ブラッシュアップ
+
+### 背景・目的
+
+- `docs/画面イメージ.png` に寄せて、席・手番・宣言・ステータスの「仮モック感」を一段下げる（大幅リデザインはしない）。
+- インディアンポーカー見え方（他人表 / 自分 `?`）は維持。
+
+### 実施内容
+
+1. **手番強調** — `PlayerAvatar` 金リング 3px + `shadow-turn-glow` + パルスアニメ（`avatar-turn-ring`）。self は teal リングを維持。
+2. **状態チップ** — 宣言済み / 現在の手番 / あなた / 待機中 / 脱落を `seat-chip-*` で統一。
+3. **手札・宣言** — `card-tile` 質感改善、self・手番で `emphasized`。手札下に金枠 `bid-chip`。
+4. **ライフ** — ♥ を rose で明示（PC 最大 5、超過は ×N）。
+5. **モバイル席** — カルーセルに手番ハイライト枠・済チップ・bid-chip を追加。
+6. **ステータスバー / コヨーテバナー** — ボット思考・手番・結果待ちで色分け。「結果を見る」の余白・階層を整理。
+
+### 主なパス変更
+
+| パス | 内容 |
+|------|------|
+| `src/components/game/PlayerAvatar.vue` | 手番 glow / self teal |
+| `src/components/game/PlayerSeat.vue` | チップ・ライフ・bid-chip |
+| `src/components/game/BidCard.vue` | emphasized 枠 |
+| `src/components/game/MobilePlayerCarousel.vue` | モバイル席の整合 |
+| `src/components/game/CurrentBidDisplay.vue` | 中央宣言の見た目 |
+| `src/views/GameView.vue` | ステータスバー・コヨーテバナー |
+| `src/styles/main.css` | seat-chip / bid-chip / turn pulse |
+| `tailwind.config.js` | `shadow-turn-glow` |
+| `docs/design-polish-plan.md` | B4 完了 |
+
+### 明示的にやっていないこと
+
+- 結果画面の公開アニメ・特殊札 CSS（B5）
+- ボット賢さ・人数設定（B6）
+- 砂漠背景イラスト / PWA マニフェスト（B7）
+- ドメインロジック変更
+
+### 確認結果
+
+- `npm test` 46 件すべて成功
+- `npm run build` 成功
+
+### 次に考えられる作業
+
+1. **B5** 結果・カード演出
+2. **B6** ローカルデモ UX
+3. 任意 **B7** 背景・PWA
+
+---
+
 ## ログの書き方
 
 **正規のルールは `AGENTS.md` を参照。** 変更のあったセッションでは、このファイルに日付見出しで **追記** する（過去エントリは消さない）。

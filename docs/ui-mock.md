@@ -106,9 +106,10 @@ src/
 
 - 夜砂漠テーマ（`night` / `gold` / `teal` トークン — `tailwind.config.js`）
 - フォント: 本文 Noto Sans JP / 数字・ロゴ Cinzel
-- アバターは暫定絵文字（後でオリジナルイラスト差し替え）
+- アバターはオリジナル WebP（失敗時絵文字フォールバック）
 - PC: `lg` 以上で円形レイアウト、未満はモバイル
-- 共通クラス: `.panel` / `.btn-gold` / `.btn-teal` / `.chip` / `.desert-bg`
+- 共通クラス: `.panel` / `.btn-gold` / `.btn-teal` / `.chip` / `.desert-bg` / `.seat-chip-*` / `.bid-chip`
+- 席 UI（B4）: 手番金リング、宣言済みチップ、手札下宣言チップ、ステータスバー色分け
 
 ## 次の画面候補
 
