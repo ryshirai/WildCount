@@ -57,15 +57,15 @@ const localMeta = computed(() => {
 const verdictTitle = computed(() => {
   if (!result.value) return ''
   if (localMeta.value.isGameOver) return 'ゲーム終了'
-  return result.value.bidderWins ? '宣言側の勝ち' : 'チャレンジ成功'
+  return result.value.bidderWins ? '宣言が通った！' : 'コヨーテ成功！'
 })
 
 const verdictDetail = computed(() => {
   if (!result.value) return ''
   if (result.value.bidderWins) {
-    return `合計 ${result.value.finalTotal} ≥ 宣言 ${result.value.bidValue} → チャレンジャーがライフを失う`
+    return `合計 ${result.value.finalTotal} は宣言 ${result.value.bidValue} 以上 → チャレンジした人がライフを失います`
   }
-  return `合計 ${result.value.finalTotal} < 宣言 ${result.value.bidValue} → 宣言者がライフを失う`
+  return `合計 ${result.value.finalTotal} は宣言 ${result.value.bidValue} より小さい → 宣言した人がライフを失います`
 })
 
 /** Active calc step index (-1 = not started; steps.length = all done) */
@@ -348,7 +348,7 @@ async function playAgain() {
           {{ localMeta.winnerName ?? '勝者' }} の勝利！
         </h2>
         <p class="mt-2 text-xs text-sand-dim">
-          最後の1人が生き残りました。下の「もう一度遊ぶ」から続けられます。
+          最後の1人が生き残りました。下の「もう一度遊ぶ」から再戦できます。
         </p>
       </section>
 
@@ -442,7 +442,7 @@ async function playAgain() {
             <p class="text-[10px] uppercase tracking-wider text-red-300/80">ライフ −1</p>
             <p class="truncate font-semibold">
               {{ result.lifeLostName }}
-              <span class="font-normal text-red-200/90">がライフを 1 失った</span>
+              <span class="font-normal text-red-200/90">がライフを 1 失いました</span>
             </p>
           </div>
           <span
@@ -454,9 +454,9 @@ async function playAgain() {
 
       <!-- Calculation steps (main animation on this screen) -->
       <section class="panel mb-5 p-4 sm:mb-6 sm:p-5">
-        <h3 class="mb-1 text-sm font-semibold text-gold-200">合計計算の過程</h3>
+        <h3 class="mb-1 text-sm font-semibold text-gold-200">合計の出し方</h3>
         <p class="mb-3 text-[11px] text-sand-dim sm:mb-4">
-          特殊札の効果を順番に適用した結果です
+          特殊札の効果を、決まった順番で適用した結果です
         </p>
         <ol class="space-y-2.5 sm:space-y-3">
           <li
@@ -503,14 +503,14 @@ async function playAgain() {
                 : 'bg-teal-deep/50 text-teal-soft'
             "
           >
-            {{ result.bidderWins ? '宣言成立' : 'チャレンジ成功' }}
+            {{ result.bidderWins ? '宣言が通った' : 'コヨーテ成功' }}
           </span>
         </div>
       </section>
 
       <!-- Card recap (already revealed on game screen) -->
       <section class="panel mb-5 p-4 sm:mb-6 sm:p-5">
-        <h3 class="mb-3 text-sm font-semibold text-gold-200">公開カード（再掲）</h3>
+        <h3 class="mb-3 text-sm font-semibold text-gold-200">みんなの札（もう一度）</h3>
         <ul class="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
           <li
             v-for="card in result.cards"
@@ -569,7 +569,7 @@ async function playAgain() {
       v-else
       class="flex min-h-0 flex-1 items-center justify-center text-sm text-sand-dim"
     >
-      結果を読み込み中…
+      結果を読み込んでいます…
     </div>
 
     <MockBadge />

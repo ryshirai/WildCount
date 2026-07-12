@@ -25,7 +25,7 @@ const props = withDefaults(
   {
     selfPlayerId: null,
     disabled: false,
-    disabledHint: 'オンライン対戦でのみ利用できます',
+    disabledHint: 'オンライン対戦のときだけ使えます',
     compact: false,
     embedded: false,
     hideHeader: false,
@@ -247,7 +247,7 @@ watch(
             ? 'rounded-lg px-2 py-1 text-xs'
             : 'rounded-xl px-2.5 py-1.5 text-sm'
         "
-        :placeholder="disabled ? disabledHint : 'メッセージ…'"
+        :placeholder="disabled ? disabledHint : 'メッセージを入力…'"
         :disabled="disabled"
         aria-label="チャットメッセージ"
       />

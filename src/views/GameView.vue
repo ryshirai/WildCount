@@ -69,7 +69,7 @@ const statusMessage = computed(() => {
     if (onlineGame.lastEvent) return onlineGame.lastEvent
     if (onlineGame.gameView?.isSelfTurn) return 'あなたの手番です'
     if (onlineGame.connection === 'closed' || onlineGame.connection === 'error') {
-      return onlineGame.lastError ?? '接続が不安定です'
+      return onlineGame.lastError ?? 'つながりが不安定です'
     }
     return null
   }
@@ -128,7 +128,7 @@ function closeMobileDrawer() {
 
 function onSendChat(text: string) {
   if (!isOnline.value) {
-    showToast('オンライン対戦でのみ利用できます')
+    showToast('オンライン対戦のときだけ使えます')
     return
   }
   onlineGame.sendChat(text)
@@ -136,7 +136,7 @@ function onSendChat(text: string) {
 
 function onSendReaction(stampId: StampId) {
   if (!isOnline.value) {
-    showToast('オンライン対戦でのみ利用できます')
+    showToast('オンライン対戦のときだけ使えます')
     return
   }
   onlineGame.sendReaction(stampId)
@@ -145,7 +145,7 @@ function onSendReaction(stampId: StampId) {
 
 function openStampSheet() {
   if (!isOnline.value) {
-    showToast('オンライン対戦でのみ利用できます')
+    showToast('オンライン対戦のときだけ使えます')
     return
   }
   // Prefer stamps over full-screen chat on small screens
@@ -262,12 +262,12 @@ const forfeitEndTitle = computed(() => {
 const forfeitEndDetail = computed(() => {
   const w = forfeitWinner.value
   if (w?.isSelf) {
-    return '他のプレイヤーの退出・切断により、生き残りました'
+    return 'ほかの人が退出・切断したため、あなたが生き残りました'
   }
   if (w) {
-    return '退出・切断により対戦が終了しました（コヨーテ結果画面はありません）'
+    return '退出や切断で対戦が終わりました（コヨーテの結果画面はありません）'
   }
-  return '退出・切断により対戦が終了しました'
+  return '退出や切断で対戦が終わりました'
 })
 
 const waitingForResultPeers = computed(() => {
@@ -283,14 +283,14 @@ const paceHint = computed(() => {
   }
   if (awaitingResultView.value) {
     if (cutInVisible.value) return statusMessage.value ?? 'コヨーテ！'
-    if (!cardsRevealDone.value) return 'カードを公開しています…'
+    if (!cardsRevealDone.value) return 'みんなの札を開いています…'
     return '合計と勝敗を確認しましょう'
   }
   if (waitingForResultPeers.value) {
-    return '他のプレイヤーが結果を確認するまでお待ちください'
+    return 'ほかの人が結果を見終わるまでお待ちください'
   }
   if (statusMessage.value) return statusMessage.value
-  if (botsRunning.value) return 'ボット進行中…'
+  if (botsRunning.value) return 'ボットが考えています…'
   if (gameView.value?.isSelfTurn) return 'あなたの手番です'
   if (isOnline.value && gameView.value) {
     const n = gameView.value.turnsUntilSelf
@@ -684,8 +684,8 @@ async function onChallenge() {
       <p class="text-sm text-sand-dim">
         {{
           onlineGame.reconnecting || onlineGame.connection === 'connecting'
-            ? 'ルームに再接続中…'
-            : 'ゲーム状態を同期中…'
+            ? 'ルームに再接続しています…'
+            : 'ゲームの状態を読み込んでいます…'
         }}
       </p>
       <p v-if="onlineGame.lastError" class="text-center text-xs text-red-200">
@@ -787,7 +787,7 @@ async function onChallenge() {
         >
           <div class="mx-auto flex w-full max-w-2xl flex-col items-center gap-3.5 text-center">
             <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-sand-dim">
-              カード公開
+              札を公開
             </p>
             <!-- div not p: PlayerAvatar is a block; p+div breaks the line in some browsers -->
             <div
@@ -865,7 +865,7 @@ async function onChallenge() {
                 class="btn-ghost w-full !py-2.5 text-sm"
                 @click="skipCardReveal"
               >
-                すべて公開
+                全部ひらく
               </button>
               <button
                 type="button"
@@ -877,7 +877,7 @@ async function onChallenge() {
                 結果を見る
               </button>
               <p v-if="!cardsRevealDone" class="text-[10px] text-sand-dim">
-                札が開いたら合計と勝敗へ
+                札が全部開いたら、合計と勝敗を見られます
               </p>
             </div>
           </div>
@@ -932,7 +932,7 @@ async function onChallenge() {
               v-else-if="waitingForResultPeers"
               class="mx-4 mb-2 shrink-0 rounded-xl border border-teal-soft/30 bg-night-900/90 px-4 py-3 text-center text-sm text-teal-soft"
             >
-              他のプレイヤーが結果を確認するまで、次ラウンドは始まりません
+              みんなの結果確認が終わるまで、次のラウンドは始まりません
             </div>
 
             <div class="shrink-0">
@@ -1069,7 +1069,7 @@ async function onChallenge() {
         >
           <div class="mx-auto flex w-full max-w-md flex-col items-center gap-3 text-center">
             <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-sand-dim">
-              カード公開
+              札を公開
             </p>
             <p class="text-xs leading-relaxed text-sand-dim">
               <span class="font-medium text-sand">{{ coyoteBanner.challengerName }}</span>
@@ -1129,7 +1129,7 @@ async function onChallenge() {
                 class="btn-ghost w-full !py-2.5 text-sm"
                 @click="skipCardReveal"
               >
-                すべて公開
+                全部ひらく
               </button>
               <button
                 type="button"
@@ -1167,7 +1167,7 @@ async function onChallenge() {
                   >{{ room.turnsUntilSelf }}人</span
                 >
               </span>
-              <span class="text-[10px] text-sand-dim/80">自分の札は？</span>
+              <span class="text-[10px] text-sand-dim/80">自分の札は見えない</span>
             </div>
 
             <main
@@ -1316,7 +1316,7 @@ async function onChallenge() {
                 v-if="mobileTab === 'log'"
                 class="absolute inset-x-0 bottom-0 z-20 flex h-[min(58%,22rem)] max-h-[24rem] flex-col overflow-hidden rounded-t-2xl border border-b-0 border-gold-400/30 bg-night-900/98 shadow-[0_-12px_40px_rgba(0,0,0,0.5)] backdrop-blur-md"
                 role="dialog"
-                aria-label="イベントログ"
+                aria-label="対戦ログ"
                 @click.stop
               >
                 <div
@@ -1327,7 +1327,7 @@ async function onChallenge() {
                     aria-hidden="true"
                   />
                   <p class="pt-1 text-xs font-semibold text-gold-200">
-                    イベントログ
+                    対戦ログ
                   </p>
                   <button
                     type="button"
@@ -1453,18 +1453,18 @@ async function onChallenge() {
               id="leave-confirm-title"
               class="font-display text-lg font-bold text-gold-200"
             >
-              {{ canHostEndRoom ? '退出・ルーム解散' : 'ゲームを終了しますか？' }}
+              {{ canHostEndRoom ? '退出するか、ルームを解散しますか？' : 'ゲームを終了しますか？' }}
             </h2>
             <p class="text-sm leading-relaxed text-sand-dim">
               <template v-if="canHostEndRoom">
-                <strong class="text-sand">自分だけ退出</strong>するとあなたは即脱落し、他の人は続きます。
-                <strong class="text-sand">ルームを解散</strong>すると全員の対戦が終わり、ルームが閉じます。
+                <strong class="text-sand">自分だけ退出</strong>すると、あなたは脱落してほかの人はそのまま続けます。
+                <strong class="text-sand">ルームを解散</strong>すると、みんなの対戦が終わりルームが閉じます。
               </template>
               <template v-else-if="isOnline">
-                退出するとこの対戦から<strong class="text-sand">即脱落</strong>します。ホームに戻ります。
+                退出するとこの対戦から<strong class="text-sand">脱落</strong>し、ホームに戻ります。
               </template>
               <template v-else>
-                現在のゲームを終了してホームに戻ります。
+                いまのゲームを終了して、ホームに戻ります。
               </template>
             </p>
             <div class="flex flex-col gap-2">

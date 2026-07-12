@@ -205,9 +205,9 @@ const specialKindClass: Record<string, string> = {
             <!-- Special cards -->
             <section v-else-if="activeTab === 'cards'" class="space-y-4">
               <p class="text-xs text-sand-dim">
-                スタンダード山札は
+                スタンダードの山札は全部で
                 <span class="font-semibold text-gold-200">{{ HELP_DECK_SIZE }}枚</span>
-                （数字＋特殊）。特殊札の見え方は結果画面と同じです。
+                （数字と特殊札）。特殊札の見た目は結果画面と同じです。
               </p>
 
               <ul class="space-y-3">
@@ -257,7 +257,7 @@ const specialKindClass: Record<string, string> = {
             <!-- Calculation -->
             <section v-else-if="activeTab === 'calc'" class="space-y-4">
               <p class="text-sm text-sand">
-                チャレンジ後の合計は、次の順序で一度だけ確定します。
+                「コヨーテ！」のあとの合計は、次の順番で一度だけ決まります。
               </p>
               <ol class="space-y-2">
                 <li
@@ -344,7 +344,7 @@ const specialKindClass: Record<string, string> = {
           <div
             class="shrink-0 border-t border-gold-400/10 px-4 py-2.5 text-center text-[10px] text-sand-dim sm:px-5"
           >
-            Esc または外側タップで閉じる
+            Esc キー、または外側をタップで閉じられます
           </div>
         </div>
       </div>

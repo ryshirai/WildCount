@@ -12,7 +12,7 @@ import { GameError } from './types'
  */
 export const STANDARD_DECK: DeckComposition = Object.freeze({
   id: 'standard',
-  label: 'スタンダード（card-design）',
+  label: 'スタンダード',
   numbers: Object.freeze([
     { value: 20, count: 1 },
     { value: 15, count: 2 },

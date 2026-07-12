@@ -74,8 +74,8 @@ const connectionLabel: Record<string, string> = {
       <button
         type="button"
         class="btn-ghost !p-2 font-display text-sm font-bold"
-        title="山札の構成"
-        aria-label="山札の構成"
+        title="この対戦の山札"
+        aria-label="この対戦の山札"
         @click="emit('deck')"
       >
         山
@@ -128,8 +128,8 @@ const connectionLabel: Record<string, string> = {
       <button
         type="button"
         class="btn-ghost !p-2 font-display text-sm font-bold"
-        title="山札の構成"
-        aria-label="山札の構成"
+        title="この対戦の山札"
+        aria-label="この対戦の山札"
         @click="emit('deck')"
       >
         山

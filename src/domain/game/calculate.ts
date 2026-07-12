@@ -24,7 +24,7 @@ export function calculateTotal(cards: readonly Card[]): CalculationResult {
 
   steps.push({
     id: 'collect',
-    title: 'カード収集',
+    title: '場のカード',
     detail:
       collected.length === 0
         ? 'カードなし'
@@ -52,21 +52,21 @@ export function calculateTotal(cards: readonly Card[]): CalculationResult {
       })
       steps.push({
         id: 'max_to_zero',
-        title: 'MAX→0 適用',
-        detail: `正の最大値 ${maxPos} を 0 に（${zeroed} 枚）`,
+        title: 'M→0（最大値をゼロに）',
+        detail: `いちばん大きいプラス ${maxPos} を 0 に（${zeroed} 枚）`,
       })
     } else {
       steps.push({
         id: 'max_to_zero',
-        title: 'MAX→0 適用',
-        detail: '正の数値カードなし（効果なし）',
+        title: 'M→0（最大値をゼロに）',
+        detail: 'プラスの数字がないので変化なし',
       })
     }
   } else {
     steps.push({
       id: 'max_to_zero',
-      title: 'MAX→0',
-      detail: '該当カードなし',
+      title: 'M→0',
+      detail: 'このラウンドには出ませんでした',
     })
   }
 
@@ -84,8 +84,8 @@ export function calculateTotal(cards: readonly Card[]): CalculationResult {
 
   steps.push({
     id: 'sum',
-    title: '数値合計',
-    detail: sumParts.length > 0 ? sumParts.join(' + ') : '0（数値なし）',
+    title: '数字を足す',
+    detail: sumParts.length > 0 ? sumParts.join(' + ') : '0（数字なし）',
     totalAfter: rawNumberSum,
   })
 
@@ -97,15 +97,15 @@ export function calculateTotal(cards: readonly Card[]): CalculationResult {
     finalTotal = rawNumberSum * factor
     steps.push({
       id: 'double',
-      title: 'DOUBLE 適用',
-      detail: `${rawNumberSum} × ${factor}（×2 × ${doubleCount}）`,
+      title: '×2（倍化）',
+      detail: `${rawNumberSum} × ${factor}（×2 が ${doubleCount} 枚）`,
       totalAfter: finalTotal,
     })
   } else {
     steps.push({
       id: 'double',
-      title: 'DOUBLE',
-      detail: '該当カードなし',
+      title: '×2（倍化）',
+      detail: 'このラウンドには出ませんでした',
       totalAfter: finalTotal,
     })
   }
@@ -114,7 +114,7 @@ export function calculateTotal(cards: readonly Card[]): CalculationResult {
   steps.push({
     id: 'final',
     title: '最終合計',
-    detail: `合計 = ${finalTotal}`,
+    detail: `合計は ${finalTotal}`,
     totalAfter: finalTotal,
   })
 

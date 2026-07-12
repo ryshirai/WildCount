@@ -319,7 +319,7 @@ export class GameRoom {
         this.broadcast(room, {
           type: 'event',
           level: 'info',
-          message: `ホストが ${name} に移譲されました`,
+          message: `ホストが ${name} に交代しました`,
           code: 'HOST_TRANSFERRED',
         })
       }
@@ -614,7 +614,7 @@ export class GameRoom {
         this.broadcast(room, {
           type: 'event',
           level: 'info',
-          message: `ホストが ${hostName} に移譲されました`,
+          message: `ホストが ${hostName} に交代しました`,
           code: 'HOST_TRANSFERRED',
         })
       }
@@ -777,7 +777,7 @@ export class GameRoom {
     this.broadcast(room, {
       type: 'event',
       level: 'info',
-      message: '山札の構成を更新しました',
+      message: '山札の内容を更新しました',
       code: 'DECK_UPDATED',
     })
     this.broadcastView(room)
@@ -1162,7 +1162,7 @@ export class GameRoom {
     this.broadcast(room, {
       type: 'event',
       level: 'info',
-      message: 'ロビーに戻りました。準備完了してから開始できます',
+      message: 'ロビーに戻りました。みんなで準備完了してから開始できます',
       code: 'REMATCH',
     })
     this.broadcastView(room)

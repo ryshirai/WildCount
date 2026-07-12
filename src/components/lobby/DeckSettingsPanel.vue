@@ -31,10 +31,10 @@ const SPECIAL_ROWS: Array<{
   label: string
   hint: string
 }> = [
-  { key: 'double', label: '×2', hint: '合計を2倍' },
-  { key: 'max_to_zero', label: 'M→0', hint: '最大値を0に' },
-  { key: 'redraw', label: '?', hint: '引き直し' },
-  { key: 'zero_mix', label: '0*', hint: '捨て札ミックス' },
+  { key: 'double', label: '×2', hint: '合計を2倍にする' },
+  { key: 'max_to_zero', label: 'M→0', hint: '最大のプラスを0に' },
+  { key: 'redraw', label: '?', hint: '配ったら引き直し' },
+  { key: 'zero_mix', label: '0*', hint: '0扱いで捨て札を混ぜる' },
 ]
 
 function wireToComposition(wire: WireDeckComposition | null | undefined): DeckComposition {
@@ -160,10 +160,10 @@ const totalOk = computed(
 
 const validationHint = computed(() => {
   if (draftTotal.value < MIN_CUSTOM_DECK_CARDS) {
-    return `あと ${MIN_CUSTOM_DECK_CARDS - draftTotal.value} 枚必要です（最低 ${MIN_CUSTOM_DECK_CARDS} 枚）`
+    return `あと ${MIN_CUSTOM_DECK_CARDS - draftTotal.value} 枚足してください（${MIN_CUSTOM_DECK_CARDS} 枚以上）`
   }
   if (draftTotal.value > MAX_CUSTOM_DECK_CARDS) {
-    return `${draftTotal.value - MAX_CUSTOM_DECK_CARDS} 枚減らしてください（最大 ${MAX_CUSTOM_DECK_CARDS} 枚）`
+    return `${draftTotal.value - MAX_CUSTOM_DECK_CARDS} 枚減らしてください（${MAX_CUSTOM_DECK_CARDS} 枚まで）`
   }
   return null
 })
@@ -342,17 +342,17 @@ function closeEditor() {
               v-if="isDirty"
               class="rounded-full border border-amber-400/40 bg-amber-950/50 px-2 py-0.5 text-[10px] font-medium text-amber-200"
             >
-              未適用の変更
+              まだ反映していません
             </span>
           </div>
 
           <p class="mb-3 text-xs leading-relaxed text-sand-dim sm:text-[13px]">
             {{ serverLabel }}
             <template v-if="editable">
-              · ホストは枚数を自由に調整できます
+              · 各札の枚数を調整できます
             </template>
             <template v-else>
-              · ホストが設定した構成です
+              · ホストが決めた内容です
             </template>
           </p>
 
@@ -396,7 +396,7 @@ function closeEditor() {
             @click="openEditor"
           >
             <span v-if="editable" aria-hidden="true">✦</span>
-            {{ editable ? '山札をカスタマイズ' : '構成の詳細を見る' }}
+            {{ editable ? '枚数を変更する' : '中身を見る' }}
           </button>
         </div>
       </div>
@@ -406,7 +406,7 @@ function closeEditor() {
         class="border-t border-gold-400/15 bg-night-950/40 px-4 py-3 sm:px-5"
       >
         <p class="mb-2 text-[10px] font-medium uppercase tracking-[0.14em] text-sand-dim">
-          構成プレビュー
+          入っている札
         </p>
         <div class="flex flex-wrap items-start gap-x-2 gap-y-3">
           <!-- Number mini tiles -->
@@ -461,11 +461,11 @@ function closeEditor() {
       <div class="flex items-start justify-between gap-2">
         <div class="min-w-0">
           <h2 class="font-display text-base font-semibold text-gold-200 sm:text-lg">
-            山札をカスタマイズ
+            山札の枚数を変更
           </h2>
           <p class="mt-0.5 text-xs text-sand-dim">
             {{ serverLabel }}
-            <span v-if="isDirty" class="text-gold-200"> · 未適用の変更あり</span>
+            <span v-if="isDirty" class="text-gold-200"> · まだ反映していません</span>
           </p>
         </div>
         <button type="button" class="btn-ghost shrink-0 text-xs" @click="closeEditor">
@@ -474,7 +474,7 @@ function closeEditor() {
       </div>
 
       <p v-if="!editable" class="rounded-xl border border-gold-400/15 bg-night-900/50 px-3 py-2 text-xs text-sand-dim">
-        ホストのみ山札を変更できます
+        山札を変えられるのはホストだけです
       </p>
 
       <!-- Number cards -->
@@ -592,7 +592,7 @@ function closeEditor() {
             :disabled="disabled"
             @click="resetStandard"
           >
-            スタンダードに戻す
+            標準に戻す
           </button>
           <button
             type="button"
@@ -600,7 +600,7 @@ function closeEditor() {
             :disabled="disabled || !isDirty"
             @click="discardEdits"
           >
-            変更を破棄
+            やめる
           </button>
           <button
             type="button"
@@ -608,7 +608,7 @@ function closeEditor() {
             :disabled="disabled || !isDirty || !totalOk"
             @click="apply"
           >
-            山札を適用
+            この内容で反映
           </button>
         </div>
       </div>

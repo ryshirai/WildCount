@@ -19,7 +19,7 @@ export default defineConfig({
         name: 'Wild Count',
         short_name: 'Wild Count',
         description:
-          'Coyote系の数字推理・ブラフゲーム。夜の砂漠で動物たちと宣言合戦。',
+          '見えている札だけで合計を読み合う、推理・ブラフのリアルタイム対戦。',
         lang: 'ja',
         theme_color: '#0b1220',
         background_color: '#0b1220',

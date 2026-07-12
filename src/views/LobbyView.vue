@@ -356,11 +356,11 @@ function applyDisplayName() {
 
 function applyDeck(deck: WireDeckComposition) {
   if (!isOnline.value || !isHost.value) {
-    showToast('ホストのみ山札を変更できます')
+    showToast('山札を変えられるのはホストだけです')
     return
   }
   if (onlineGame.connection !== 'open') {
-    showToast('接続中のみ変更できます')
+    showToast('つながっているときだけ変更できます')
     return
   }
   onlineGame.setDeck(deck)
@@ -455,7 +455,7 @@ watch(
         v-if="isOnline && resumeFailed && !onlineGame.view"
         class="mb-4 rounded-2xl border border-gold-400/20 bg-night-900/60 px-4 py-3 text-center text-sm text-sand-dim"
       >
-        ルームに接続できませんでした。ホームからコードで再参加するか、しばらくしてからお試しください。
+        ルームにつなげませんでした。ホームからコードを入れ直すか、少し待ってからもう一度どうぞ。
         <button type="button" class="btn-ghost mt-2 text-xs" @click="leaveLobby">
           ホームへ
         </button>
@@ -475,7 +475,7 @@ watch(
           {{ copied ? 'コピー済み' : 'コードをコピー' }}
         </button>
         <p class="mt-3 text-xs text-sand-dim">
-          友達にこのコードを共有して参加してもらいましょう
+          このコードを友だちに送って、ルームに入ってもらいましょう
         </p>
       </section>
 
@@ -499,11 +499,11 @@ watch(
               :disabled="onlineGame.connection !== 'open'"
               @click="applyDisplayName"
             >
-              名前を反映
+              変更する
             </button>
           </div>
           <p class="mt-1.5 text-[11px] text-sand-dim">
-            最大12文字。席一覧とチャットに表示されます
+            最大12文字。席とチャットに表示されます
           </p>
         </label>
       </section>
@@ -599,7 +599,7 @@ watch(
         class="mb-3 flex items-center justify-between gap-2 rounded-2xl border border-gold-400/20 bg-night-900/60 px-3 py-2.5 sm:hidden"
         aria-label="スタンプ"
       >
-        <p class="text-xs text-sand-dim">チャットを開かずスタンプ送信</p>
+        <p class="text-xs text-sand-dim">チャットを開かずにスタンプを送れます</p>
         <button
           type="button"
           class="btn-teal !px-3 !py-2 text-xs"

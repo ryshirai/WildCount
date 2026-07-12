@@ -144,7 +144,7 @@ async function resumeLastRoom() {
     if (!ok) {
       const msg =
         onlineGame.lastError ||
-        '復帰に失敗しました（ルームが解散されたか、すでに終了しています）'
+        'ルームに戻れませんでした（解散されたか、すでに終わっているようです）'
       showToast(msg)
       clearResumeToken(code)
       refreshResumable()
@@ -205,7 +205,7 @@ watch(
       <header class="mb-8 flex flex-col items-center text-center sm:mb-10">
         <AppLogo size="lg" />
         <p class="mt-3 max-w-sm text-sm text-sand-dim sm:text-base">
-          数字推理・ブラフのリアルタイム対戦
+          見えている札だけで合計を読み合う、リアルタイム推理ゲーム
         </p>
         <button
           type="button"
@@ -231,7 +231,7 @@ watch(
         <p class="mb-3 text-xs text-sand-dim">
           ルーム
           <span class="font-mono tracking-wider text-gold-100">{{ resumableCode }}</span>
-          の席を保持しています（リロード後も復帰できます）
+          に、この端末からまた入れます（ページを閉じたあともOK）
         </p>
         <div class="flex flex-col gap-2 sm:flex-row">
           <button
@@ -240,7 +240,7 @@ watch(
             :disabled="resumeBusy"
             @click="resumeLastRoom"
           >
-            {{ resumeBusy ? '復帰中…' : 'ルームに復帰' }}
+            {{ resumeBusy ? '戻っています…' : 'ルームに戻る' }}
           </button>
           <button
             type="button"
@@ -248,7 +248,7 @@ watch(
             :disabled="resumeBusy"
             @click="dismissResumable"
           >
-            破棄
+            表示しない
           </button>
         </div>
       </section>
@@ -350,7 +350,7 @@ watch(
           <span class="chip text-[10px]">最大10人</span>
         </div>
         <p class="mb-4 text-xs text-sand-dim">
-          表示名はルーム内の席・チャットに使われます（未入力時は「プレイヤー」）
+          表示名は席とチャットに出ます。空欄のときは「プレイヤー」になります
         </p>
         <label class="mb-5 block">
           <span class="mb-1.5 block text-xs text-sand-dim">表示名</span>
@@ -365,10 +365,10 @@ watch(
         </label>
 
         <div class="mb-1 flex items-center gap-2">
-          <h3 class="text-sm font-semibold text-gold-200">ルームを作成</h3>
+          <h3 class="text-sm font-semibold text-gold-200">ルームを作る</h3>
         </div>
         <p class="mb-3 text-xs text-sand-dim">
-          ホストとしてルームを開き、6 文字コードを友だちに共有します
+          あなたがホストになります。6文字のコードを友だちに送ってください
         </p>
         <button
           type="button"
@@ -376,13 +376,13 @@ watch(
           :disabled="onlineBusy"
           @click="createRoom"
         >
-          {{ onlineBusy ? '接続中…' : 'ルームを作成する' }}
+          {{ onlineBusy ? '接続中…' : 'ルームを作る' }}
         </button>
         <p v-if="onlineBusy" class="mt-2 text-center text-[11px] text-sand-dim">
           <template v-if="isDevBuild">
             接続中…（進まないときは <code class="font-mono">npm run worker:dev</code> を確認）
           </template>
-          <template v-else>サーバーに接続しています…</template>
+          <template v-else>サーバーにつないでいます…</template>
         </p>
         <p
           v-else-if="onlineGame.lastError"
@@ -398,9 +398,9 @@ watch(
         </div>
 
         <div class="mb-1 flex items-center gap-2">
-          <h3 class="text-sm font-semibold text-gold-200">ルームに参加</h3>
+          <h3 class="text-sm font-semibold text-gold-200">ルームに入る</h3>
         </div>
-        <p class="mb-3 text-xs text-sand-dim">ホストから共有されたルームコードを入力</p>
+        <p class="mb-3 text-xs text-sand-dim">ホストからもらった6文字のコードを入力してください</p>
         <label class="mb-3 block">
           <span class="mb-1.5 block text-xs text-sand-dim">ルームコード</span>
           <input
@@ -422,7 +422,7 @@ watch(
           :disabled="onlineBusy"
           @click="joinRoom"
         >
-          {{ onlineBusy ? '接続中…' : '参加する' }}
+          {{ onlineBusy ? '接続中…' : 'ルームに入る' }}
         </button>
         <p
           v-if="!onlineBusy && onlineGame.lastError"

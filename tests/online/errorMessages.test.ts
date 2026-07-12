@@ -51,7 +51,7 @@ describe('formatServerError', () => {
     )
     expect(
       formatServerError('ILLEGAL_ACTION', 'Game is not in progress'),
-    ).toContain('進行')
+    ).toMatch(/始ま|進行/)
   })
 
   it('passes through Japanese server messages on ILLEGAL_ACTION', () => {
@@ -102,13 +102,15 @@ describe('formatHttpErrorBody', () => {
   it('maps Worker JSON error field', () => {
     expect(
       formatHttpErrorBody({ error: 'BAD_REQUEST', message: 'Invalid room code' }),
-    ).toContain('リクエスト')
+    ).toMatch(/入力|確認|もう一度/)
     expect(
       formatHttpErrorBody({ error: 'ROOM_NOT_FOUND', message: 'gone' }),
     ).toContain('ルーム')
   })
 
   it('includes HTTP status when body empty', () => {
-    expect(formatHttpErrorBody({}, 503)).toContain('503')
+    const msg = formatHttpErrorBody({}, 503)
+    expect(msg).toContain('503')
+    expect(msg).toMatch(/通信|失敗/)
   })
 })

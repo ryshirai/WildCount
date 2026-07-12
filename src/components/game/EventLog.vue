@@ -32,7 +32,7 @@ withDefaults(
         class="font-semibold text-gold-200"
         :class="compact ? 'text-xs' : 'text-sm'"
       >
-        イベントログ
+        対戦ログ
       </h2>
       <span class="text-sand-dim">▾</span>
     </div>

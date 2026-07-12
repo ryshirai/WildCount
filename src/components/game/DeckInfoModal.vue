@@ -30,10 +30,10 @@ const SPECIAL_ROWS: Array<{
   label: string
   hint: string
 }> = [
-  { key: 'double', label: '×2', hint: '合計を2倍' },
-  { key: 'max_to_zero', label: 'M→0', hint: '最大値を0に' },
-  { key: 'redraw', label: '?', hint: '引き直し' },
-  { key: 'zero_mix', label: '0*', hint: '捨て札ミックス' },
+  { key: 'double', label: '×2', hint: '合計を2倍にする' },
+  { key: 'max_to_zero', label: 'M→0', hint: '最大のプラスを0に' },
+  { key: 'redraw', label: '?', hint: '配ったら引き直し' },
+  { key: 'zero_mix', label: '0*', hint: '0扱いで捨て札を混ぜる' },
 ]
 
 function toComposition(
@@ -170,7 +170,7 @@ onUnmounted(() => {
                 id="deck-info-title"
                 class="font-display text-lg font-bold text-gold-200"
               >
-                山札の構成
+                この対戦の山札
               </h2>
             </div>
             <button
@@ -231,11 +231,11 @@ onUnmounted(() => {
             </div>
 
             <p class="mb-4 rounded-xl border border-gold-400/15 bg-night-900/50 px-3 py-2 text-[11px] leading-relaxed text-sand-dim">
-              ゲーム開始時に決めた<strong class="font-medium text-sand">構成の総枚数</strong>です。配札・捨て札の残り枚数ではありません。
+              ゲーム開始時に決めた<strong class="font-medium text-sand">山札の中身（全部で何枚か）</strong>です。いま山に何枚残っているかではありません。
             </p>
 
             <p class="mb-2 text-[10px] font-medium uppercase tracking-[0.14em] text-sand-dim">
-              内訳
+              入っている札
             </p>
             <div class="flex flex-wrap items-start gap-x-2 gap-y-3">
               <div

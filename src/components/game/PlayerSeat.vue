@@ -66,7 +66,7 @@ defineProps<{
       <span
         v-else-if="player.connected === false"
         class="seat-chip-out"
-        title="再接続待ち（約60秒で脱落）"
+        title="再接続待ち（しばらくすると脱落します）"
       >切断</span>
       <span
         v-else-if="player.isCurrentTurn"

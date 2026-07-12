@@ -55,9 +55,9 @@ function onChallenge() {
     :class="mobile ? 'px-2.5 py-1.5' : 'px-4 py-2.5 sm:py-3'"
   >
     <p v-if="!mobile" class="mb-1.5 text-xs text-sand-dim sm:mb-2">
-      次の宣言を選択してください
+      宣言する数字を選んでください
     </p>
-    <p v-else class="mb-1 text-center text-[10px] text-sand-dim">次の宣言</p>
+    <p v-else class="mb-1 text-center text-[10px] text-sand-dim">宣言する数字</p>
 
     <div
       class="flex flex-wrap items-center gap-1.5"

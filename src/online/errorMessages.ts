@@ -28,25 +28,24 @@ export type OnlineErrorCode = (typeof ONLINE_ERROR_CODES)[number]
 export type ClientErrorCode = OnlineErrorCode | 'ROOM_CLOSED' | 'CONNECTION'
 
 const CODE_MESSAGES: Record<OnlineErrorCode, string> = {
-  UNKNOWN_TYPE: '不明な操作です。ページを再読み込みしてください',
-  UNAUTHORIZED: 'この操作はホストのみ行えます',
+  UNKNOWN_TYPE: 'うまく処理できませんでした。ページを再読み込みしてみてください',
+  UNAUTHORIZED: 'この操作はホストだけが行えます',
   ROOM_FULL: 'ルームが満員です（最大10人）',
   ROOM_NOT_FOUND:
-    'ルームが見つかりません。コードを確認するか、新しいルームを作成してください',
-  GAME_ALREADY_STARTED: 'ゲームがすでに始まっています。途中参加はできません',
-  NOT_ENOUGH_PLAYERS: '開始には2人以上必要です',
+    'ルームが見つかりません。コードを確認するか、新しいルームを作ってください',
+  GAME_ALREADY_STARTED: 'すでにゲームが始まっています。途中からは参加できません',
+  NOT_ENOUGH_PLAYERS: '開始するには2人以上必要です',
   PLAYERS_NOT_READY: '全員が準備完了してから開始できます',
-  REVISION_MISMATCH:
-    '状態が更新されました。もう一度操作してください',
-  ILLEGAL_ACTION: 'その操作は今はできません',
+  REVISION_MISMATCH: '状況が変わったようです。もう一度操作してください',
+  ILLEGAL_ACTION: 'いまはその操作はできません',
   INVALID_TOKEN:
-    '復帰に失敗しました。ホームからルームコードで再参加してください',
-  BAD_REQUEST: 'リクエストが不正です',
-  NOT_IMPLEMENTED: 'この機能はまだ実装されていません',
-  INTERNAL: 'サーバーで問題が起きました。しばらくしてから再試行してください',
+    'ルームに戻れませんでした。ホームからコードを入力して再参加してください',
+  BAD_REQUEST: '入力内容を確認してもう一度お試しください',
+  NOT_IMPLEMENTED: 'この機能はまだ使えません',
+  INTERNAL: 'サーバーで問題が起きました。しばらくしてからもう一度お試しください',
   NOT_FOUND: '見つかりませんでした',
-  RATE_LIMITED: '送信が早すぎます。少し待ってからもう一度',
-  CHAT_REJECTED: 'メッセージを送信できませんでした',
+  RATE_LIMITED: '送信が少し早すぎます。間をあけてもう一度',
+  CHAT_REJECTED: 'メッセージを送れませんでした',
 }
 
 /**
@@ -73,19 +72,19 @@ function refineIllegalAction(serverMessage?: string): string {
   if (!serverMessage) return CODE_MESSAGES.ILLEGAL_ACTION
   const m = serverMessage.toLowerCase()
   if (m.includes('not your turn')) return 'あなたの手番ではありません'
-  if (m.includes('game is over')) return 'ゲームは終了しています'
-  if (m.includes('not in progress')) return 'ゲーム進行中ではありません'
+  if (m.includes('game is over')) return 'ゲームはすでに終了しています'
+  if (m.includes('not in progress')) return 'ゲームはまだ始まっていません'
   if (m.includes('bid must be') || m.includes('invalid bid')) {
-    return '宣言の値が不正です'
+    return 'その宣言の数字は選べません。いまの下限を確認してください'
   }
   if (m.includes('cannot challenge') || m.includes('no bid')) {
-    return '今はチャレンジできません'
+    return 'いまはコヨーテ！できません（先に誰かが宣言する必要があります）'
   }
   if (m.includes('not over') || m.includes('rematch only')) {
-    return 'ゲーム終了後にもう一度遊べます'
+    return 'ゲームが終わってから「もう一度遊ぶ」が使えます'
   }
   if (m.includes('result screen') || m.includes('leave the result')) {
-    return '全員が結果画面を閉じるまでお待ちください'
+    return '全員が結果を確認するまでお待ちください'
   }
   // Domain / engine Japanese or other already-friendly text
   if (/[\u3040-\u30ff\u4e00-\u9fff]/.test(serverMessage)) {
@@ -127,10 +126,10 @@ export function formatRoomClosedReason(reason: string | null | undefined): strin
     return 'ホストがルームを解散しました'
   }
   if (r.includes('inactivity') || r.includes('idle')) {
-    return 'しばらく操作がなかったため、ルームが閉じられました'
+    return 'しばらく動きがなかったため、ルームが閉じられました'
   }
   if (r.includes('purge') || r.includes('deleted')) {
-    return 'ルームが削除されました'
+    return 'ルームはすでにありません'
   }
   if (/[\u3040-\u30ff\u4e00-\u9fff]/.test(reason)) return reason
   return 'ルームが閉じられました'
@@ -150,7 +149,7 @@ export function formatHttpErrorBody(
     return body.message
   }
   if (httpStatus != null) {
-    return `リクエストに失敗しました (HTTP ${httpStatus})`
+    return `通信に失敗しました（コード ${httpStatus}）`
   }
-  return 'リクエストに失敗しました'
+  return '通信に失敗しました。もう一度お試しください'
 }

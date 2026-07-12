@@ -448,14 +448,14 @@ export function parseWireDeck(
   raw: unknown,
 ): { deck: WireDeckComposition } | { error: string } {
   if (!raw || typeof raw !== 'object') {
-    return { error: '山札の構成データが不正です' }
+    return { error: '山札の内容を読み取れませんでした' }
   }
   const d = raw as Record<string, unknown>
   if (!Array.isArray(d.numbers)) {
-    return { error: '山札の数字カード一覧が不正です' }
+    return { error: '数字カードの設定が正しくありません' }
   }
   if (!d.specials || typeof d.specials !== 'object') {
-    return { error: '山札の特殊カード一覧が不正です' }
+    return { error: '特殊カードの設定が正しくありません' }
   }
   const specialsRaw = d.specials as Record<string, unknown>
   const specials = {
@@ -466,7 +466,7 @@ export function parseWireDeck(
   }
   for (const [k, v] of Object.entries(specials)) {
     if (typeof v !== 'number' || !Number.isInteger(v) || v < 0 || v > 50) {
-      return { error: `特殊カード「${k}」の枚数は 0〜50 の整数です` }
+      return { error: `特殊カード「${k}」の枚数は 0〜50 の整数にしてください` }
     }
   }
 
@@ -476,7 +476,7 @@ export function parseWireDeck(
   }
   for (const entry of d.numbers) {
     if (!entry || typeof entry !== 'object') {
-      return { error: '山札の数字カード一覧が不正です' }
+      return { error: '数字カードの設定が正しくありません' }
     }
     const e = entry as Record<string, unknown>
     if (
@@ -485,7 +485,7 @@ export function parseWireDeck(
       e.value < -100 ||
       e.value > 100
     ) {
-      return { error: 'カードの値は -100〜100 の整数です' }
+      return { error: 'カードの数字は -100〜100 の整数にしてください' }
     }
     if (
       typeof e.count !== 'number' ||
@@ -493,7 +493,7 @@ export function parseWireDeck(
       e.count < 0 ||
       e.count > 50
     ) {
-      return { error: 'カード枚数は 0〜50 の整数です' }
+      return { error: 'カードの枚数は 0〜50 の整数にしてください' }
     }
     if (e.count === 0) continue
     numbers.push({ value: e.value, count: e.count })
@@ -525,17 +525,17 @@ export function parseWireDeck(
       // Map engine English messages to short Japanese for UI
       const m = err.message
       if (m.includes('at least')) {
-        return { error: '山札は10枚以上必要です' }
+        return { error: '山札は10枚以上にしてください' }
       }
       if (m.includes('at most')) {
         return { error: '山札は120枚以下にしてください' }
       }
       if (m.includes('at least 1')) {
-        return { error: '山札に1枚以上カードを入れてください' }
+        return { error: '山札に1枚以上入れてください' }
       }
-      return { error: '山札の構成が不正です' }
+      return { error: '山札の内容を確認してください' }
     }
-    return { error: '山札の構成が不正です' }
+    return { error: '山札の内容を確認してください' }
   }
 
   return {
