@@ -66,9 +66,11 @@ describe('formatServerError', () => {
 })
 
 describe('isSoftActionError', () => {
-  it('treats revision and illegal as soft', () => {
+  it('treats revision, illegal, and chat soft codes as soft', () => {
     expect(isSoftActionError('REVISION_MISMATCH')).toBe(true)
     expect(isSoftActionError('ILLEGAL_ACTION')).toBe(true)
+    expect(isSoftActionError('RATE_LIMITED')).toBe(true)
+    expect(isSoftActionError('CHAT_REJECTED')).toBe(true)
     expect(isSoftActionError('ROOM_FULL')).toBe(false)
     expect(isSoftActionError(null)).toBe(false)
   })

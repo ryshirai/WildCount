@@ -18,6 +18,8 @@ export const ONLINE_ERROR_CODES = [
   'NOT_IMPLEMENTED',
   'INTERNAL',
   'NOT_FOUND',
+  'RATE_LIMITED',
+  'CHAT_REJECTED',
 ] as const
 
 export type OnlineErrorCode = (typeof ONLINE_ERROR_CODES)[number]
@@ -43,6 +45,8 @@ const CODE_MESSAGES: Record<OnlineErrorCode, string> = {
   NOT_IMPLEMENTED: 'この機能はまだ実装されていません',
   INTERNAL: 'サーバーで問題が起きました。しばらくしてから再試行してください',
   NOT_FOUND: '見つかりませんでした',
+  RATE_LIMITED: '送信が早すぎます。少し待ってからもう一度',
+  CHAT_REJECTED: 'メッセージを送信できませんでした',
 }
 
 /**
@@ -50,7 +54,12 @@ const CODE_MESSAGES: Record<OnlineErrorCode, string> = {
  * REVISION_MISMATCH already gets a fresh view from the server.
  */
 export function isSoftActionError(code: string | null | undefined): boolean {
-  return code === 'REVISION_MISMATCH' || code === 'ILLEGAL_ACTION'
+  return (
+    code === 'REVISION_MISMATCH' ||
+    code === 'ILLEGAL_ACTION' ||
+    code === 'RATE_LIMITED' ||
+    code === 'CHAT_REJECTED'
+  )
 }
 
 export function isKnownErrorCode(code: string): code is OnlineErrorCode {

@@ -45,13 +45,20 @@ npm run worker:dev
 
 ### wrangler dev が応答しなくなったとき
 
-長時間稼働や Dev Container 上で、**ポート 8787 は LISTEN しているのに HTTP が返らない**ことがあります（workerd ハング）。
+Dev Container / Linux 上で、**ポート 8787 は LISTEN しているのに HTTP が返らない**ことがあります。
+
+**原因（ローカル固有）**: Node が内部 loopback を `[::1]` のみに bind し、workerd が `localhost` → `127.0.0.1` へ繋ごうとして Connection refused を無 backoff で連打 → workerd が **CPU 100%** でハングする（[workers-sdk#12910](https://github.com/cloudflare/workers-sdk/issues/12910)）。
+
+**対策**: `npm run worker:dev` は `NODE_OPTIONS=--dns-result-order=ipv4first` 付きで起動する（`package.json` に設定済み）。Node が `127.0.0.1` に bind し、workerd と一致する。
+
+それでも応答しないとき:
 
 1. ホームの「ルームを作成」は約 8 秒でタイムアウトし、再起動を促す文言を出します  
-2. 復旧: `worker:dev` を止めて再起動（プロセスが残っていれば PID を kill）  
-3. 確認: `curl -s http://127.0.0.1:8787/api/health` → `{"ok":true,...}`
+2. 復旧: `worker:dev` を止めて再起動（`workerd` が残っていれば PID を kill）  
+3. 確認: `curl -s http://127.0.0.1:8787/api/health` → `{"ok":true,...}`  
+4. workerd が 100% CPU なら上記 IPv4 設定を確認
 
-本番 Cloudflare 上では同じ症状は未確認。ローカル `wrangler dev` 固有の既知問題として扱います。
+本番 Cloudflare 上では同じ症状は未確認。
 
 ## 主なスクリプト
 

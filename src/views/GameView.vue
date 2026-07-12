@@ -10,6 +10,7 @@ import GameHeader from '@/components/game/GameHeader.vue'
 import PlayerCircle from '@/components/game/PlayerCircle.vue'
 import CurrentBidDisplay from '@/components/game/CurrentBidDisplay.vue'
 import EventLog from '@/components/game/EventLog.vue'
+import ChatPanel from '@/components/game/ChatPanel.vue'
 import BidControls from '@/components/game/BidControls.vue'
 import MobilePlayerCarousel from '@/components/game/MobilePlayerCarousel.vue'
 import CoyoteCutIn from '@/components/game/CoyoteCutIn.vue'
@@ -18,6 +19,7 @@ import PlayerAvatar from '@/components/game/PlayerAvatar.vue'
 import HelpModal from '@/components/common/HelpModal.vue'
 import MockBadge from '@/components/common/MockBadge.vue'
 import { allowLocalPlay, allowUiMock } from '@/config/runtime'
+import { AVATAR_ASSETS, avatarSrc } from '@/localGame/avatarCatalog'
 import type { GameRoomMock, RevealedCard } from '@/types/game'
 
 const router = useRouter()
@@ -70,6 +72,8 @@ const statusMessage = computed(() => {
 const toast = ref<string | null>(null)
 const helpOpen = ref(false)
 const mobileTab = ref<'chat' | 'players' | 'log'>('players')
+/** Desktop right rail: event log or chat */
+const desktopSideTab = ref<'log' | 'chat'>('log')
 const draftBid = ref(0)
 const acting = ref(false)
 
@@ -78,7 +82,30 @@ function openHelp() {
 }
 
 function onHeaderChat() {
-  showToast('チャットは準備中です')
+  desktopSideTab.value = 'chat'
+  mobileTab.value = 'chat'
+}
+
+function onSendChat(text: string) {
+  if (!isOnline.value) {
+    showToast('オンライン対戦でのみ利用できます')
+    return
+  }
+  onlineGame.sendChat(text)
+}
+
+function chatAvatarForPlayer(playerId: string) {
+  const fromGame = room.value?.players.find((p) => p.id === playerId)
+  if (fromGame) {
+    return { avatar: fromGame.avatar, avatarSrc: fromGame.avatarSrc }
+  }
+  const fromView = onlineGame.view?.players.find((p) => p.id === playerId)
+  if (fromView) {
+    const i = (fromView.avatarIndex ?? 0) % AVATAR_ASSETS.length
+    const meta = AVATAR_ASSETS[i]!
+    return { avatar: meta.emoji, avatarSrc: avatarSrc(meta.id) }
+  }
+  return { avatar: '👤' }
 }
 
 /**
@@ -710,7 +737,54 @@ async function onChallenge() {
           <div
             class="flex w-72 min-h-0 shrink-0 flex-col border-l border-gold-400/10 p-3 xl:w-80"
           >
-            <EventLog :items="room.eventLog" class="min-h-0 flex-1" />
+            <div
+              class="mb-2 flex shrink-0 gap-1 rounded-xl border border-gold-400/15 bg-night-900/50 p-1"
+              role="tablist"
+              aria-label="サイドパネル"
+            >
+              <button
+                type="button"
+                role="tab"
+                class="flex-1 rounded-lg px-2 py-1.5 text-xs font-medium transition"
+                :class="
+                  desktopSideTab === 'log'
+                    ? 'bg-night-700 text-gold-200'
+                    : 'text-sand-dim hover:text-sand'
+                "
+                :aria-selected="desktopSideTab === 'log'"
+                @click="desktopSideTab = 'log'"
+              >
+                ログ
+              </button>
+              <button
+                type="button"
+                role="tab"
+                class="flex-1 rounded-lg px-2 py-1.5 text-xs font-medium transition"
+                :class="
+                  desktopSideTab === 'chat'
+                    ? 'bg-night-700 text-gold-200'
+                    : 'text-sand-dim hover:text-sand'
+                "
+                :aria-selected="desktopSideTab === 'chat'"
+                @click="desktopSideTab = 'chat'"
+              >
+                チャット
+              </button>
+            </div>
+            <EventLog
+              v-if="desktopSideTab === 'log'"
+              :items="room.eventLog"
+              class="min-h-0 flex-1"
+            />
+            <ChatPanel
+              v-else
+              class="min-h-0 flex-1"
+              :messages="isOnline ? onlineGame.chatMessages : []"
+              :self-player-id="onlineGame.playerId"
+              :avatar-for-player="chatAvatarForPlayer"
+              :disabled="!isOnline || onlineGame.connection !== 'open'"
+              @send="onSendChat"
+            />
           </div>
         </div>
       </div>
@@ -902,10 +976,7 @@ async function onChallenge() {
               type="button"
               class="flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] transition"
               :class="mobileTab === 'chat' ? 'text-gold-200' : 'text-sand-dim'"
-              @click="
-                mobileTab = 'chat';
-                showToast('チャットは準備中です')
-              "
+              @click="mobileTab = mobileTab === 'chat' ? 'players' : 'chat'"
             >
               <span class="text-base">💬</span>
               チャット
@@ -946,6 +1017,30 @@ async function onChallenge() {
               </button>
             </div>
             <EventLog :items="room.eventLog" class="min-h-0 flex-1" />
+          </div>
+
+          <div
+            v-if="mobileTab === 'chat'"
+            class="absolute inset-0 z-20 flex flex-col bg-night-950/95 p-3 pt-14 safe-bottom"
+          >
+            <div class="mb-2 flex shrink-0 items-center justify-between gap-2">
+              <p class="text-xs font-semibold text-gold-200">チャット</p>
+              <button
+                type="button"
+                class="btn-ghost !px-2 !py-1 text-[11px]"
+                @click="mobileTab = 'players'"
+              >
+                閉じる
+              </button>
+            </div>
+            <ChatPanel
+              class="min-h-0 flex-1"
+              :messages="isOnline ? onlineGame.chatMessages : []"
+              :self-player-id="onlineGame.playerId"
+              :avatar-for-player="chatAvatarForPlayer"
+              :disabled="!isOnline || onlineGame.connection !== 'open'"
+              @send="onSendChat"
+            />
           </div>
         </template>
       </div>

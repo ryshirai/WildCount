@@ -3,6 +3,15 @@
  * Keep in sync with worker/types.ts, worker/maskedView.ts, docs/phase1-multiplayer.md
  */
 
+export interface ChatMessage {
+  id: string
+  playerId: string
+  displayName: string
+  text: string
+  /** epoch ms */
+  ts: number
+}
+
 export type ClientMessage =
   | { type: 'join'; displayName: string; resumeToken?: string }
   | { type: 'ready'; ready: boolean }
@@ -17,6 +26,8 @@ export type ClientMessage =
   | { type: 'ping' }
   | { type: 'dismiss_result' }
   | { type: 'rematch' }
+  | { type: 'chat'; text: string }
+  | { type: 'leave' }
 
 export type ClientGameAction =
   | { type: 'PLACE_BID'; value: number }
@@ -49,6 +60,8 @@ export type ServerMessage =
     }
   | { type: 'room_closed'; reason: string }
   | { type: 'pong' }
+  | { type: 'chat'; message: ChatMessage }
+  | { type: 'chat_history'; messages: ChatMessage[] }
 
 export interface WireCard {
   id: string

@@ -39,7 +39,7 @@
 | **HOLD-1** | done | **開始同期（全員 ready 必須）** | host start は全員 ready。`PLAYERS_NOT_READY` / `canStart` 連動 |
 | **HOLD-2** | done | **結果のサーバ側全員 ACK** | `dismiss_result` + `resultAcks`。接続中全員まで `pendingResult` 保持。次 bid では消さない |
 | **HOLD-3** | done | **オンライン再戦（もう一度遊ぶ）** | `rematch` → 同席のままロビー。ready をリセットして再スタート |
-| **HOLD-4** | done | **wrangler 長時間稼働ハング** | ローカル workerd 既知。8s タイムアウト + README 復旧手順。本番未再現のため深掘り打ち切り |
+| **HOLD-4** | done | **wrangler ローカルハング（IPv4/IPv6）** | Node が `[::1]`、workerd が `127.0.0.1` で不一致 → CPU 100%。`worker:dev` に `NODE_OPTIONS=--dns-result-order=ipv4first`（#12910） |
 | **HOLD-5** | hold | **本番 `wrangler deploy`** | ユーザー確認なしでは行わない（phase1 非交渉） |
 
 ---
@@ -53,7 +53,10 @@
 | UX-2 | idea | 切断中ホストの「移譲まであと N 秒」表示 | P1-5 実装時に検討 |
 | UX-3 | idea | ゲーム中の退出・キック（長時間切断） | MVP 外だった離脱踢出 |
 | UX-4 | idea | 観戦モード（開始後 join） | MVP は開始後 join 拒否 |
-| UX-6 | idea | ルーム内チャット | **未実装**。UI シェル（タブ・アイコン）のみ。「準備中」トースト。design-overview §8 / phase1 で MVP 外 |
+| **UX-6** | **done** | ルーム内チャット | WS `chat` / `chat_history`。履歴 50・120 字・800ms クールダウン。ロビー＋ゲーム UI |
+| **UX-7** | **idea** | チャット・リアクション | 絵文字リアクション等。メンション・未読は不要と判断 |
+| UX-8 | done | 表示名入力（ホーム共通・ロビー変更） | 作成/参加で共有フィールド。ロビーで「名前を反映」 |
+| UX-9 | done | ロビー意図的退出で席削除 | `leave` メッセージ。切断ゴーストではなく一覧から消える |
 | TEST-1 | idea | Playwright E2E（2 ブラウザ） | design-overview §7。手動 2 タブが当面の受け入れ |
 | OPS-1 | idea | Worker ヘルス表示（ホームに「Worker 未接続」） | create タイムアウト文言は済 |
 
@@ -76,8 +79,7 @@
 ## 直近のおすすめ着手順
 
 1. **HOLD-5**（本番 deploy）はユーザー確認後  
-2. UX-2（ホスト移譲カウントダウン）・TEST-1 / OPS-1 は任意  
-3. **UX-6 チャット** は未着手。MVP 外のまま（シェルのみ）
+2. UX-2（ホスト移譲カウントダウン）・TEST-1 / OPS-1 は任意
 
 ---
 
@@ -87,4 +89,4 @@
 2. 完了したら状態を `done` にし、数セッション後に表から落としてよい  
 3. Phase 1 スライスの ID（P1-x）は `phase1-multiplayer.md` §10 と揃える  
 
-最終更新: 2026-07-12（UX-5 ヘルプ done）
+最終更新: 2026-07-12（UX-7 リアクション idea / UX-8・9 名前・退出 done）

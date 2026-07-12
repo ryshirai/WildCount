@@ -14,7 +14,7 @@
 - Cloudflare Worker / Durable Object / WebSocket
 - ルームコード本実装・再接続・ホスト移譲
 - 公式・他社 IP の模倣
-- チャット本体
+- ~~チャット本体~~ → UX-6 で実装（オンラインルーム）
 
 ## 現状
 

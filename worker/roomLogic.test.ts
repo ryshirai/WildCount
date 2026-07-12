@@ -7,6 +7,7 @@ import {
 import {
   allConnectedHaveResultAck,
   allPlayersReady,
+  appendChatMessage,
   applyDueHostTransfer,
   applyResultDismiss,
   buildPlayerView,
@@ -19,12 +20,15 @@ import {
   nextAlarmAt,
   parseClientMessage,
   pickNextHost,
+  removePlayerFromRoom,
   resetRoomForRematch,
+  sanitizeChatText,
   sanitizeDisplayName,
   shouldPurgeRoom,
   type RoomPlayer,
   type RoomState,
 } from './roomLogic'
+import { CHAT_COOLDOWN_MS, MAX_CHAT_TEXT_LENGTH } from './types'
 import type { PendingResultSnapshot } from './maskedView'
 
 function player(
@@ -59,9 +63,76 @@ describe('roomLogic', () => {
       ready: true,
     })
     expect(parseClientMessage({ type: 'start' })).toEqual({ type: 'start' })
+    expect(parseClientMessage({ type: 'chat', text: 'hi' })).toEqual({
+      type: 'chat',
+      text: 'hi',
+    })
+    expect(parseClientMessage({ type: 'chat' })).toMatchObject({
+      error: expect.stringContaining('text'),
+    })
+    expect(parseClientMessage({ type: 'leave' })).toEqual({ type: 'leave' })
     expect(parseClientMessage({ type: 'nope' })).toMatchObject({
       error: expect.stringContaining('Unknown'),
     })
+  })
+
+  it('removes lobby seat and reassigns host on intentional leave', () => {
+    const room = createEmptyRoom('LEFT01')
+    room.hostId = 'h'
+    room.players = [
+      player({ id: 'h', joinedAt: 1, displayName: 'Host', resumeToken: 'th' }),
+      player({ id: 'g', joinedAt: 2, displayName: 'Guest', resumeToken: 'tg' }),
+    ]
+    room.resumeTokens = { th: 'h', tg: 'g' }
+    room.chatLastAt = { h: 1, g: 2 }
+
+    const r = removePlayerFromRoom(room, 'h')
+    expect(r.removed).toBe(true)
+    expect(r.hostChanged).toBe(true)
+    expect(r.newHostId).toBe('g')
+    expect(room.hostId).toBe('g')
+    expect(room.players.map((p) => p.id)).toEqual(['g'])
+    expect(room.resumeTokens).toEqual({ tg: 'g' })
+    expect(room.chatLastAt['h']).toBeUndefined()
+
+    const last = removePlayerFromRoom(room, 'g')
+    expect(last.removed).toBe(true)
+    expect(room.players).toHaveLength(0)
+    expect(room.hostId).toBeNull()
+  })
+
+  it('sanitizes and appends chat messages with rate limit', () => {
+    expect(sanitizeChatText('  hello  ')).toBe('hello')
+    expect(sanitizeChatText('')).toBeNull()
+    expect(sanitizeChatText('a'.repeat(200))).toHaveLength(MAX_CHAT_TEXT_LENGTH)
+
+    const room = createEmptyRoom('CHAT01')
+    const p = player({ id: 'p1', joinedAt: 1, displayName: 'Alice' })
+    room.players = [p]
+
+    const r1 = appendChatMessage(room, p, '  やあ  ', 1000, 'c1')
+    expect(r1.ok).toBe(true)
+    if (r1.ok) {
+      expect(r1.message.text).toBe('やあ')
+      expect(r1.message.displayName).toBe('Alice')
+    }
+    expect(room.chatLog).toHaveLength(1)
+    // revision must not change for chat
+    expect(room.revision).toBe(0)
+
+    const limited = appendChatMessage(room, p, 'too soon', 1000 + 100, 'c2')
+    expect(limited.ok).toBe(false)
+    if (!limited.ok) expect(limited.code).toBe('RATE_LIMITED')
+
+    const r2 = appendChatMessage(
+      room,
+      p,
+      'next',
+      1000 + CHAT_COOLDOWN_MS,
+      'c3',
+    )
+    expect(r2.ok).toBe(true)
+    expect(room.chatLog).toHaveLength(2)
   })
 
   it('builds lobby view with host and canStart only when all ready', () => {

@@ -11,7 +11,7 @@
     "test:watch": "vitest",
     "lint": "eslint . --ext .ts,.vue",
     "format": "prettier --write \"**/*.{ts,vue,json,md}\"",
-    "worker:dev": "wrangler dev",
+    "worker:dev": "NODE_OPTIONS='--dns-result-order=ipv4first' wrangler dev",
     "deploy": "wrangler deploy"
   },
   "dependencies": {

@@ -10,11 +10,15 @@ import {
   type PendingResultSnapshot,
 } from './maskedView'
 import {
+  CHAT_COOLDOWN_MS,
   HOST_DISCONNECT_GRACE_MS,
   IDLE_TTL_OPEN_MS,
   IDLE_TTL_PLAYING_MS,
+  MAX_CHAT_HISTORY,
+  MAX_CHAT_TEXT_LENGTH,
   MAX_PLAYERS,
   MIN_PLAYERS_TO_START,
+  type ChatMessage,
   type ClientMessage,
   type PlayerView,
   type PlayerViewMember,
@@ -56,6 +60,10 @@ export interface RoomState {
   bidHistory: BidHistoryEntry[]
   /** actionId → room revision when applied (idempotency) */
   appliedActions: Record<string, number>
+  /** Room chat ring buffer (newest last). Not part of game revision. */
+  chatLog: ChatMessage[]
+  /** playerId → last successful chat epoch ms (rate limit) */
+  chatLastAt: Record<string, number>
 }
 
 export interface WsAttachment {
@@ -78,6 +86,8 @@ export function createEmptyRoom(roomCode: string, now = Date.now()): RoomState {
     resultAcks: {},
     bidHistory: [],
     appliedActions: {},
+    chatLog: [],
+    chatLastAt: {},
   }
 }
 
@@ -158,6 +168,63 @@ export function sanitizeDisplayName(raw: unknown): string {
   return trimmed.length > 0 ? trimmed : 'プレイヤー'
 }
 
+/**
+ * Normalize chat body: strip control chars, collapse whitespace, cap length.
+ * Returns null when empty after sanitize.
+ */
+export function sanitizeChatText(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null
+  // eslint-disable-next-line no-control-regex -- intentional strip of C0/C1 controls
+  const cleaned = raw
+    .replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, MAX_CHAT_TEXT_LENGTH)
+  return cleaned.length > 0 ? cleaned : null
+}
+
+export type AppendChatResult =
+  | { ok: true; message: ChatMessage }
+  | { ok: false; code: 'CHAT_REJECTED' | 'RATE_LIMITED'; message: string }
+
+/**
+ * Append a chat line to the room ring buffer (mutates room).
+ * Does not bump room.revision.
+ */
+export function appendChatMessage(
+  room: RoomState,
+  player: RoomPlayer,
+  rawText: unknown,
+  now = Date.now(),
+  id = crypto.randomUUID(),
+): AppendChatResult {
+  const text = sanitizeChatText(rawText)
+  if (!text) {
+    return { ok: false, code: 'CHAT_REJECTED', message: 'Empty chat message' }
+  }
+  if (!room.chatLastAt) room.chatLastAt = {}
+  if (!room.chatLog) room.chatLog = []
+  const last = room.chatLastAt[player.id]
+  if (typeof last === 'number' && now - last < CHAT_COOLDOWN_MS) {
+    return {
+      ok: false,
+      code: 'RATE_LIMITED',
+      message: 'Chat rate limited',
+    }
+  }
+  const message: ChatMessage = {
+    id,
+    playerId: player.id,
+    displayName: player.displayName,
+    text,
+    ts: now,
+  }
+  room.chatLog = [...room.chatLog, message].slice(-MAX_CHAT_HISTORY)
+  room.chatLastAt[player.id] = now
+  room.lastActivityAt = now
+  return { ok: true, message }
+}
+
 export function parseClientMessage(raw: unknown): ClientMessage | { error: string } {
   if (!raw || typeof raw !== 'object' || !('type' in raw)) {
     return { error: 'Message must be an object with type' }
@@ -188,6 +255,15 @@ export function parseClientMessage(raw: unknown): ClientMessage | { error: strin
       return { type: 'dismiss_result' }
     case 'rematch':
       return { type: 'rematch' }
+    case 'chat': {
+      if (typeof msg.text !== 'string') {
+        return { error: 'chat requires text string' }
+      }
+      // Keep raw text for server-side sanitize + length errors in handler
+      return { type: 'chat', text: msg.text }
+    }
+    case 'leave':
+      return { type: 'leave' }
     case 'resume': {
       if (typeof msg.resumeToken !== 'string' || !msg.resumeToken) {
         return { error: 'resumeToken required' }
@@ -311,6 +387,8 @@ export function ensureLifecycleFields(room: RoomState): void {
   if (!room.appliedActions) room.appliedActions = {}
   if (room.pendingResult === undefined) room.pendingResult = null
   if (!room.resultAcks) room.resultAcks = {}
+  if (!room.chatLog) room.chatLog = []
+  if (!room.chatLastAt) room.chatLastAt = {}
 }
 
 export function connectedPlayerCount(room: RoomState): number {
@@ -339,6 +417,56 @@ export function markPlayerDisconnected(
   if (room.hostId === playerId) {
     room.disconnectDeadlines[playerId] = now + HOST_DISCONNECT_GRACE_MS
   }
+}
+
+export interface RemovePlayerResult {
+  removed: boolean
+  /** Previous host left and hostId was reassigned (or cleared). */
+  hostChanged: boolean
+  previousHostId: string | null
+  newHostId: string | null
+}
+
+/**
+ * Fully remove a seat (lobby intentional leave).
+ * Clears resume token, deadlines, chat rate state, result ACK.
+ * If they were host, reassigns immediately to oldest remaining connected player.
+ */
+export function removePlayerFromRoom(
+  room: RoomState,
+  playerId: string,
+): RemovePlayerResult {
+  ensureLifecycleFields(room)
+  const idx = room.players.findIndex((p) => p.id === playerId)
+  if (idx < 0) {
+    return {
+      removed: false,
+      hostChanged: false,
+      previousHostId: room.hostId,
+      newHostId: room.hostId,
+    }
+  }
+
+  const previousHostId = room.hostId
+  room.players.splice(idx, 1)
+
+  for (const [token, id] of Object.entries(room.resumeTokens)) {
+    if (id === playerId) delete room.resumeTokens[token]
+  }
+  delete room.disconnectDeadlines[playerId]
+  delete room.chatLastAt[playerId]
+  delete room.resultAcks[playerId]
+
+  let hostChanged = false
+  let newHostId = room.hostId
+  if (previousHostId === playerId) {
+    const next = pickNextHost(room)
+    room.hostId = next?.id ?? null
+    newHostId = room.hostId
+    hostChanged = true
+  }
+
+  return { removed: true, hostChanged, previousHostId, newHostId }
 }
 
 /** Oldest connected participant by joinedAt (then id). */

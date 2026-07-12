@@ -22,9 +22,23 @@ export const HOST_DISCONNECT_GRACE_MS = 60_000
 export const IDLE_TTL_OPEN_MS = 10 * 60 * 1000
 export const IDLE_TTL_PLAYING_MS = 30 * 60 * 1000
 
+/** Room chat (UX-6): max body length, ring buffer, per-player cooldown. */
+export const MAX_CHAT_TEXT_LENGTH = 120
+export const MAX_CHAT_HISTORY = 50
+export const CHAT_COOLDOWN_MS = 800
+
 // ---------------------------------------------------------------------------
 // Wire protocol (subset used from P1-1; full set in phase1-multiplayer.md)
 // ---------------------------------------------------------------------------
+
+export interface ChatMessage {
+  id: string
+  playerId: string
+  displayName: string
+  text: string
+  /** epoch ms */
+  ts: number
+}
 
 export type ClientMessage =
   | { type: 'join'; displayName: string; resumeToken?: string }
@@ -42,6 +56,10 @@ export type ClientMessage =
   | { type: 'dismiss_result' }
   /** After game_over: reset room to lobby (same seats) */
   | { type: 'rematch' }
+  /** Room chat (lobby + in-game) */
+  | { type: 'chat'; text: string }
+  /** Intentional leave (lobby: seat removed; playing: disconnect only) */
+  | { type: 'leave' }
 
 export type ClientGameAction =
   | { type: 'PLACE_BID'; value: number }
@@ -74,6 +92,10 @@ export type ServerMessage =
     }
   | { type: 'room_closed'; reason: string }
   | { type: 'pong' }
+  /** Single new chat line (broadcast; does not bump revision) */
+  | { type: 'chat'; message: ChatMessage }
+  /** Recent history after join / resume */
+  | { type: 'chat_history'; messages: ChatMessage[] }
 
 /**
  * Masked per-player snapshot.
@@ -120,3 +142,5 @@ export type ErrorCode =
   | 'INVALID_TOKEN'
   | 'BAD_REQUEST'
   | 'NOT_IMPLEMENTED'
+  | 'RATE_LIMITED'
+  | 'CHAT_REJECTED'

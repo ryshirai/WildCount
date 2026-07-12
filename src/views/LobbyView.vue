@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import AppLogo from '@/components/common/AppLogo.vue'
 import HelpModal from '@/components/common/HelpModal.vue'
 import MockBadge from '@/components/common/MockBadge.vue'
+import ChatPanel from '@/components/game/ChatPanel.vue'
 import PlayerAvatar from '@/components/game/PlayerAvatar.vue'
 import { allowLocalPlay } from '@/config/runtime'
 import { mockLobby } from '@/data/mockLobby'
@@ -24,6 +25,8 @@ const copied = ref(false)
 const starting = ref(false)
 const resumeBusy = ref(false)
 const resumeFailed = ref(false)
+/** Editable display name while waiting in online lobby */
+const nameDraft = ref(onlineGame.displayName || '')
 
 const isOnline = computed(
   () =>
@@ -285,6 +288,51 @@ function leaveLobby() {
   }
   void router.push({ name: 'home' })
 }
+
+function lobbyChatAvatar(playerId: string) {
+  const p = players.value.find((x) => x.id === playerId)
+  if (p) return { avatar: p.avatar, avatarSrc: p.avatarSrc }
+  return { avatar: '👤' }
+}
+
+function onSendChat(text: string) {
+  if (!isOnline.value) return
+  onlineGame.sendChat(text)
+}
+
+function applyDisplayName() {
+  if (!isOnline.value) return
+  const next = nameDraft.value.trim().replace(/\s+/g, ' ').slice(0, 12)
+  if (!next) {
+    showToast('表示名を入力してください')
+    return
+  }
+  nameDraft.value = next
+  onlineGame.updateDisplayName(next)
+  showToast(`表示名を「${next}」に変更しました`)
+}
+
+// Keep draft in sync when server view / store name updates (join, resume)
+watch(
+  () => onlineGame.displayName,
+  (n) => {
+    if (n && n !== nameDraft.value.trim()) {
+      // Only overwrite if draft looks stale (empty or equal to previous store value)
+      if (!nameDraft.value.trim()) nameDraft.value = n
+    }
+  },
+)
+
+watch(
+  () => {
+    const self = players.value.find((p) => p.isSelf)
+    return self?.name
+  },
+  (n) => {
+    if (n && !nameDraft.value.trim()) nameDraft.value = n
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
@@ -372,6 +420,35 @@ function leaveLobby() {
         </p>
       </section>
 
+      <!-- Display name (online lobby) -->
+      <section v-if="isOnline" class="panel mb-6 p-4 sm:p-5">
+        <label class="block">
+          <span class="mb-1.5 block text-xs font-medium text-gold-200">表示名</span>
+          <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <input
+              v-model="nameDraft"
+              type="text"
+              maxlength="12"
+              autocomplete="nickname"
+              placeholder="例: コヨーテ"
+              class="min-w-0 flex-1 rounded-xl border border-gold-400/25 bg-night-900/80 px-4 py-2.5 text-sm text-sand outline-none transition placeholder:text-sand-dim/50 focus:border-gold-400/50 focus:ring-1 focus:ring-gold-400/30"
+              @keydown.enter.prevent="applyDisplayName"
+            />
+            <button
+              type="button"
+              class="btn-ghost shrink-0 text-xs sm:px-4"
+              :disabled="onlineGame.connection !== 'open'"
+              @click="applyDisplayName"
+            >
+              名前を反映
+            </button>
+          </div>
+          <p class="mt-1.5 text-[11px] text-sand-dim">
+            最大12文字。席一覧とチャットに表示されます
+          </p>
+        </label>
+      </section>
+
       <!-- Participants -->
       <section class="panel mb-6 flex min-h-0 flex-1 flex-col p-4 sm:p-5">
         <div class="mb-4 flex items-center justify-between gap-2">
@@ -445,6 +522,22 @@ function leaveLobby() {
           </template>
           <span v-else-if="!isHost"> · ホストの開始を待っています</span>
         </p>
+      </section>
+
+      <!-- Room chat (online) -->
+      <section
+        v-if="isOnline"
+        class="mb-6 h-64 min-h-[14rem] sm:h-72"
+        aria-label="ルームチャット"
+      >
+        <ChatPanel
+          class="h-full"
+          :messages="onlineGame.chatMessages"
+          :self-player-id="onlineGame.playerId"
+          :avatar-for-player="lobbyChatAvatar"
+          :disabled="onlineGame.connection !== 'open'"
+          @send="onSendChat"
+        />
       </section>
 
       <!-- Actions -->

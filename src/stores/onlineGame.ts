@@ -7,6 +7,7 @@ import { onlineToResultView } from '@/mappers/onlineToResultView'
 import type { ResultViewModel } from '@/mappers/toResultView'
 import type { GameViewModel } from '@/mappers/toGameView'
 import type {
+  ChatMessage,
   ClientGameAction,
   ClientMessage,
   PendingResultSnapshot,
@@ -59,6 +60,8 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
   const lastEvent = ref<string | null>(null)
   const displayName = ref(loadSavedDisplayName())
   const eventLog = ref<EventLogItem[]>([])
+  /** Room chat lines (newest last). Filled by chat_history + chat. */
+  const chatMessages = ref<ChatMessage[]>([])
   /**
    * Client-side dismiss of result cut-in / ResultView.
    * Server may clear `view.pendingResult` when the next player bids;
@@ -519,6 +522,17 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
         break
       case 'pong':
         break
+      case 'chat_history':
+        chatMessages.value = Array.isArray(msg.messages) ? [...msg.messages] : []
+        break
+      case 'chat': {
+        const m = msg.message
+        if (!m?.id) break
+        // Dedup if history and live race
+        if (chatMessages.value.some((x) => x.id === m.id)) break
+        chatMessages.value = [...chatMessages.value, m].slice(-50)
+        break
+      }
       default:
         break
     }
@@ -603,12 +617,44 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     send({ type: 'rematch' })
   }
 
+  /** Room chat (online only). Empty / overlong text is ignored client-side. */
+  function sendChat(text: string): void {
+    const trimmed = text.replace(/\s+/g, ' ').trim()
+    if (!trimmed) return
+    clearError()
+    send({ type: 'chat', text: trimmed.slice(0, 120) })
+  }
+
+  /**
+   * Update display name in lobby (re-sends join; server renames existing seat).
+   * No-op when not connected.
+   */
+  function updateDisplayName(name: string): void {
+    const sanitized = name.trim().replace(/\s+/g, ' ').slice(0, 12)
+    displayName.value = sanitized
+    if (sanitized) saveDisplayName(sanitized)
+    if (ws && ws.readyState === WebSocket.OPEN && playerId.value) {
+      send({
+        type: 'join',
+        displayName: sanitized || 'プレイヤー',
+      })
+    }
+  }
+
   function leave(): void {
     const code = roomCode.value
     intentionalClose = true
     clearReconnectTimer()
     reconnecting.value = false
     reconnectAttempt.value = 0
+    // Ask server to drop the lobby seat before closing the socket
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      try {
+        ws.send(JSON.stringify({ type: 'leave' } satisfies ClientMessage))
+      } catch {
+        // ignore
+      }
+    }
     closeSocketOnly()
     if (code) clearResumeToken(code)
     roomCode.value = null
@@ -620,6 +666,7 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     connection.value = 'idle'
     clearError()
     eventLog.value = []
+    chatMessages.value = []
     resultDismissed.value = false
     heldPendingResult.value = null
   }
@@ -652,6 +699,7 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     clearError,
     displayName,
     eventLog,
+    chatMessages,
     reconnecting,
     reconnectAttempt,
     isOnlineSession,
@@ -676,6 +724,8 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     challenge,
     clearPendingResult,
     requestRematch,
+    sendChat,
+    updateDisplayName,
     leave,
     send,
   }

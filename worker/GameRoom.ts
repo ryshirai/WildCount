@@ -13,6 +13,7 @@ import {
 import {
   allConnectedHaveResultAck,
   allPlayersReady,
+  appendChatMessage,
   applyDueHostTransfer,
   applyResultDismiss,
   buildPlayerView,
@@ -25,6 +26,7 @@ import {
   nextAvatarIndex,
   parseClientMessage,
   rememberAction,
+  removePlayerFromRoom,
   resetRoomForRematch,
   shouldPurgeRoom,
   type RoomState,
@@ -231,6 +233,12 @@ export class GameRoom {
           msg.action,
         )
         return
+      case 'chat':
+        await this.handleChat(ws, room, msg.text)
+        return
+      case 'leave':
+        await this.handleLeave(ws, room)
+        return
       default:
         this.send(ws, {
           type: 'error',
@@ -262,6 +270,43 @@ export class GameRoom {
     if (!player) return
 
     const now = Date.now()
+    const name = player.displayName
+
+    // Lobby: always drop the seat (leave message often races behind TCP close,
+    // which previously left a permanent「切断 / 待機中」ghost).
+    if (room.status === 'open') {
+      const result = removePlayerFromRoom(room, att.playerId)
+      if (!result.removed) return
+      room.lastActivityAt = now
+      room.revision += 1
+      await this.saveRoom(room)
+      await this.scheduleNextAlarm(room)
+      this.broadcast(room, {
+        type: 'event',
+        level: 'info',
+        message: `${name} が退出しました`,
+        code: 'PLAYER_LEFT',
+      })
+      if (
+        result.hostChanged &&
+        result.newHostId &&
+        result.newHostId !== result.previousHostId
+      ) {
+        const hostName =
+          room.players.find((p) => p.id === result.newHostId)?.displayName ??
+          '誰か'
+        this.broadcast(room, {
+          type: 'event',
+          level: 'info',
+          message: `ホストが ${hostName} に移譲されました`,
+          code: 'HOST_TRANSFERRED',
+        })
+      }
+      this.broadcastView(room)
+      return
+    }
+
+    // Playing / closed: keep seat for resume (disconnect only)
     markPlayerDisconnected(room, att.playerId, now)
     // Disconnected seats no longer block result ACK completion
     if (room.pendingResult && allConnectedHaveResultAck(room)) {
@@ -340,6 +385,7 @@ export class GameRoom {
         await this.scheduleNextAlarm(room)
         this.sendHello(ws, room, me)
         this.broadcastView(room)
+        this.sendChatHistory(ws, room)
         return
       }
       if (me) {
@@ -351,6 +397,7 @@ export class GameRoom {
         await this.scheduleNextAlarm(room)
         this.sendHello(ws, room, me)
         this.sendView(ws, room, me.id)
+        this.sendChatHistory(ws, room)
         return
       }
     }
@@ -378,6 +425,7 @@ export class GameRoom {
           code: 'RESUME',
         })
         this.broadcastView(room)
+        this.sendChatHistory(ws, room)
         return
       }
       // Invalid token after start → refuse new seat
@@ -435,6 +483,142 @@ export class GameRoom {
 
     this.sendHello(ws, room, player)
     this.broadcastView(room)
+    this.sendChatHistory(ws, room)
+  }
+
+  private async handleChat(
+    ws: WebSocket,
+    room: RoomState,
+    text: string,
+  ): Promise<void> {
+    const playerId = this.playerIdOf(ws)
+    if (!playerId) {
+      this.send(ws, {
+        type: 'error',
+        code: 'BAD_REQUEST',
+        message: 'Join the room first',
+      })
+      return
+    }
+    const player = room.players.find((p) => p.id === playerId)
+    if (!player) {
+      this.send(ws, {
+        type: 'error',
+        code: 'BAD_REQUEST',
+        message: 'Player not found',
+      })
+      return
+    }
+
+    const result = appendChatMessage(room, player, text)
+    if (!result.ok) {
+      this.send(ws, {
+        type: 'error',
+        code: result.code,
+        message: result.message,
+      })
+      return
+    }
+
+    await this.saveRoom(room)
+    await this.scheduleNextAlarm(room)
+    this.broadcast(room, { type: 'chat', message: result.message })
+  }
+
+  /**
+   * Intentional leave: lobby removes the seat; in-game marks disconnected
+   * (seat kept for possible resume until idle purge / game over).
+   */
+  private async handleLeave(ws: WebSocket, room: RoomState): Promise<void> {
+    const playerId = this.playerIdOf(ws)
+    if (!playerId) {
+      // Not joined — just drop the socket attachment path
+      try {
+        ws.close(1000, 'leave')
+      } catch {
+        // ignore
+      }
+      return
+    }
+
+    const player = room.players.find((p) => p.id === playerId)
+    const name = player?.displayName ?? '誰か'
+    const now = Date.now()
+
+    if (room.status === 'open') {
+      const result = removePlayerFromRoom(room, playerId)
+      if (!result.removed) return
+
+      // Clear attachment so webSocketClose does not re-mark disconnect
+      try {
+        ws.serializeAttachment({} satisfies WsAttachment)
+      } catch {
+        // ignore
+      }
+
+      room.lastActivityAt = now
+      room.revision += 1
+      await this.saveRoom(room)
+      await this.scheduleNextAlarm(room)
+
+      this.broadcast(room, {
+        type: 'event',
+        level: 'info',
+        message: `${name} が退出しました`,
+        code: 'PLAYER_LEFT',
+      })
+      if (
+        result.hostChanged &&
+        result.newHostId &&
+        result.newHostId !== result.previousHostId
+      ) {
+        const hostName =
+          room.players.find((p) => p.id === result.newHostId)?.displayName ??
+          '誰か'
+        this.broadcast(room, {
+          type: 'event',
+          level: 'info',
+          message: `ホストが ${hostName} に移譲されました`,
+          code: 'HOST_TRANSFERRED',
+        })
+      }
+      this.broadcastView(room)
+
+      try {
+        ws.close(1000, 'leave')
+      } catch {
+        // ignore
+      }
+      return
+    }
+
+    // Playing / closed: disconnect only (resume token still valid until client clears)
+    markPlayerDisconnected(room, playerId, now)
+    if (room.pendingResult && allConnectedHaveResultAck(room)) {
+      room.pendingResult = null
+      room.resultAcks = {}
+    }
+    try {
+      ws.serializeAttachment({} satisfies WsAttachment)
+    } catch {
+      // ignore
+    }
+    room.lastActivityAt = now
+    room.revision += 1
+    await this.saveRoom(room)
+    await this.scheduleNextAlarm(room)
+    this.broadcast(room, {
+      type: 'event',
+      level: 'info',
+      message: `${name} が退出しました`,
+      code: 'PLAYER_LEFT',
+    })
+    this.broadcastView(room)
+    try {
+      ws.close(1000, 'leave')
+    } catch {
+      // ignore
+    }
   }
 
   private async handleReady(
@@ -875,6 +1059,11 @@ export class GameRoom {
       roomCode: room.roomCode,
       isHost: player.id === room.hostId,
     })
+  }
+
+  private sendChatHistory(ws: WebSocket, room: RoomState): void {
+    const messages = room.chatLog ?? []
+    this.send(ws, { type: 'chat_history', messages })
   }
 
   private sendView(ws: WebSocket, room: RoomState, selfId: string | null): void {

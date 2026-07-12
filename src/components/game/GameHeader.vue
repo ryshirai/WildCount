@@ -9,7 +9,6 @@ defineProps<{
 
 const emit = defineEmits<{
   help: []
-  /** Placeholder — chat not implemented (UX-6) */
   chat: []
 }>()
 
@@ -72,7 +71,7 @@ const connectionLabel: Record<string, string> = {
       <button
         type="button"
         class="btn-ghost !p-2"
-        title="チャット（準備中）"
+        title="チャット"
         aria-label="チャット"
         @click="emit('chat')"
       >
@@ -114,7 +113,7 @@ const connectionLabel: Record<string, string> = {
     <button
       type="button"
       class="btn-ghost !p-2 text-base"
-      title="チャット（準備中）"
+      title="チャット"
       aria-label="チャット"
       @click="emit('chat')"
     >

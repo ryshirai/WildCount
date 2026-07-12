@@ -27,10 +27,15 @@
 ### 含まない
 
 - ユーザー登録 / ランキング / 公開マッチング
-- チャット本体
 - D1 / 外部 DB
 - 公式・他社 IP 素材
 - domain ルール改変（バグ修正以外）
+
+### 後から追加（Phase 1 後）
+
+| 項目 | 内容 |
+|------|------|
+| ルームチャット（UX-6） | ロビー・対戦中。`chat` / `chat_history`。revision 非連動。履歴最大 50・本文 120 字・クールダウン 800ms |
 
 ---
 
@@ -94,6 +99,8 @@ type ClientMessage =
   | { type: 'ping' }                            // アプリ層。Hibernation auto-response と併用可
   | { type: 'dismiss_result' }                  // 結果 UI を閉じた ACK（サーバが全員まで保持）
   | { type: 'rematch' }                         // game_over 後: 同席のままロビーへ
+  | { type: 'chat'; text: string }              // UX-6 ルームチャット（join 後）
+  | { type: 'leave' }                           // 意図的退出（ロビー: 席削除 / 対戦中: 切断）
 
 /** domain GameAction のうちプレイヤー操作分（START_GAME は start メッセージ） */
 type ClientGameAction =
@@ -104,6 +111,14 @@ type ClientGameAction =
 ### 4.2 Server → Client
 
 ```ts
+type ChatMessage = {
+  id: string
+  playerId: string
+  displayName: string
+  text: string
+  ts: number // epoch ms
+}
+
 type ServerMessage =
   | {
       type: 'hello'
@@ -131,6 +146,8 @@ type ServerMessage =
     }
   | { type: 'room_closed'; reason: string }
   | { type: 'pong' }                            // ping 応答（auto と別経路でも可）
+  | { type: 'chat'; message: ChatMessage }      // 新規 1 行（broadcast。revision 非連動）
+  | { type: 'chat_history'; messages: ChatMessage[] } // join/resume 直後の履歴
 ```
 
 ### 4.3 PlayerView 要件
@@ -328,12 +345,14 @@ interface RoomPlayer {
 | `ILLEGAL_ACTION` | domain / 手番違反 |
 | `INVALID_TOKEN` | resume 失敗（開始後） |
 | `BAD_REQUEST` | バリデーション |
+| `RATE_LIMITED` | チャット送信間隔不足（UX-6） |
+| `CHAT_REJECTED` | 空メッセージ等（UX-6） |
 
 **クライアント表示（P1-6）**
 
 - ワイヤ上の `message` は英語の技術文のままでよい  
 - UI 文言は `src/online/errorMessages.ts` が `code` から日本語へ変換する  
-- `REVISION_MISMATCH` / `ILLEGAL_ACTION` は soft（接続は維持・トースト／ログのみ。mismatch 時はサーバが最新 `view` を再送）  
+- `REVISION_MISMATCH` / `ILLEGAL_ACTION` / `RATE_LIMITED` / `CHAT_REJECTED` は soft（接続は維持・トースト／ログのみ。mismatch 時はサーバが最新 `view` を再送）  
 - HTTP 作成失敗も `{ error, message }` を同じマッパで表示
 
 ---
@@ -371,3 +390,4 @@ interface RoomPlayer {
 | 2026-07-12 | **P1-5 完了** — host 切断 60s 移譲（alarm）・idle TTL で storage 削除（open 10m / playing 30m） |
 | 2026-07-12 | **P1-6 完了** — error code→日本語 UI（`errorMessages.ts`）・テスト・docs 締め |
 | 2026-07-12 | **HOLD-1〜4** — 全員 ready 開始 / result ACK / rematch / wrangler ハング文書化。HOLD-5（deploy）はユーザー確認待ち |
+| 2026-07-12 | **UX-6 ルームチャット** — `chat` / `chat_history`、履歴・レート制限、ロビー・ゲーム UI |

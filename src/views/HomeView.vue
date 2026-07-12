@@ -322,25 +322,33 @@ onMounted(() => {
         </button>
       </section>
 
-      <!-- Create online room -->
+      <!-- Online: shared display name + create / join -->
       <section class="panel mb-4 p-5 sm:p-6">
         <div class="mb-1 flex items-center gap-2">
-          <h2 class="text-sm font-semibold text-gold-200">ルームを作成</h2>
-          <span class="chip text-[10px]">オンライン</span>
+          <h2 class="text-sm font-semibold text-gold-200">オンライン対戦</h2>
+          <span class="chip text-[10px]">最大10人</span>
         </div>
         <p class="mb-4 text-xs text-sand-dim">
-          ホストとしてルームを開き、6 文字コードを友だちに共有します
+          表示名はルーム内の席・チャットに使われます（未入力時は「プレイヤー」）
         </p>
-        <label class="mb-3 block">
-          <span class="mb-1.5 block text-xs text-sand-dim">表示名（任意）</span>
+        <label class="mb-5 block">
+          <span class="mb-1.5 block text-xs text-sand-dim">表示名</span>
           <input
             v-model="playerName"
             type="text"
             maxlength="12"
-            placeholder="あなた"
+            autocomplete="nickname"
+            placeholder="例: コヨーテ"
             class="w-full rounded-xl border border-gold-400/25 bg-night-900/80 px-4 py-3 text-sm text-sand outline-none transition placeholder:text-sand-dim/50 focus:border-gold-400/50 focus:ring-1 focus:ring-gold-400/30"
           />
         </label>
+
+        <div class="mb-1 flex items-center gap-2">
+          <h3 class="text-sm font-semibold text-gold-200">ルームを作成</h3>
+        </div>
+        <p class="mb-3 text-xs text-sand-dim">
+          ホストとしてルームを開き、6 文字コードを友だちに共有します
+        </p>
         <button
           type="button"
           class="btn-gold w-full"
@@ -361,22 +369,17 @@ onMounted(() => {
         >
           {{ onlineGame.lastError }}
         </p>
-      </section>
 
-      <!-- Divider -->
-      <div class="mb-4 flex items-center gap-3 px-1">
-        <div class="h-px flex-1 bg-gold-400/15" />
-        <span class="text-xs text-sand-dim">または</span>
-        <div class="h-px flex-1 bg-gold-400/15" />
-      </div>
-
-      <!-- Join online -->
-      <section class="panel p-5 sm:p-6">
-        <div class="mb-1 flex items-center gap-2">
-          <h2 class="text-sm font-semibold text-gold-200">ルームに参加</h2>
-          <span class="chip text-[10px]">オンライン</span>
+        <div class="my-5 flex items-center gap-3">
+          <div class="h-px flex-1 bg-gold-400/15" />
+          <span class="text-xs text-sand-dim">または</span>
+          <div class="h-px flex-1 bg-gold-400/15" />
         </div>
-        <p class="mb-4 text-xs text-sand-dim">ホストから共有されたルームコードを入力</p>
+
+        <div class="mb-1 flex items-center gap-2">
+          <h3 class="text-sm font-semibold text-gold-200">ルームに参加</h3>
+        </div>
+        <p class="mb-3 text-xs text-sand-dim">ホストから共有されたルームコードを入力</p>
         <label class="mb-3 block">
           <span class="mb-1.5 block text-xs text-sand-dim">ルームコード</span>
           <input

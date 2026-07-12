@@ -1428,6 +1428,137 @@
 
 ---
 
+## 2026-07-12 — ロビー切断が「切断席」として残る不具合
+
+### 背景・目的
+- ロビー退出後も `ddd / 切断 / 待機中` の席が残る報告
+- `leave` 送信直後に socket close すると、サーバが close を先に処理して markDisconnected していた
+
+### 実施内容
+1. `webSocketClose`: `status === 'open'` のときは **席削除**（`removePlayerFromRoom`）に統一
+2. 対戦中のみ従来どおり切断席を保持（resume 用）
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `worker/GameRoom.ts` | ロビー close → 席削除 |
+
+### 明示的にやっていないこと
+- クライアント側の leave 待ち ACK
+
+### 確認結果
+- 単体テストは既存の remove 系でカバー
+
+---
+
+## 2026-07-12 — 表示名入力・ロビー退出・リアクション課題
+
+### 背景・目的
+- 参加時に表示名が分かりにくかった / ロビー退出が「切断」席として残る
+- チャット・リアクションは課題として積み、メンション・未読は不要
+
+### 実施内容
+1. ホーム: 作成/参加を1パネルにまとめ、**共通の表示名フィールド**を上部に配置
+2. ロビー: 表示名編集 +「名前を反映」（既存 join 再送でリネーム）
+3. 意図的退出: Client `leave` → ロビーは席削除・ホスト即移譲、対戦中は従来どおり切断扱い
+4. backlog **UX-7** リアクション idea（メンション/未読は対象外）
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `worker/roomLogic.ts` / `GameRoom.ts` | `removePlayerFromRoom` / `handleLeave` |
+| `src/stores/onlineGame.ts` | `leave` で leave 送信、`updateDisplayName` |
+| `src/views/HomeView.vue` / `LobbyView.vue` | 表示名 UI |
+| `docs/backlog.md` | UX-7 idea / UX-8・9 done |
+
+### 明示的にやっていないこと
+- ゲーム中の席削除（中断キックは UX-3）
+- チャット・リアクション本体（UX-7）
+- メンション / 未読
+
+### 確認結果
+- `npm test` 100 件成功
+- `npm run build` 成功
+
+### 次に考えられる作業
+1. UX-7 リアクション（着手時）
+2. HOLD-5 本番 deploy
+
+---
+
+## 2026-07-12 — UX-6 ルーム内チャット
+
+### 背景・目的
+- バックログ UX-6。UI シェルのみだったチャットをオンラインルームで使えるようにする
+
+### 実施内容
+1. プロトコル: Client `chat` / Server `chat` + `chat_history`（game revision 非連動）
+2. DO: `chatLog` リングバッファ（50）・本文 sanitize（120 字）・クールダウン 800ms
+3. フロント: `onlineGame.chatMessages` / `sendChat`、共通 `ChatPanel.vue`
+4. UI: ロビー（オンライン時）、ゲーム右レール（ログ|チャット）、モバイル下部タブ
+5. エラー: `RATE_LIMITED` / `CHAT_REJECTED` の日本語メッセージ
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `worker/types.ts` / `roomLogic.ts` / `GameRoom.ts` | ワイヤ型・append・handler |
+| `src/online/protocol.ts` / `errorMessages.ts` | クライアント同期 |
+| `src/stores/onlineGame.ts` | chat 状態 |
+| `src/components/game/ChatPanel.vue` | UI |
+| `src/views/GameView.vue` / `LobbyView.vue` | 配線 |
+| `docs/backlog.md` 他 | UX-6 done |
+
+### 明示的にやっていないこと
+- ローカル対戦ボット向けチャット
+- 既読・メンション・絵文字リアクション
+- モデレーション / NG ワードリスト
+- チャットの E2E（手動 2 タブ想定）
+
+### 確認結果
+- `npm test` 99 件成功
+- `npm run build` 成功（ChatPanel チャンク分割）
+
+### 次に考えられる作業
+1. HOLD-5 本番 deploy（ユーザー確認後）
+2. 未読バッジ、ホスト移譲カウントダウン（UX-2）
+
+---
+
+## 2026-07-12 — wrangler dev ハング修正（IPv4/IPv6）
+
+### 背景・目的
+- `npm run worker:dev` が Ready 後も HTTP 無応答（8787 LISTEN のみ）になりオンラインが使えない
+
+### 実施内容
+1. 再現: workerd が CPU 100%、`Recv-Q` 滞留、health タイムアウト
+2. 原因: Node 内部 loopback が `[::1]` のみ、workerd が `localhost`→`127.0.0.1` へ Connection refused を無 backoff 連打（[workers-sdk#12910](https://github.com/cloudflare/workers-sdk/issues/12910)）
+3. `worker:dev` に `NODE_OPTIONS=--dns-result-order=ipv4first` を付与
+4. README / backlog HOLD-4 を原因・対策付きで更新
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `package.json` | `worker:dev` に ipv4first |
+| `README.md` | ハング原因と対策 |
+| `docs/backlog.md` | HOLD-4 説明更新 |
+
+### 明示的にやっていないこと
+- wrangler 4 へのメジャー更新
+- 上流 wrangler 本体のパッチ
+
+### 確認結果
+- `curl http://127.0.0.1:8787/api/health` → `{"ok":true,...}`
+- `POST /api/rooms` → roomCode 返却
+- Vite proxy (`:5173/api/health`) も成功
+- workerd CPU ~0%（修正前 100%）
+- Node loopback が `127.0.0.1` に bind
+
+### 次に考えられる作業
+1. 必要なら wrangler 4 へ更新（同様の workaround が残る可能性あり）
+2. HOLD-5 本番 deploy
+
+---
+
 ## ログの書き方
 
 **正規のルールは `AGENTS.md` を参照。** 変更のあったセッションでは、このファイルに日付見出しで **追記** する（過去エントリは消さない）。
