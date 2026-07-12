@@ -1,5 +1,6 @@
 import {
   applyAction,
+  forceEliminatePlayer,
   GameError,
   seedRandom,
   startGame,
@@ -15,7 +16,7 @@ import {
   allPlayersReady,
   appendChatMessage,
   appendStampReaction,
-  applyDueHostTransfer,
+  applyDueDisconnectPolicies,
   applyResultDismiss,
   buildPlayerView,
   clearDisconnectDeadline,
@@ -26,6 +27,7 @@ import {
   nextAlarmAt,
   nextAvatarIndex,
   parseClientMessage,
+  pickNextHost,
   rememberAction,
   removePlayerFromRoom,
   resetRoomForRematch,
@@ -275,14 +277,14 @@ export class GameRoom {
 
     const now = Date.now()
 
-    // Unexpected close (network drop, reload, sleep): keep seat + resumeToken
-    // in every status. Intentional leave is handled by handleLeave (lobby removes
-    // seat and clears attachment so this path no-ops). Host gets 60s transfer grace.
-    markPlayerDisconnected(room, att.playerId, now)
+    // Unexpected close (network drop, reload, sleep): keep seat + resumeToken.
+    // Playing: 60s forfeit grace. Intentional leave uses handleLeave.
+    markPlayerDisconnected(room, att.playerId!, now)
     // Disconnected seats no longer block result ACK completion
     if (room.pendingResult && allConnectedHaveResultAck(room)) {
       room.pendingResult = null
       room.resultAcks = {}
+      this.maybeStartNextRound(room)
     }
     room.lastActivityAt = now
     room.revision += 1
@@ -296,7 +298,7 @@ export class GameRoom {
   }
 
   /**
-   * Host transfer deadlines + idle empty-room purge (phase1 §7.5–7.6).
+   * Host transfer + disconnect forfeit deadlines + idle purge (phase1 §7.5–7.6).
    */
   async alarm(): Promise<void> {
     const room = await this.loadRoom()
@@ -306,19 +308,36 @@ export class GameRoom {
     }
 
     const now = Date.now()
-    const transfer = applyDueHostTransfer(room, now)
+    const due = applyDueDisconnectPolicies(room, now)
 
-    if (transfer.changed) {
+    if (due.changed) {
       await this.saveRoom(room)
-      if (transfer.newHostId && transfer.newHostId !== transfer.previousHostId) {
+      if (due.hostTransferred && due.newHostId && due.newHostId !== due.previousHostId) {
         const name =
-          room.players.find((p) => p.id === transfer.newHostId)?.displayName ??
-          '誰か'
+          room.players.find((p) => p.id === due.newHostId)?.displayName ?? '誰か'
         this.broadcast(room, {
           type: 'event',
           level: 'info',
           message: `ホストが ${name} に移譲されました`,
           code: 'HOST_TRANSFERRED',
+        })
+      }
+      for (const id of due.forfeitedIds) {
+        const name =
+          room.players.find((p) => p.id === id)?.displayName ?? '誰か'
+        this.broadcast(room, {
+          type: 'event',
+          level: 'info',
+          message: `${name} が切断タイムアウトで脱落しました`,
+          code: 'PLAYER_FORFEIT',
+        })
+      }
+      if (room.game?.phase === 'game_over') {
+        this.broadcast(room, {
+          type: 'event',
+          level: 'info',
+          message: 'ゲーム終了',
+          code: 'GAME_ENDED',
         })
       }
       this.broadcastView(room)
@@ -603,11 +622,32 @@ export class GameRoom {
       return
     }
 
-    // Playing / closed: disconnect only (resume token still valid until client clears)
+    // Playing: intentional leave = immediate forfeit (no reconnect grace)
+    const wasPlaying = room.status === 'playing' && room.game != null
+    let forfeited = false
+    if (wasPlaying && room.game) {
+      const gp = room.game.players.find((p) => p.id === playerId)
+      if (gp?.alive) {
+        room.game = forceEliminatePlayer(room.game, playerId)
+        forfeited = true
+      }
+      for (const [token, id] of Object.entries(room.resumeTokens)) {
+        if (id === playerId) delete room.resumeTokens[token]
+      }
+    }
+
+    // Disconnect first so pickNextHost skips this seat
     markPlayerDisconnected(room, playerId, now)
+    // Leave already resolved — no forfeit timer
+    clearDisconnectDeadline(room, playerId)
+    if (wasPlaying && room.hostId === playerId) {
+      room.hostId = pickNextHost(room)?.id ?? null
+    }
+
     if (room.pendingResult && allConnectedHaveResultAck(room)) {
       room.pendingResult = null
       room.resultAcks = {}
+      this.maybeStartNextRound(room)
     }
     try {
       ws.serializeAttachment({} satisfies WsAttachment)
@@ -621,9 +661,19 @@ export class GameRoom {
     this.broadcast(room, {
       type: 'event',
       level: 'info',
-      message: `${name} が退出しました`,
-      code: 'PLAYER_LEFT',
+      message: forfeited
+        ? `${name} が退出しました（脱落）`
+        : `${name} が退出しました`,
+      code: forfeited ? 'PLAYER_FORFEIT' : 'PLAYER_LEFT',
     })
+    if (room.game?.phase === 'game_over') {
+      this.broadcast(room, {
+        type: 'event',
+        level: 'info',
+        message: 'ゲーム終了',
+        code: 'GAME_ENDED',
+      })
+    }
     this.broadcastView(room)
     try {
       ws.close(1000, 'leave')
@@ -740,6 +790,12 @@ export class GameRoom {
         message: 'ゲームを開始しました',
         code: 'GAME_STARTED',
       })
+      this.broadcast(room, {
+        type: 'event',
+        level: 'info',
+        message: `第${game.round}ラウンド開始`,
+        code: 'ROUND_START',
+      })
       this.broadcastView(room)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to start'
@@ -809,6 +865,18 @@ export class GameRoom {
       return
     }
 
+    // Gate: no bids/challenges until every connected player left the result screen
+    if (room.pendingResult || room.game.phase === 'round_end') {
+      this.send(ws, {
+        type: 'error',
+        code: 'ILLEGAL_ACTION',
+        message: 'Waiting for all players to leave the result screen',
+        actionId,
+      })
+      this.sendView(ws, room, playerId)
+      return
+    }
+
     if (room.game.currentTurnPlayerId !== playerId) {
       this.send(ws, {
         type: 'error',
@@ -819,8 +887,6 @@ export class GameRoom {
       this.sendView(ws, room, playerId)
       return
     }
-
-    // pendingResult is cleared only via dismiss_result ACKs (HOLD-2), not on next bid
 
     try {
       if (action.type === 'PLACE_BID') {
@@ -883,11 +949,8 @@ export class GameRoom {
         winnerId: room.game.winnerId,
       })
       room.resultAcks = {}
-
-      // Keep only bids for the new (current) round after auto-advance
-      room.bidHistory = room.bidHistory.filter(
-        (b) => b.round === room.game!.round,
-      )
+      // Stay at round_end until all connected dismiss (START_ROUND then)
+      room.bidHistory = []
 
       room.revision += 1
       room.appliedActions = rememberAction(
@@ -906,6 +969,14 @@ export class GameRoom {
         message: `${cName} がコヨーテ！`,
         code: 'CHALLENGE',
       })
+      if (room.game.phase === 'game_over') {
+        this.broadcast(room, {
+          type: 'event',
+          level: 'info',
+          message: 'ゲーム終了',
+          code: 'GAME_ENDED',
+        })
+      }
       this.broadcastView(room)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Illegal action'
@@ -938,11 +1009,15 @@ export class GameRoom {
       return
     }
 
-    const { changed } = applyResultDismiss(room, playerId)
+    const { changed, cleared } = applyResultDismiss(room, playerId)
     if (!changed) {
       // Idempotent: already acked or nothing pending — resend personal view
       this.sendView(ws, room, playerId)
       return
+    }
+
+    if (cleared) {
+      this.maybeStartNextRound(room)
     }
 
     room.lastActivityAt = Date.now()
@@ -950,6 +1025,26 @@ export class GameRoom {
     await this.saveRoom(room)
     // Broadcast so each client gets per-player pendingResult visibility
     this.broadcastView(room)
+  }
+
+  /**
+   * After all connected players dismissed the result: deal next round if needed.
+   * Mutates room.game; caller saves + broadcasts.
+   */
+  private maybeStartNextRound(room: RoomState): void {
+    if (!room.game || room.game.phase !== 'round_end') return
+    room.game = applyAction(
+      room.game,
+      { type: 'START_ROUND' },
+      seedRandom(cryptoSeed()),
+    )
+    room.bidHistory = []
+    this.broadcast(room, {
+      type: 'event',
+      level: 'info',
+      message: `第${room.game.round}ラウンド開始`,
+      code: 'ROUND_START',
+    })
   }
 
   private async handleRematch(ws: WebSocket, room: RoomState): Promise<void> {

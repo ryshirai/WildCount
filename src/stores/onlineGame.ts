@@ -618,6 +618,19 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
 
   function pushLog(message: string, code?: string) {
     logSeq += 1
+    // Round / phase dividers (server code ROUND_START / GAME_ENDED)
+    if (code === 'ROUND_START' || code === 'GAME_ENDED') {
+      const item: EventLogItem = {
+        id: `oe${logSeq}`,
+        avatar: '·',
+        name: '',
+        message,
+        timeLabel: '',
+        kind: 'separator',
+      }
+      eventLog.value = [item, ...eventLog.value].slice(0, 40)
+      return
+    }
     // Server events are often full sentences ("太郎 が再接続しました").
     // EventLog renders `{name}が{message}` — split so we don't get "ルームが太郎 が…".
     let name = 'ルーム'
@@ -635,6 +648,7 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
       name,
       message: body,
       timeLabel: 'たった今',
+      kind: 'entry',
     }
     eventLog.value = [item, ...eventLog.value].slice(0, 40)
   }

@@ -42,11 +42,11 @@ export const HELP_SPECIALS: readonly HelpSpecialCard[] = [
     count: 1,
   },
   {
-    face: 'MAX→0',
+    face: 'M→0',
     kind: 'max_to_zero',
-    name: '最大値0化',
+    name: '最大値0化（MAX→0）',
     effect:
-      'そのラウンドで正の最大値を0にする。同じ最大値が複数あればすべて0。',
+      'そのラウンドで正の最大値を0にする。同じ最大値が複数あればすべて0。手札面は M→0。',
     count: 1,
   },
   {

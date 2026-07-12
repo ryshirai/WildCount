@@ -48,7 +48,7 @@ defineProps<{
           size="sm"
           hide-name
         />
-        <!-- Lives -->
+        <!-- Lives under avatar -->
         <div
           v-if="player.lives > 0"
           class="flex items-center gap-px"
@@ -61,17 +61,6 @@ defineProps<{
             aria-hidden="true"
           >♥</span>
         </div>
-        <div v-else class="text-[9px] text-red-300/80">脱落</div>
-
-        <!-- Declared / turn chip (compact) -->
-        <span
-          v-if="player.lives > 0 && player.isCurrentTurn"
-          class="seat-chip-turn !px-1 !text-[8px]"
-        >手番</span>
-        <span
-          v-else-if="player.lives > 0 && player.hasDeclared"
-          class="seat-chip-declared !px-1 !text-[8px]"
-        >済</span>
 
         <!-- Hand: others face-up, self ? -->
         <BidCard
@@ -81,6 +70,38 @@ defineProps<{
           :emphasized="player.isCurrentTurn || player.isSelf"
           compact
         />
+        <div
+          v-else
+          class="card-tile-mystery !h-9 !w-7 !text-sm opacity-50"
+        >—</div>
+
+        <!-- Status under card (compact) -->
+        <span
+          v-if="player.lives <= 0"
+          class="seat-chip-out !px-1 !text-[8px]"
+        >脱落</span>
+        <span
+          v-else-if="player.connected === false"
+          class="seat-chip-out !px-1 !text-[8px]"
+          title="再接続待ち"
+        >切断</span>
+        <span
+          v-else-if="player.isCurrentTurn"
+          class="seat-chip-turn !px-1 !text-[8px]"
+        >手番</span>
+        <span
+          v-else-if="player.hasDeclared"
+          class="seat-chip-declared !px-1 !text-[8px]"
+        >済</span>
+        <span
+          v-else-if="player.isSelf"
+          class="seat-chip-self !px-1 !text-[8px]"
+        >あなた</span>
+        <span
+          v-else
+          class="seat-chip-wait !px-1 !text-[8px]"
+        >待機</span>
+
         <div
           v-if="player.lives > 0 && player.bid != null"
           :key="`mbid-${player.id}-${player.bid}`"

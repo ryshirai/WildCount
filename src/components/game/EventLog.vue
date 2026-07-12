@@ -44,22 +44,43 @@ withDefaults(
       <li
         v-for="item in items"
         :key="item.id"
-        class="flex gap-2.5 rounded-xl bg-night-900/40 px-2.5 py-2"
       >
-        <PlayerAvatar
-          class="shrink-0"
-          :avatar="item.avatar"
-          :avatar-src="item.avatarSrc"
-          :name="item.name"
-          size="sm"
-          hide-name
-        />
-        <div class="min-w-0 flex-1">
-          <p class="text-sm leading-snug text-sand">
-            <span class="font-semibold text-gold-200">{{ item.name }}</span>
-            が{{ item.message }}
-          </p>
-          <p class="mt-0.5 text-[11px] text-sand-dim">{{ item.timeLabel }}</p>
+        <!-- Round / phase divider -->
+        <div
+          v-if="item.kind === 'separator'"
+          class="flex items-center gap-2 py-1"
+          role="separator"
+          :aria-label="item.message"
+        >
+          <div class="h-px min-w-[0.75rem] flex-1 bg-gradient-to-r from-transparent to-gold-400/35" />
+          <span
+            class="shrink-0 rounded-full border border-gold-400/40 bg-gold-400/10 px-2.5 py-0.5 font-display text-[10px] font-semibold tracking-wide text-gold-200 sm:text-[11px]"
+          >
+            {{ item.message }}
+          </span>
+          <div class="h-px min-w-[0.75rem] flex-1 bg-gradient-to-l from-transparent to-gold-400/35" />
+        </div>
+
+        <!-- Player / room action -->
+        <div
+          v-else
+          class="flex gap-2.5 rounded-xl bg-night-900/40 px-2.5 py-2"
+        >
+          <PlayerAvatar
+            class="shrink-0"
+            :avatar="item.avatar"
+            :avatar-src="item.avatarSrc"
+            :name="item.name"
+            size="sm"
+            hide-name
+          />
+          <div class="min-w-0 flex-1">
+            <p class="text-sm leading-snug text-sand">
+              <span class="font-semibold text-gold-200">{{ item.name }}</span>
+              が{{ item.message }}
+            </p>
+            <p class="mt-0.5 text-[11px] text-sand-dim">{{ item.timeLabel }}</p>
+          </div>
         </div>
       </li>
     </ul>

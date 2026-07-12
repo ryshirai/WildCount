@@ -84,6 +84,9 @@ function refineIllegalAction(serverMessage?: string): string {
   if (m.includes('not over') || m.includes('rematch only')) {
     return 'ゲーム終了後にもう一度遊べます'
   }
+  if (m.includes('result screen') || m.includes('leave the result')) {
+    return '全員が結果画面を閉じるまでお待ちください'
+  }
   // Domain / engine Japanese or other already-friendly text
   if (/[\u3040-\u30ff\u4e00-\u9fff]/.test(serverMessage)) {
     return serverMessage

@@ -26,7 +26,7 @@ defineProps<{
       size="md"
     >
       <template #status>
-        <!-- Lives: readable heart row -->
+        <!-- Lives only under avatar; status chips sit under the hand card -->
         <div
           v-if="player.lives > 0"
           class="mt-0.5 flex items-center justify-center gap-px"
@@ -42,27 +42,6 @@ defineProps<{
             v-if="player.lives > 5"
             class="ml-0.5 text-[9px] font-semibold text-rose-300/90"
           >×{{ player.lives }}</span>
-        </div>
-
-        <!-- Status chip -->
-        <div class="mt-0.5 flex justify-center">
-          <span v-if="player.lives <= 0" class="seat-chip-out">脱落</span>
-          <span
-            v-else-if="player.isCurrentTurn"
-            class="seat-chip-turn"
-          >現在の手番</span>
-          <span
-            v-else-if="player.hasDeclared"
-            class="seat-chip-declared"
-          >宣言済み</span>
-          <span
-            v-else-if="player.isSelf"
-            class="seat-chip-self"
-          >あなた</span>
-          <span
-            v-else
-            class="seat-chip-wait"
-          >待機中</span>
         </div>
       </template>
     </PlayerAvatar>
@@ -81,7 +60,33 @@ defineProps<{
       >—</div>
     </div>
 
-    <!-- Bid chip (declared number), gold frame under hand -->
+    <!-- Status under card (手番 / 済 / 待機 / 切断 / あなた / 脱落) -->
+    <div class="mt-0.5 flex min-h-[1.1rem] justify-center">
+      <span v-if="player.lives <= 0" class="seat-chip-out">脱落</span>
+      <span
+        v-else-if="player.connected === false"
+        class="seat-chip-out"
+        title="再接続待ち（約60秒で脱落）"
+      >切断</span>
+      <span
+        v-else-if="player.isCurrentTurn"
+        class="seat-chip-turn"
+      >手番</span>
+      <span
+        v-else-if="player.hasDeclared"
+        class="seat-chip-declared"
+      >済</span>
+      <span
+        v-else-if="player.isSelf"
+        class="seat-chip-self"
+      >あなた</span>
+      <span
+        v-else
+        class="seat-chip-wait"
+      >待機</span>
+    </div>
+
+    <!-- Bid chip (declared number) under status -->
     <div
       v-if="player.lives > 0 && player.bid != null"
       :key="`bid-${player.id}-${player.bid}`"

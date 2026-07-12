@@ -277,14 +277,24 @@ interface RoomPlayer {
 3. 同一 `playerId` で `connected=true`、最新 `view` を送る  
 4. 不明 token → 新規参加扱い（開始後は拒否）
 
-### 7.5 切断 vs 意図的退出 / ホスト移譲
+### 7.5 切断 vs 意図的退出 / ホスト移譲 / 途中抜け
 
-1. **意図的退出**（Client `leave`）: ロビーは席・resumeToken を削除し host を即移譲。対戦中は切断扱い（席維持）  
-2. **予期しない切断**（WS close / リロード / スリープ）: ロビーでも対戦中でも席・ready・resumeToken を維持し `connected=false` のみ（`markPlayerDisconnected`）  
-3. host の予期しない切断 → `disconnectDeadlines[hostId] = now + 60_000`、alarm 設定  
-4. 60s 以内に resume → キャンセル  
-5. タイムアウト: `joinedAt` が最古の **connected** 参加者へ host 移譲。誰もいなければ空ルーム処理  
-6. 非 host の予期しない切断は接続フラグのみ（席維持。長時間全員切断は idle TTL で削除）
+1. **意図的退出**（Client `leave`）  
+   - ロビー: 席・resumeToken を削除し host を即移譲  
+   - **対戦中: 即脱落**（`forceEliminatePlayer`・ライフ0）。resumeToken 破棄。host なら即移譲  
+2. **予期しない切断**（WS close / リロード / スリープ）: 席・ready・resumeToken を維持し `connected=false`  
+3. **対戦中の切断**: `disconnectDeadlines[playerId] = now + 60_000`（全席）。60s 以内に resume すればキャンセル  
+4. **タイムアウト（対戦中）**: 自動脱落（札は当ラウンド合計に残る）。生存1人なら `game_over`  
+5. host 切断タイムアウト時は上記に加え、`joinedAt` 最古の **connected** へ host 移譲  
+6. ロビーの host 切断のみ（対戦外）: 従来どおり 60s 後 host 移譲（非 host に deadline なし）  
+7. 長時間全員切断は idle TTL でルーム削除  
+
+### 7.5.1 結果画面ゲート（次ラウンド開始）
+
+1. チャレンジ解決後、エンジンは **`round_end` で停止**（自動 `START_ROUND` しない）  
+2. `pendingResult` を保持。接続中プレイヤーが全員 `dismiss_result` するまで宣言不可  
+3. 全員 ACK 後にサーバが `START_ROUND` → イベント `ROUND_START`  
+4. 切断席は ACK を待たない（従来どおり）
 
 ### 7.6 空ルーム / idle TTL
 

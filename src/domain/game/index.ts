@@ -57,6 +57,7 @@ export {
   startGame,
   applyAction,
   getLegalMoves,
+  forceEliminatePlayer,
   DEFAULT_CONFIG,
 } from './engine'
 

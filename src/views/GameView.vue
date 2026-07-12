@@ -212,12 +212,21 @@ const isGameOver = computed(() => {
   return gameView.value?.isGameOver ?? false
 })
 
+const waitingForResultPeers = computed(() => {
+  if (useMock.value || awaitingResultView.value) return false
+  // After dismiss: engine stays at round_end until all connected peers close result
+  return gameView.value?.phase === 'round_end'
+})
+
 const paceHint = computed(() => {
   if (useMock.value) return null
   if (awaitingResultView.value) {
     if (cutInVisible.value) return statusMessage.value ?? 'コヨーテ！'
     if (!cardsRevealDone.value) return 'カードを公開しています…'
     return '合計と勝敗を確認しましょう'
+  }
+  if (waitingForResultPeers.value) {
+    return '他のプレイヤーが結果を確認するまでお待ちください'
   }
   if (statusMessage.value) return statusMessage.value
   if (botsRunning.value) return 'ボット進行中…'
@@ -756,10 +765,16 @@ async function onChallenge() {
             >
               ゲーム終了 — 結果画面で勝者を確認してください
             </div>
+            <div
+              v-else-if="waitingForResultPeers"
+              class="mx-4 mb-2 shrink-0 rounded-xl border border-teal-soft/30 bg-night-900/90 px-4 py-3 text-center text-sm text-teal-soft"
+            >
+              他のプレイヤーが結果を確認するまで、次ラウンドは始まりません
+            </div>
 
             <div class="shrink-0">
               <BidControls
-                v-if="!awaitingResultView"
+                v-if="!awaitingResultView && !waitingForResultPeers"
                 v-model="draftBid"
                 :min-bid="minBid"
                 :can-declare="canDeclare"

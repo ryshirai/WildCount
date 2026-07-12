@@ -18,6 +18,12 @@ export const MIN_PLAYERS_TO_START = 2
 /** Host disconnect grace before transfer (ms). */
 export const HOST_DISCONNECT_GRACE_MS = 60_000
 
+/**
+ * Playing disconnect grace before auto-forfeit (ms).
+ * Same length as host transfer so one deadline covers both for the host seat.
+ */
+export const DISCONNECT_FORFEIT_MS = 60_000
+
 /** Idle TTL when nobody is connected (ms). */
 export const IDLE_TTL_OPEN_MS = 10 * 60 * 1000
 export const IDLE_TTL_PLAYING_MS = 30 * 60 * 1000

@@ -1816,6 +1816,176 @@
 
 ---
 
+## 2026-07-12 — MAX→0 表示の可読性改善
+
+### 背景・目的
+- 手札タイル / 結果公開で `MAX→0` が幅不足で潰れて見づらかった（`0 (mix)` → `0*` と同種）。
+
+### 実施内容
+1. `cardLabel(max_to_zero)` を `M→0` に短縮（計算過程タイトルの「MAX→0 適用」はそのまま）
+2. 結果 `RevealCardTile` は 2 行スタック（`MAX` + `→0`）に変更
+3. 手札 `BidCard` は 3 文字超ラベルに `card-tile--dense`（やや小さい字）
+4. ヘルプ特殊札の face を `M→0`、正式名は「最大値0化（MAX→0）」
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/domain/game/deck.ts` | cardLabel → `M→0` |
+| `src/components/game/RevealCardTile.vue` | 2 行レイアウト |
+| `src/components/game/BidCard.vue` | dense クラス |
+| `src/styles/main.css` | stack / dense スタイル |
+| `src/data/helpContent.ts` | face / name 表記 |
+
+### 明示的にやっていないこと
+- 手札タイルに特殊札カラー（amber 等）を付けること
+- 計算ステップ文言の変更
+
+### 確認結果
+- `npm test` 16 ファイル・108 テスト成功
+
+### 次に考えられる作業
+1. 特殊札（×2 / M→0）の手札面にも結果と同系の色分け
+2. モバイルでの実機確認
+
+---
+
+## 2026-07-12 — 席ステータスをカード下へ
+
+### 背景・目的
+- 手番 / 済 / 待機などがアバター直下にあり、カードとの対応が分かりにくかった。
+
+### 実施内容
+1. **PC `PlayerSeat`**: ステータスチップを手札カードの下へ移動（ライフはアバター下のまま）
+2. **モバイル `MobilePlayerCarousel`**: 同様にカード下へ。待機・あなた・脱落も表示
+3. 表記を短く統一: `手番` / `済` / `待機` / `あなた` / `脱落`
+4. 並び: アバター → ライフ → 手札 → ステータス → 宣言数値
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/components/game/PlayerSeat.vue` | ステータスをカード下へ |
+| `src/components/game/MobilePlayerCarousel.vue` | 同上 + 待機等 |
+| `docs/ui-mock.md` | 席 UI メモ更新 |
+
+### 明示的にやっていないこと
+- ステータス用共通コンポーネント抽出
+- 宣言済と bid チップの統合
+
+### 確認結果
+- レイアウト変更のみ（テスト対象のロジック変更なし）
+
+### 次に考えられる作業
+1. 特殊札の手札面カラー
+2. 席縦スペースが足りる場合の実機確認
+
+---
+
+## 2026-07-12 — イベントログにラウンド区切り
+
+### 背景・目的
+- コヨーテ後に次ラウンドへ進んでもログが連続して見え、区切りが分かりにくかった。
+
+### 実施内容
+1. `EventLogItem.kind`: `entry` | `separator`
+2. `EventLog.vue`: 区切りは横線＋「第Nラウンド開始」チップ
+3. **ローカル**: 開始時・チャレンジ後（続行なら次ラウンド、終了なら「ゲーム終了」）
+4. **オンライン**: Worker が `ROUND_START` / `GAME_ENDED` を broadcast。クライアントは separator として記録
+5. mock ログにも第3ラウンド区切りをサンプル追加
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/types/game.ts` | `kind` 追加 |
+| `src/components/game/EventLog.vue` | separator UI |
+| `src/stores/localGame.ts` | `pushSeparator` |
+| `src/stores/onlineGame.ts` | ROUND_START 処理 |
+| `worker/GameRoom.ts` | 開始・チャレンジ後イベント |
+| `tests/stores/localGame.test.ts` | 区切りの検証 |
+
+### 明示的にやっていないこと
+- ログ全文ビュー（「ログをすべて表示」は未実装のまま）
+- チャレンジ結果詳細のサーバー側ログ行（現状はコヨーテ＋区切り）
+
+### 確認結果
+- `npm test` 16 ファイル・109 テスト成功
+
+### 次に考えられる作業
+1. オンライン側に合計・敗者ログ行を足す（ローカルと揃える）
+2. ログの古いエントリ折りたたみ
+
+---
+
+## 2026-07-12 — 結果画面から「トップへ」を削除
+
+### 背景・目的
+- 結果画面の「トップへ」は「次のラウンドへ」「もう一度遊ぶ」と誤タップしやすい。
+
+### 実施内容
+1. `ResultView` の「トップへ」ボタンと `goHome` を削除
+2. 終了時は「もう一度遊ぶ」のみ、続行時は「次のラウンドへ」のみ
+3. 勝者バナー文言を更新。`docs/ui-mock.md` も追随
+
+### 明示的にやっていないこと
+- ロビー／ヘッダ経由の退出導線の変更（ロゴ等は従来どおり）
+
+### 確認結果
+- UI のみの変更
+
+---
+
+## 2026-07-12 — 結果画面のスクロールバー非表示
+
+### 背景・目的
+- PC の結果画面で本文エリアにスクロールバーが出て見た目が邪魔だった。
+
+### 実施内容
+1. `.scrollbar-none` を追加し結果のスクロール領域に適用（スクロール自体は維持）
+2. 余白を少し詰め、`safe-bottom` の二重付与を解消
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/styles/main.css` | `.scrollbar-none` |
+| `src/views/ResultView.vue` | 適用 + 余白調整 |
+
+### 確認結果
+- UI のみ
+
+---
+
+## 2026-07-12 — 途中抜け（方針A）+ 結果画面ゲート
+
+### 背景・目的
+- 対戦中の切断/退出で手番が止まり、ゲームが成立しなくなる問題
+- 結果画面を早く閉じた人が次ラウンドを進められてしまう問題
+
+### 実施内容
+1. **domain** `forceEliminatePlayer` — 即脱落・手番繰り上げ・生存1人で game_over。当ラウンド手札は残す
+2. **domain** チャレンジ後は `round_end` で停止（自動 START_ROUND 廃止）。START_ROUND は結果確認後
+3. **Worker** 切断 60s で自動脱落 + host 移譲。意図的 leave は即脱落
+4. **Worker** 全員 `dismiss_result` 後に `START_ROUND`。pending / round_end 中は bid 拒否
+5. **local** `clearPendingResult` で START_ROUND + ログ区切り
+6. **UI** 席「切断」チップ、結果待ちバナー、エラー文言
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/domain/game/engine.ts` | forceEliminate / round_end |
+| `worker/roomLogic.ts` | applyDueDisconnectPolicies |
+| `worker/GameRoom.ts` | leave forfeit / dismiss → START_ROUND |
+| `src/stores/localGame.ts` | 結果後に次ラウンド |
+| `src/views/GameView.vue` | 待ちバナー |
+| `docs/phase1-multiplayer.md` | §7.5 / 7.5.1 |
+
+### 明示的にやっていないこと
+- ホストによる手動キック UI
+- 切断カウントダウン秒数のリアルタイム表示
+
+### 確認結果
+- `npm test` 16 ファイル・113 テスト成功
+
+---
+
 ## ログの書き方
 
 **正規のルールは `AGENTS.md` を参照。** 変更のあったセッションでは、このファイルに日付見出しで **追記** する（過去エントリは消さない）。

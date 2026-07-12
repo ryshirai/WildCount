@@ -2,7 +2,7 @@
  * Pure room helpers (testable without Durable Object runtime).
  */
 
-import type { GameState } from '../src/domain/game'
+import { forceEliminatePlayer, type GameState } from '../src/domain/game'
 import {
   buildMaskedGame,
   viewPhase,
@@ -11,6 +11,7 @@ import {
 } from './maskedView'
 import {
   CHAT_COOLDOWN_MS,
+  DISCONNECT_FORFEIT_MS,
   HOST_DISCONNECT_GRACE_MS,
   IDLE_TTL_OPEN_MS,
   IDLE_TTL_PLAYING_MS,
@@ -455,7 +456,9 @@ export function clearDisconnectDeadline(room: RoomState, playerId: string): void
 }
 
 /**
- * Mark player disconnected. If they are host, start 60s transfer grace.
+ * Mark player disconnected and start grace timers.
+ * - playing: forfeit after DISCONNECT_FORFEIT_MS (also covers host transfer)
+ * - lobby / other: host-only transfer grace
  * Caller bumps revision / lastActivityAt / save / alarm.
  */
 export function markPlayerDisconnected(
@@ -467,9 +470,88 @@ export function markPlayerDisconnected(
   const player = room.players.find((p) => p.id === playerId)
   if (player) player.connected = false
 
-  if (room.hostId === playerId) {
+  if (room.status === 'playing' && room.game) {
+    room.disconnectDeadlines[playerId] = now + DISCONNECT_FORFEIT_MS
+  } else if (room.hostId === playerId) {
     room.disconnectDeadlines[playerId] = now + HOST_DISCONNECT_GRACE_MS
   }
+}
+
+export interface DisconnectPolicyResult {
+  changed: boolean
+  /** Player ids force-eliminated this tick */
+  forfeitedIds: string[]
+  previousHostId: string | null
+  newHostId: string | null
+  hostTransferred: boolean
+}
+
+/**
+ * Apply expired disconnect deadlines: host transfer + in-game forfeit.
+ * Idempotent for reconnected seats (deadline cleared without effect).
+ */
+export function applyDueDisconnectPolicies(
+  room: RoomState,
+  now = Date.now(),
+): DisconnectPolicyResult {
+  ensureLifecycleFields(room)
+  const result: DisconnectPolicyResult = {
+    changed: false,
+    forfeitedIds: [],
+    previousHostId: room.hostId,
+    newHostId: room.hostId,
+    hostTransferred: false,
+  }
+
+  const due = Object.entries(room.disconnectDeadlines)
+    .filter(([, t]) => typeof t === 'number' && now >= t)
+    .map(([id]) => id)
+
+  if (due.length === 0) {
+    return result
+  }
+
+  for (const playerId of due) {
+    delete room.disconnectDeadlines[playerId]
+    const player = room.players.find((p) => p.id === playerId)
+    if (player?.connected) {
+      // Reconnected before processing
+      result.changed = true
+      continue
+    }
+
+    // Host transfer if this seat was host
+    if (room.hostId === playerId) {
+      const next = pickNextHost(room)
+      if (next && next.id !== playerId) {
+        room.hostId = next.id
+        result.hostTransferred = true
+        result.newHostId = next.id
+        result.changed = true
+      } else if (!next) {
+        room.hostId = null
+        result.hostTransferred = true
+        result.newHostId = null
+        result.changed = true
+      }
+    }
+
+    // In-game forfeit (auto-eliminate)
+    if (room.status === 'playing' && room.game) {
+      const gp = room.game.players.find((p) => p.id === playerId)
+      if (gp?.alive) {
+        room.game = forceEliminatePlayer(room.game, playerId)
+        result.forfeitedIds.push(playerId)
+        result.changed = true
+        // Room status stays playing; UI uses game.phase game_over
+      }
+    }
+  }
+
+  if (result.changed) {
+    room.revision += 1
+  }
+  return result
 }
 
 export interface RemovePlayerResult {
@@ -543,49 +625,18 @@ export interface HostTransferResult {
 /**
  * If host disconnect grace has elapsed and host is still offline,
  * transfer to oldest connected player, or clear host when empty.
+ * @deprecated Prefer applyDueDisconnectPolicies (covers host + forfeit).
  */
 export function applyDueHostTransfer(
   room: RoomState,
   now = Date.now(),
 ): HostTransferResult {
-  ensureLifecycleFields(room)
-  const hostId = room.hostId
-  if (!hostId) {
-    return { changed: false, previousHostId: null, newHostId: null, emptied: false }
-  }
-
-  const deadline = room.disconnectDeadlines[hostId]
-  if (deadline == null || now < deadline) {
-    return { changed: false, previousHostId: null, newHostId: null, emptied: false }
-  }
-
-  delete room.disconnectDeadlines[hostId]
-
-  const host = room.players.find((p) => p.id === hostId)
-  if (host?.connected) {
-    // Reconnected without clearing deadline — nothing to transfer
-    return { changed: true, previousHostId: hostId, newHostId: hostId, emptied: false }
-  }
-
-  const next = pickNextHost(room)
-  if (next) {
-    room.hostId = next.id
-    room.revision += 1
-    return {
-      changed: true,
-      previousHostId: hostId,
-      newHostId: next.id,
-      emptied: false,
-    }
-  }
-
-  room.hostId = null
-  room.revision += 1
+  const r = applyDueDisconnectPolicies(room, now)
   return {
-    changed: true,
-    previousHostId: hostId,
-    newHostId: null,
-    emptied: true,
+    changed: r.changed,
+    previousHostId: r.previousHostId,
+    newHostId: r.newHostId,
+    emptied: r.hostTransferred && r.newHostId == null && connectedPlayerCount(room) === 0,
   }
 }
 

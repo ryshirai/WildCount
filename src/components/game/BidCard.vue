@@ -4,9 +4,11 @@
  * Indian poker: others show `label`; self uses `mystery` (?).
  * Also usable for bid chips via numeric label.
  */
-withDefaults(
+import { computed } from 'vue'
+
+const props = withDefaults(
   defineProps<{
-    /** Face text e.g. "+5", "×2", "18". Ignored when mystery. */
+    /** Face text e.g. "+5", "×2", "M→0". Ignored when mystery. */
     label?: string | null
     /** @deprecated prefer `label` — kept for numeric bid call sites */
     value?: number | null
@@ -22,6 +24,11 @@ withDefaults(
     compact: false,
     emphasized: false,
   },
+)
+
+/** Face string used for layout density (long specials like M→0 / 0*). */
+const displayText = computed(() =>
+  props.label != null ? props.label : props.value != null ? String(props.value) : '',
 )
 </script>
 
@@ -42,9 +49,11 @@ withDefaults(
     class="card-tile"
     :class="[
       compact ? '!h-11 !w-9 !text-sm' : '',
+      // Specials longer than "+5" / "×2" need a notch smaller type
+      !compact && displayText.length > 2 ? 'card-tile--dense' : '',
       emphasized ? 'ring-2 ring-gold-400/50 shadow-gold-glow' : '',
     ]"
   >
-    {{ label != null ? label : value }}
+    {{ displayText }}
   </div>
 </template>

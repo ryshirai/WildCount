@@ -79,7 +79,7 @@ describe('localGame store', () => {
       expect(store.pendingResult.cards.length).toBeGreaterThanOrEqual(2)
       expect(store.pendingResult.calcSteps.length).toBeGreaterThan(0)
       expect(
-        store.state?.phase === 'bidding' || store.state?.phase === 'game_over',
+        store.state?.phase === 'round_end' || store.state?.phase === 'game_over',
       ).toBe(true)
     }
   })
@@ -114,5 +114,51 @@ describe('localGame store', () => {
     }
 
     expect(store.hasSession).toBe(true)
+  })
+
+  it('event log has round-start separator after challenge continues', async () => {
+    const store = useLocalGameStore()
+    await store.startLocalGame({ seed: 21, ...FAST })
+
+    const startSep = store.eventLog.find(
+      (e) => e.kind === 'separator' && e.message.includes('ラウンド開始'),
+    )
+    expect(startSep?.message).toBe('第1ラウンド開始')
+
+    for (let guard = 0; guard < 30; guard++) {
+      if (store.pendingResult) break
+      const s = store.state!
+      if (s.phase !== 'bidding') break
+
+      if (s.currentTurnPlayerId !== SELF_ID) {
+        await store.runBots()
+        if (store.pendingResult) break
+        continue
+      }
+
+      if (s.currentBid != null) {
+        await store.challenge()
+        break
+      }
+      await store.placeBid(1)
+    }
+
+    if (!store.pendingResult) return
+
+    if (store.state?.phase === 'game_over') {
+      const seps = store.eventLog.filter((e) => e.kind === 'separator')
+      expect(seps.some((e) => e.message === 'ゲーム終了')).toBe(true)
+      return
+    }
+
+    expect(store.state?.phase).toBe('round_end')
+    const prevRound = store.pendingResult.round
+    store.clearPendingResult()
+    expect(store.state?.phase).toBe('bidding')
+    expect(store.state!.round).toBe(prevRound + 1)
+    const seps = store.eventLog.filter((e) => e.kind === 'separator')
+    expect(seps.some((e) => e.message === `第${store.state!.round}ラウンド開始`)).toBe(
+      true,
+    )
   })
 })

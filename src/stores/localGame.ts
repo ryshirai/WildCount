@@ -138,6 +138,21 @@ export const useLocalGameStore = defineStore('localGame', () => {
       name: profile.name,
       message,
       timeLabel: 'たった今',
+      kind: 'entry',
+    }
+    eventLog.value = [item, ...eventLog.value].slice(0, MAX_LOG)
+  }
+
+  /** Visual divider in the event log (round start / game end). */
+  function pushSeparator(message: string) {
+    logSeq += 1
+    const item: EventLogItem = {
+      id: `e${logSeq}`,
+      avatar: '·',
+      name: '',
+      message,
+      timeLabel: '',
+      kind: 'separator',
     }
     eventLog.value = [item, ...eventLog.value].slice(0, MAX_LOG)
   }
@@ -189,6 +204,7 @@ export const useLocalGameStore = defineStore('localGame', () => {
     )
 
     pushLog(selfId.value, 'ローカル対戦を開始しました')
+    pushSeparator(`第${state.value.round}ラウンド開始`)
     return runBots(gen)
   }
 
@@ -252,7 +268,10 @@ export const useLocalGameStore = defineStore('localGame', () => {
       )
     }
 
-    bidHistory.value = bidHistory.value.filter((b) => b.round === state.value!.round)
+    // Next round starts only after clearPendingResult (result screen gate)
+    if (state.value.phase === 'game_over') {
+      pushSeparator('ゲーム終了')
+    }
 
     pendingResult.value = toResultView({
       outcome,
@@ -345,10 +364,18 @@ export const useLocalGameStore = defineStore('localGame', () => {
     return applyCurrentAction({ type: 'CHALLENGE' })
   }
 
-  /** Call when leaving the result screen for the next round (engine already advanced). */
+  /**
+   * Leave the result screen. If the engine is at round_end, deal the next round
+   * only now (everyone has left the result UI in local solo-player mode).
+   */
   function clearPendingResult() {
     pendingResult.value = null
     statusMessage.value = null
+    if (state.value?.phase === 'round_end') {
+      state.value = applyAction(state.value, { type: 'START_ROUND' }, rng)
+      bidHistory.value = []
+      pushSeparator(`第${state.value.round}ラウンド開始`)
+    }
   }
 
   /**
@@ -359,6 +386,10 @@ export const useLocalGameStore = defineStore('localGame', () => {
     if (pendingResult.value) return { hasResult: true }
     if (!state.value || state.value.phase === 'game_over') {
       return { hasResult: false }
+    }
+    // Safety: if still at round_end, advance (clearPendingResult should have)
+    if (state.value.phase === 'round_end') {
+      clearPendingResult()
     }
     return runBots()
   }

@@ -71,12 +71,17 @@
       font-display text-lg font-bold leading-none text-night-900 shadow-md
       ring-1 ring-inset ring-white/25
       sm:h-14 sm:w-11 sm:text-xl;
-    /* Long specials (e.g. 0*) still fit without growing the tile */
+    /* Long specials (e.g. 0*, M→0) still fit without growing the tile */
     letter-spacing: -0.02em;
     padding-inline: 0.1rem;
     overflow: hidden;
     text-overflow: clip;
     white-space: nowrap;
+  }
+
+  /* 3+ glyph faces (M→0, 0*, multi-digit) */
+  .card-tile--dense {
+    @apply text-[0.7rem] tracking-tighter sm:text-xs;
   }
 
   .card-tile-mystery {
@@ -203,6 +208,19 @@
 
   .reveal-card__hero--sm {
     @apply text-[11px] sm:text-xs;
+  }
+
+  /* Stacked special face (MAX / →0) — avoids single-line crush on narrow tiles */
+  .reveal-card__stack {
+    @apply relative z-[1] flex flex-col items-center justify-center leading-none;
+  }
+
+  .reveal-card__stack-top {
+    @apply text-[9px] font-bold tracking-[0.12em] text-amber-100/90 sm:text-[10px];
+  }
+
+  .reveal-card__stack-bot {
+    @apply mt-0.5 text-base font-bold tracking-tight text-amber-100 sm:text-lg;
   }
 
   .reveal-card__sub {
@@ -1191,6 +1209,17 @@
  */
 .page-scroll {
   @apply relative flex h-full min-h-0 flex-col overflow-x-hidden overflow-y-auto;
+}
+
+/** Hide scrollbars while keeping overflow scroll (result PC, carousels). */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 /**

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  DISCONNECT_FORFEIT_MS,
   HOST_DISCONNECT_GRACE_MS,
   IDLE_TTL_OPEN_MS,
   IDLE_TTL_PLAYING_MS,
@@ -8,6 +9,7 @@ import {
   allPlayersReady,
   appendChatMessage,
   appendStampReaction,
+  applyDueDisconnectPolicies,
   applyDueHostTransfer,
   applyResultDismiss,
   buildPlayerView,
@@ -28,6 +30,7 @@ import {
   type RoomPlayer,
   type RoomState,
 } from './roomLogic'
+import { startGame, seedRandom } from '../src/domain/game'
 import { CHAT_COOLDOWN_MS, MAX_CHAT_TEXT_LENGTH, STAMP_CATALOG } from './types'
 import type { PendingResultSnapshot } from './maskedView'
 
@@ -426,9 +429,10 @@ describe('lifecycle: host transfer + idle purge', () => {
     expect(room.disconnectDeadlines['h']).toBe(now + HOST_DISCONNECT_GRACE_MS)
   })
 
-  it('non-host disconnect does not set transfer deadline', () => {
+  it('lobby non-host disconnect does not set deadline', () => {
     const room = createEmptyRoom('ABC234')
     room.hostId = 'h'
+    room.status = 'open'
     room.players = [
       player({ id: 'h', joinedAt: 1 }),
       player({ id: 'g', joinedAt: 2 }),
@@ -437,6 +441,42 @@ describe('lifecycle: host transfer + idle purge', () => {
     expect(room.players[1]!.connected).toBe(false)
     expect(room.disconnectDeadlines['g']).toBeUndefined()
     expect(Object.keys(room.disconnectDeadlines)).toHaveLength(0)
+  })
+
+  it('playing disconnect sets forfeit deadline for any seat', () => {
+    const room = createEmptyRoom('PLAY1')
+    room.status = 'playing'
+    room.hostId = 'h'
+    room.game = startGame({ playerIds: ['h', 'g'] }, seedRandom(1))
+    room.players = [
+      player({ id: 'h', joinedAt: 1 }),
+      player({ id: 'g', joinedAt: 2 }),
+    ]
+    const now = 20_000
+    markPlayerDisconnected(room, 'g', now)
+    expect(room.disconnectDeadlines['g']).toBe(now + DISCONNECT_FORFEIT_MS)
+  })
+
+  it('forfeits disconnected player after grace and can end game', () => {
+    const now = 100_000
+    const room = createEmptyRoom('PLAY2', now)
+    room.status = 'playing'
+    room.hostId = 'h'
+    room.game = startGame(
+      { playerIds: ['h', 'g'], config: { initialLives: 1 } },
+      seedRandom(2),
+    )
+    room.players = [
+      player({ id: 'h', joinedAt: 1, connected: true }),
+      player({ id: 'g', joinedAt: 2, connected: false }),
+    ]
+    room.disconnectDeadlines['g'] = now - 1
+
+    const r = applyDueDisconnectPolicies(room, now)
+    expect(r.forfeitedIds).toContain('g')
+    expect(room.game!.players.find((p) => p.id === 'g')?.alive).toBe(false)
+    expect(room.game!.phase).toBe('game_over')
+    expect(room.game!.winnerId).toBe('h')
   })
 
   it('lobby unexpected disconnect keeps seat, ready, and resumeToken', () => {

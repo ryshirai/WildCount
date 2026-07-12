@@ -21,13 +21,15 @@ export interface PlayerSeat {
   /** Remaining lives (0 = eliminated) */
   lives: number
   /**
-   * Hand card face label (e.g. "+5", "×2", "MAX→0").
+   * Hand card face label (e.g. "+5", "×2", "M→0").
    * Indian poker: others' cards are visible; self is always `handHidden`.
    * null when no hand (eliminated / not dealt).
    */
   handLabel: string | null
   /** true → show as ? (own forehead card; local player must not see it) */
   handHidden: boolean
+  /** Online: WebSocket connected. Local always true / undefined. */
+  connected?: boolean
 }
 
 export interface EventLogItem {
@@ -37,6 +39,11 @@ export interface EventLogItem {
   name: string
   message: string
   timeLabel: string
+  /**
+   * `separator` = round / phase divider (e.g. 第2ラウンド開始).
+   * Default `entry` = player action line rendered as 「{name}が{message}」.
+   */
+  kind?: 'entry' | 'separator'
 }
 
 export interface GameRoomMock {
@@ -86,7 +93,7 @@ export interface RevealedCard {
   kind: CardKind
   /** Numeric value when kind is number or zero_mix; null for pure specials */
   value: number | null
-  /** Label for display e.g. "+5", "×2", "MAX→0" */
+  /** Label for display e.g. "+5", "×2", "M→0" */
   label: string
   isSelf: boolean
 }

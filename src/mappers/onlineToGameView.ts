@@ -70,6 +70,7 @@ function seatsToUi(game: MaskedGamePayload): PlayerSeat[] {
             ? null
             : null,
       handHidden: s.handHidden,
+      connected: s.connected,
     }
   })
 }

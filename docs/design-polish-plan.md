@@ -411,7 +411,7 @@ Small horizontal logo mark for Wild Count: circular badge with wolf howling at a
 |------|------|
 | ボット | `estimateRoundTotal`（他者札 + 自分の期待値）で宣言・チャレンジ確率を調整 |
 | 設定 | トップで人数 3/4・表示名・任意シード。`buildDemoLineup` |
-| 終了 | 勝者バナー +「もう一度遊ぶ」（設定維持）/「トップへ」（セッション破棄） |
+| 終了 | 勝者バナー +「もう一度遊ぶ」（設定維持）。結果画面にトップへは置かない |
 | モック導線 | トップの `?mock=1` リンクを `<details>` 開発用に折りたたみ |
 | ペース | 思考 3–5 秒・結果手動は現状維持 |
 

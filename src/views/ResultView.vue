@@ -285,22 +285,6 @@ async function playAgain() {
   }
   await store.restartLastGame()
   void router.push({ name: 'game' })
-}
-
-function goHome() {
-  if (useMock.value) {
-    void router.push({ name: 'home' })
-    return
-  }
-  if (isOnline.value) {
-    onlineGame.clearPendingResult()
-    onlineGame.leave()
-    void router.push({ name: 'home' })
-    return
-  }
-  store.clearPendingResult()
-  store.resetSession()
-  void router.push({ name: 'home' })
 }</script>
 
 <template>
@@ -328,7 +312,7 @@ function goHome() {
 
     <div
       v-if="result"
-      class="relative z-10 mx-auto w-full max-w-3xl min-h-0 flex-1 overflow-y-auto px-4 py-6 safe-bottom sm:py-8"
+      class="relative z-10 mx-auto w-full max-w-3xl min-h-0 flex-1 overflow-y-auto scrollbar-none px-4 py-5 safe-bottom sm:py-6 lg:py-5"
     >
       <!-- Confetti over the scroll area once calc resolves -->
       <FxConfetti
@@ -348,7 +332,7 @@ function goHome() {
           {{ localMeta.winnerName ?? '勝者' }} の勝利！
         </h2>
         <p class="mt-2 text-xs text-sand-dim">
-          最後の1人が生き残りました。下からもう一度遊ぶか、トップへ戻れます。
+          最後の1人が生き残りました。下の「もう一度遊ぶ」から続けられます。
         </p>
       </section>
 
@@ -453,12 +437,12 @@ function goHome() {
       </section>
 
       <!-- Calculation steps (main animation on this screen) -->
-      <section class="panel mb-6 p-4 sm:p-5">
+      <section class="panel mb-5 p-4 sm:mb-6 sm:p-5">
         <h3 class="mb-1 text-sm font-semibold text-gold-200">合計計算の過程</h3>
-        <p class="mb-4 text-[11px] text-sand-dim">
+        <p class="mb-3 text-[11px] text-sand-dim sm:mb-4">
           特殊札の効果を順番に適用した結果です
         </p>
-        <ol class="space-y-3">
+        <ol class="space-y-2.5 sm:space-y-3">
           <li
             v-for="(step, i) in result.calcSteps"
             :key="step.id"
@@ -509,7 +493,7 @@ function goHome() {
       </section>
 
       <!-- Card recap (already revealed on game screen) -->
-      <section class="panel mb-6 p-4 sm:p-5">
+      <section class="panel mb-5 p-4 sm:mb-6 sm:p-5">
         <h3 class="mb-3 text-sm font-semibold text-gold-200">公開カード（再掲）</h3>
         <ul class="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
           <li
@@ -544,32 +528,24 @@ function goHome() {
         </ul>
       </section>
 
-      <!-- Actions -->
-      <div class="flex flex-col gap-3 safe-bottom sm:flex-row sm:justify-center">
-        <template v-if="localMeta.isGameOver && !useMock">
-          <button
-            type="button"
-            class="btn-gold w-full sm:max-w-xs"
-            @click="playAgain"
-          >
-            もう一度遊ぶ
-          </button>
-          <button type="button" class="btn-teal w-full sm:max-w-xs" @click="goHome">
-            トップへ
-          </button>
-        </template>
-        <template v-else>
-          <button
-            type="button"
-            class="btn-gold w-full sm:max-w-xs"
-            @click="goNextRound"
-          >
-            次のラウンドへ
-          </button>
-          <button type="button" class="btn-ghost w-full sm:w-auto" @click="goHome">
-            トップへ
-          </button>
-        </template>
+      <!-- Actions: single primary CTA only (no トップへ — easy mis-tap) -->
+      <div class="flex flex-col gap-3 sm:flex-row sm:justify-center">
+        <button
+          v-if="localMeta.isGameOver && !useMock"
+          type="button"
+          class="btn-gold w-full sm:max-w-xs"
+          @click="playAgain"
+        >
+          もう一度遊ぶ
+        </button>
+        <button
+          v-else
+          type="button"
+          class="btn-gold w-full sm:max-w-xs"
+          @click="goNextRound"
+        >
+          次のラウンドへ
+        </button>
       </div>
     </div>
 

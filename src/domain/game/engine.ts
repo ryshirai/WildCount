@@ -201,7 +201,7 @@ function doPlaceBid(state: GameState, value: number): GameState {
   }
 }
 
-function doChallenge(state: GameState, rng: RandomSource): GameState {
+function doChallenge(state: GameState, _rng: RandomSource): GameState {
   const err = describeIllegal(state, { type: 'CHALLENGE' })
   if (err) throw new GameError(err, 'INVALID_ACTION')
 
@@ -218,7 +218,7 @@ function doChallenge(state: GameState, rng: RandomSource): GameState {
     challengerId,
   })
 
-  let players = applyLifeLoss(state.players, outcome.loserId)
+  const players = applyLifeLoss(state.players, outcome.loserId)
   const winner = soleSurvivor(players)
 
   // Spent hands → discard after reveal
@@ -240,8 +240,9 @@ function doChallenge(state: GameState, rng: RandomSource): GameState {
     }
   }
 
-  // Auto-advance to next round (Phase 0 convenience for simulation)
-  const roundEnd: GameState = {
+  // Stop at round_end — callers (sim / local / Worker) apply START_ROUND only
+  // after everyone has left the result screen (or immediately in pure sims).
+  return {
     ...state,
     phase: 'round_end',
     players,
@@ -253,10 +254,83 @@ function doChallenge(state: GameState, rng: RandomSource): GameState {
     currentTurnPlayerId: null,
     revision: state.revision + 1,
   }
+}
 
-  // Immediately start next round so callers can keep reducing without
-  // an extra START_ROUND — still pure / deterministic with rng.
-  return doStartRound(roundEnd, rng)
+/**
+ * Force-eliminate a player (mid-game leave / disconnect timeout forfeit).
+ *
+ * - Sets lives to 0 and alive=false
+ * - Keeps this round's hand so a later challenge still counts their card
+ * - Advances the turn if it was theirs
+ * - Ends the game when one survivor remains (or zero survivors)
+ *
+ * No-op when already dead, lobby, or game_over.
+ */
+export function forceEliminatePlayer(
+  state: GameState,
+  playerId: PlayerId,
+): GameState {
+  if (state.phase === 'lobby' || state.phase === 'game_over') {
+    return state
+  }
+  const target = state.players.find((p) => p.id === playerId)
+  if (!target || !target.alive) {
+    return state
+  }
+
+  const players: Player[] = state.players.map((p) =>
+    p.id === playerId ? { ...p, lives: 0, alive: false } : p,
+  )
+  const winner = soleSurvivor(players)
+  const living = alivePlayers(players)
+
+  if (winner) {
+    // Hand cards discarded without reveal when game ends by forfeit mid-round
+    const discarded = [...state.discard, ...Object.values(state.hands)]
+    return {
+      ...state,
+      phase: 'game_over',
+      players,
+      hands: {},
+      discard: discarded,
+      winnerId: winner.id,
+      currentBid: null,
+      currentBidderId: null,
+      currentTurnPlayerId: null,
+      revision: state.revision + 1,
+    }
+  }
+
+  if (living.length === 0) {
+    const discarded = [...state.discard, ...Object.values(state.hands)]
+    return {
+      ...state,
+      phase: 'game_over',
+      players,
+      hands: {},
+      discard: discarded,
+      winnerId: null,
+      currentBid: null,
+      currentBidderId: null,
+      currentTurnPlayerId: null,
+      revision: state.revision + 1,
+    }
+  }
+
+  let currentTurnPlayerId = state.currentTurnPlayerId
+  if (currentTurnPlayerId === playerId) {
+    currentTurnPlayerId = nextAlivePlayerId(players, playerId)
+  }
+
+  // Keep currentBid / currentBidderId even if the bidder left — others may still
+  // challenge that number. Life loss on an already-dead bidder is a no-op.
+
+  return {
+    ...state,
+    players,
+    currentTurnPlayerId,
+    revision: state.revision + 1,
+  }
 }
 
 // ---------------------------------------------------------------------------

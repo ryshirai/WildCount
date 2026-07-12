@@ -216,7 +216,8 @@ export function cardLabel(card: Card): string {
     case 'double':
       return '×2'
     case 'max_to_zero':
-      return 'MAX→0'
+      // Compact: hand tiles are ~2.5rem wide; "MAX→0" overflowed / cramped.
+      return 'M→0'
     case 'redraw':
       return '?'
     case 'zero_mix':

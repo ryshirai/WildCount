@@ -181,11 +181,19 @@ export const mockGameRoom: GameRoomMock = {
       timeLabel: '2分前',
     },
     {
+      id: 'e-sep3',
+      avatar: '·',
+      name: '',
+      message: '第3ラウンド開始',
+      timeLabel: '',
+      kind: 'separator',
+    },
+    {
       id: 'e4',
       avatar: '🐿️',
       avatarSrc: avatarSrc('squirrel'),
       name: 'リス',
-      message: '11を宣言しました',
+      message: 'コヨーテ！（チャレンジ）',
       timeLabel: '3分前',
     },
     {

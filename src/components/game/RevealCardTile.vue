@@ -8,7 +8,7 @@ import type { CardKind } from '@/types/game'
 withDefaults(
   defineProps<{
     kind: CardKind
-    /** Display label e.g. "+5", "×2", "MAX→0" */
+    /** Display label e.g. "+5", "×2", "M→0" (aria / title) */
     label: string
     /** Numeric value when applicable */
     value?: number | null
@@ -54,7 +54,7 @@ const sizeClass: Record<'md' | 'lg', string> = {
       <span class="reveal-card__hero font-display">×2</span>
     </template>
 
-    <!-- MAX → 0 -->
+    <!-- MAX → 0（2行: 小さな MAX + 大きな →0。1行 "MAX→0" は幅不足で潰れる） -->
     <template v-else-if="kind === 'max_to_zero'">
       <svg
         class="reveal-card__glyph reveal-card__glyph--wide"
@@ -82,7 +82,10 @@ const sizeClass: Record<'md' | 'lg', string> = {
           opacity="0.45"
         />
       </svg>
-      <span class="reveal-card__hero reveal-card__hero--sm font-display">MAX→0</span>
+      <span class="reveal-card__stack font-display">
+        <span class="reveal-card__stack-top">MAX</span>
+        <span class="reveal-card__stack-bot">→0</span>
+      </span>
     </template>
 
     <!-- REDRAW ? -->

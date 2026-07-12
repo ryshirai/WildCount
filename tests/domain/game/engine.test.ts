@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   applyAction,
   createInitialState,
+  forceEliminatePlayer,
   getLegalMoves,
   startGame,
   DECK_SIZE,
@@ -91,6 +92,46 @@ describe('startGame / bidding', () => {
     expect(state.winnerId).toBeTruthy()
     expect(state.players.filter((p) => p.alive)).toHaveLength(1)
     expect(state.lastOutcome).not.toBeNull()
+  })
+
+  it('challenge with lives left stops at round_end until START_ROUND', () => {
+    const rng = seedRandom(50)
+    let state = startGame(
+      { playerIds: ['a', 'b', 'c'], config: { initialLives: 3 } },
+      rng,
+    )
+    state = applyAction(state, { type: 'PLACE_BID', value: 1 }, rng)
+    state = applyAction(state, { type: 'CHALLENGE' }, rng)
+    expect(state.phase).toBe('round_end')
+    expect(state.lastOutcome).not.toBeNull()
+    expect(Object.keys(state.hands)).toHaveLength(0)
+
+    state = applyAction(state, { type: 'START_ROUND' }, rng)
+    expect(state.phase).toBe('bidding')
+    expect(state.round).toBe(2)
+    expect(Object.keys(state.hands).length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('forceEliminatePlayer drops lives and can end the game', () => {
+    const rng = seedRandom(3)
+    let state = startGame(
+      { playerIds: ['a', 'b', 'c'], config: { initialLives: 2 } },
+      rng,
+    )
+    const turn = state.currentTurnPlayerId!
+    state = forceEliminatePlayer(state, turn)
+    expect(state.players.find((p) => p.id === turn)?.alive).toBe(false)
+    expect(state.players.find((p) => p.id === turn)?.lives).toBe(0)
+    // Hand kept for this round's total
+    expect(state.hands[turn]).toBeTruthy()
+    expect(state.currentTurnPlayerId).not.toBe(turn)
+    expect(state.phase).toBe('bidding')
+
+    // Eliminate until one remains
+    const remaining = state.players.filter((p) => p.alive).map((p) => p.id)
+    state = forceEliminatePlayer(state, remaining[0]!)
+    expect(state.phase).toBe('game_over')
+    expect(state.winnerId).toBe(remaining[1]!)
   })
 
   it('life 0 eliminates; last remaining player wins', () => {
