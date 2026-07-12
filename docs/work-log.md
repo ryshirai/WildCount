@@ -1775,6 +1775,47 @@
 
 ---
 
+## 2026-07-12 — ロビー切断・lint/typecheck 品質ゲート
+
+### 背景・目的
+- レビュー指摘: ロビーでの予期しない切断が即席削除になり、resumeToken / ready / ホスト 60s 猶予と矛盾
+- `npm run lint` が flat config 不在で失敗、`tsc -b` も型エラー 11 件のままビルド成功していた
+
+### 実施内容
+1. **GameRoom `webSocketClose`**: ロビー含む全 status で `markPlayerDisconnected`（席・token 維持）。意図的退出は従来どおり `leave` → `removePlayerFromRoom`（attachment クリアで close が no-op）
+2. **ESLint 9 flat config**（`eslint.config.js`）+ `globals` 依存追加。`npm run lint` 復旧
+3. **typecheck**: `tsconfig.worker.json` で Worker を分離、`package.json` に `typecheck` スクリプト。型エラー修正（localGame `GameAction`、ResponseInit.webSocket、chat id: string、未使用 import）
+4. **onlineGame**: 接続切替時に旧 `connectAndJoin` Promise がハングしないよう `activeConnectFail` で supersede。ストア単体テスト 6 件追加
+5. phase1 仕様 §7.5 を leave vs unexpected close に合わせて明文化
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `worker/GameRoom.ts` | ロビー close → markDisconnected |
+| `worker/env.d.ts` / `roomLogic.ts` | CF ResponseInit.webSocket、chat id 型 |
+| `src/stores/localGame.ts` / `onlineGame.ts` | 型修正・接続 supersede |
+| `eslint.config.js` / `tsconfig.worker.json` / `package.json` | lint + typecheck ゲート |
+| `tests/stores/onlineGame.test.ts` | 再接続・leave・socketGen 等 |
+| `docs/phase1-multiplayer.md` | §7.5 更新 |
+
+### 明示的にやっていないこと
+- CI ワークフロー YAML の追加（リポジトリに `.github` なし）
+- ロビー切断席の自動キック（idle TTL に依存）
+- onlineGame の完全な統合 E2E
+
+### 確認結果
+- `npm run lint` 成功
+- `npm run typecheck` 成功
+- `npm test` 16 ファイル・108 テスト成功
+- `npm run build` 成功
+
+### 次に考えられる作業
+1. CI（GitHub Actions 等）で `lint` / `typecheck` / `test` を必須化
+2. ロビー切断席のホスト向け UI（再接続待ちの明示）
+3. HOLD-5 本番 deploy
+
+---
+
 ## ログの書き方
 
 **正規のルールは `AGENTS.md` を参照。** 変更のあったセッションでは、このファイルに日付見出しで **追記** する（過去エントリは消さない）。

@@ -177,8 +177,8 @@ export function sanitizeDisplayName(raw: unknown): string {
  */
 export function sanitizeChatText(raw: unknown): string | null {
   if (typeof raw !== 'string') return null
-  // eslint-disable-next-line no-control-regex -- intentional strip of C0/C1 controls
   const cleaned = raw
+    // eslint-disable-next-line no-control-regex -- intentional strip of C0/C1 controls
     .replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
     .replace(/\s+/g, ' ')
     .trim()
@@ -216,7 +216,7 @@ export function appendChatMessage(
   player: RoomPlayer,
   rawText: unknown,
   now = Date.now(),
-  id = crypto.randomUUID(),
+  id: string = crypto.randomUUID(),
 ): AppendChatResult {
   const text = sanitizeChatText(rawText)
   if (!text) {
@@ -248,7 +248,7 @@ export function appendStampReaction(
   player: RoomPlayer,
   stampIdRaw: unknown,
   now = Date.now(),
-  id = crypto.randomUUID(),
+  id: string = crypto.randomUUID(),
 ): AppendChatResult {
   if (!isStampId(stampIdRaw)) {
     return { ok: false, code: 'CHAT_REJECTED', message: 'Unknown stamp' }

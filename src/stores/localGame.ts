@@ -6,6 +6,7 @@ import {
   seedRandom,
   startGame,
   type Card,
+  type GameAction,
   type GameState,
   type PlayerId,
   type RandomSource,
@@ -199,10 +200,7 @@ export const useLocalGameStore = defineStore('localGame', () => {
     return startLocalGame({ ...lastStartOptions })
   }
 
-  function applyCurrentAction(action: {
-    type: 'PLACE_BID'
-    value: number
-  } | { type: 'CHALLENGE' }): { hasResult: boolean } {
+  function applyCurrentAction(action: GameAction): { hasResult: boolean } {
     if (!state.value) {
       throw new Error('No local game session')
     }
@@ -224,6 +222,10 @@ export const useLocalGameStore = defineStore('localGame', () => {
       ]
       pushLog(actorId, `${action.value}を宣言しました`)
       return { hasResult: false }
+    }
+
+    if (action.type !== 'CHALLENGE') {
+      throw new Error(`Unexpected local action: ${action.type}`)
     }
 
     const handsSnapshot: Record<PlayerId, Card> = { ...state.value.hands }

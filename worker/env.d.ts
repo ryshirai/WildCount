@@ -68,3 +68,8 @@ interface WebSocket {
   serializeAttachment(attachment: unknown): void
   deserializeAttachment(): unknown
 }
+
+/** Cloudflare Workers 101 WebSocket upgrade response. */
+interface ResponseInit {
+  webSocket?: WebSocket
+}

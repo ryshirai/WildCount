@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "eslint . --ext .ts,.vue",
+    "lint": "eslint .",
+    "typecheck": "tsc -b",
     "format": "prettier --write \"**/*.{ts,vue,json,md}\"",
     "worker:dev": "NODE_OPTIONS='--dns-result-order=ipv4first' wrangler dev",
     "deploy": "wrangler deploy"
@@ -27,6 +28,7 @@
     "autoprefixer": "^10.5.2",
     "eslint": "^9.0.0",
     "eslint-plugin-vue": "^9.0.0",
+    "globals": "^15.15.0",
     "postcss": "^8.5.17",
     "prettier": "^3.0.0",
     "sass": "^1.101.0",

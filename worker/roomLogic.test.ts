@@ -5,7 +5,6 @@ import {
   IDLE_TTL_PLAYING_MS,
 } from './types'
 import {
-  allConnectedHaveResultAck,
   allPlayersReady,
   appendChatMessage,
   appendStampReaction,
@@ -438,6 +437,28 @@ describe('lifecycle: host transfer + idle purge', () => {
     expect(room.players[1]!.connected).toBe(false)
     expect(room.disconnectDeadlines['g']).toBeUndefined()
     expect(Object.keys(room.disconnectDeadlines)).toHaveLength(0)
+  })
+
+  it('lobby unexpected disconnect keeps seat, ready, and resumeToken', () => {
+    // webSocketClose (any status) uses markDisconnected; only leave removes seats.
+    const room = createEmptyRoom('LOBBY1')
+    room.status = 'open'
+    room.hostId = 'h'
+    room.players = [
+      player({ id: 'h', joinedAt: 1, ready: true, resumeToken: 'th' }),
+      player({ id: 'g', joinedAt: 2, ready: true, resumeToken: 'tg' }),
+    ]
+    room.resumeTokens = { th: 'h', tg: 'g' }
+
+    markPlayerDisconnected(room, 'g', 50_000)
+
+    expect(room.players).toHaveLength(2)
+    const guest = room.players.find((p) => p.id === 'g')!
+    expect(guest.connected).toBe(false)
+    expect(guest.ready).toBe(true)
+    expect(findPlayerByToken(room, 'tg')?.id).toBe('g')
+    expect(room.hostId).toBe('h')
+    expect(room.disconnectDeadlines['g']).toBeUndefined()
   })
 
   it('clears deadline on resume helper', () => {

@@ -98,6 +98,11 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     reject: (e: Error) => void
     timer: ReturnType<typeof setTimeout>
   } | null = null
+  /**
+   * Reject the in-flight connectAndJoin promise when a newer connect / leave
+   * supersedes it (socketGen alone would leave the old Promise hanging).
+   */
+  let activeConnectFail: ((err: Error) => void) | null = null
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null
   /** Clears ephemeral status-bar events (RESUME, BID, etc.) */
   let lastEventClearTimer: ReturnType<typeof setTimeout> | null = null
@@ -300,8 +305,16 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     const clearView = opts?.clearView !== false
     const preserveOnFail = opts?.preserveOnFail === true
 
-    // Drop prior socket; its close handler is invalidated via socketGen.
+    // Drop prior socket first (bumps socketGen so its handlers no-op), then
+    // reject any in-flight join Promise so callers do not hang forever.
     closeSocketOnly()
+    if (activeConnectFail) {
+      activeConnectFail(new Error('接続が切り替わりました'))
+      activeConnectFail = null
+    }
+    if (helloWait) {
+      clearHelloWait(new Error('接続が切り替わりました'))
+    }
     intentionalClose = false
     const myGen = ++socketGen
     connection.value = 'connecting'
@@ -321,21 +334,27 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     await new Promise<void>((resolve, reject) => {
       let settled = false
       const fail = (err: Error) => {
-        if (settled || myGen !== socketGen) return
+        // Do not gate on socketGen: supersede path must be able to reject.
+        if (settled) return
         settled = true
-        connection.value = preserveOnFail && view.value ? 'closed' : 'error'
-        // Prefer server-formatted message already on lastError (join errors)
-        if (!lastError.value) {
-          setError(null, err.message)
+        if (activeConnectFail === fail) activeConnectFail = null
+        if (myGen === socketGen) {
+          connection.value = preserveOnFail && view.value ? 'closed' : 'error'
+          // Prefer server-formatted message already on lastError (join errors)
+          if (!lastError.value) {
+            setError(null, err.message)
+          }
         }
         clearHelloWait(err)
         reject(err)
       }
       const ok = () => {
-        if (settled || myGen !== socketGen) return
+        if (settled) return
         settled = true
+        if (activeConnectFail === fail) activeConnectFail = null
         resolve()
       }
+      activeConnectFail = fail
 
       try {
         ws = new WebSocket(url)
@@ -345,6 +364,7 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
       }
 
       const openTimer = setTimeout(() => {
+        if (myGen !== socketGen) return
         fail(new Error('接続がタイムアウトしました（Worker は起動していますか？）'))
         try {
           if (myGen === socketGen) ws?.close()
@@ -394,6 +414,8 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
         ws = null
         if (helloWait) {
           clearHelloWait(new Error('接続が切断されました'))
+        } else if (!settled) {
+          fail(new Error('接続が切断されました'))
         }
         if (intentionalClose) {
           connection.value = 'idle'
@@ -720,6 +742,13 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     clearReconnectTimer()
     reconnecting.value = false
     reconnectAttempt.value = 0
+    if (activeConnectFail) {
+      activeConnectFail(new Error('退出したため接続を中断しました'))
+      activeConnectFail = null
+    }
+    if (helloWait) {
+      clearHelloWait(new Error('退出したため接続を中断しました'))
+    }
     // Ask server to drop the lobby seat before closing the socket
     if (ws && ws.readyState === WebSocket.OPEN) {
       try {

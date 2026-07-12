@@ -277,12 +277,14 @@ interface RoomPlayer {
 3. 同一 `playerId` で `connected=true`、最新 `view` を送る  
 4. 不明 token → 新規参加扱い（開始後は拒否）
 
-### 7.5 ホスト移譲
+### 7.5 切断 vs 意図的退出 / ホスト移譲
 
-1. host の WS 切断 → `disconnectDeadlines[hostId] = now + 60_000`、alarm 設定  
-2. 60s 以内に resume → キャンセル  
-3. タイムアウト: `joinedAt` が最古の **connected** 参加者へ host 移譲。誰もいなければ空ルーム処理  
-4. 非 host 切断は「接続フラグ」のみ（ゲーム中は席を維持。離脱踢出は MVP 外でも、長時間全員切断は idle TTL で削除）
+1. **意図的退出**（Client `leave`）: ロビーは席・resumeToken を削除し host を即移譲。対戦中は切断扱い（席維持）  
+2. **予期しない切断**（WS close / リロード / スリープ）: ロビーでも対戦中でも席・ready・resumeToken を維持し `connected=false` のみ（`markPlayerDisconnected`）  
+3. host の予期しない切断 → `disconnectDeadlines[hostId] = now + 60_000`、alarm 設定  
+4. 60s 以内に resume → キャンセル  
+5. タイムアウト: `joinedAt` が最古の **connected** 参加者へ host 移譲。誰もいなければ空ルーム処理  
+6. 非 host の予期しない切断は接続フラグのみ（席維持。長時間全員切断は idle TTL で削除）
 
 ### 7.6 空ルーム / idle TTL
 

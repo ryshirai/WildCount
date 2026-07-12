@@ -274,43 +274,10 @@ export class GameRoom {
     if (!player) return
 
     const now = Date.now()
-    const name = player.displayName
 
-    // Lobby: always drop the seat (leave message often races behind TCP close,
-    // which previously left a permanent「切断 / 待機中」ghost).
-    if (room.status === 'open') {
-      const result = removePlayerFromRoom(room, att.playerId)
-      if (!result.removed) return
-      room.lastActivityAt = now
-      room.revision += 1
-      await this.saveRoom(room)
-      await this.scheduleNextAlarm(room)
-      this.broadcast(room, {
-        type: 'event',
-        level: 'info',
-        message: `${name} が退出しました`,
-        code: 'PLAYER_LEFT',
-      })
-      if (
-        result.hostChanged &&
-        result.newHostId &&
-        result.newHostId !== result.previousHostId
-      ) {
-        const hostName =
-          room.players.find((p) => p.id === result.newHostId)?.displayName ??
-          '誰か'
-        this.broadcast(room, {
-          type: 'event',
-          level: 'info',
-          message: `ホストが ${hostName} に移譲されました`,
-          code: 'HOST_TRANSFERRED',
-        })
-      }
-      this.broadcastView(room)
-      return
-    }
-
-    // Playing / closed: keep seat for resume (disconnect only)
+    // Unexpected close (network drop, reload, sleep): keep seat + resumeToken
+    // in every status. Intentional leave is handled by handleLeave (lobby removes
+    // seat and clears attachment so this path no-ops). Host gets 60s transfer grace.
     markPlayerDisconnected(room, att.playerId, now)
     // Disconnected seats no longer block result ACK completion
     if (room.pendingResult && allConnectedHaveResultAck(room)) {
