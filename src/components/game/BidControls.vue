@@ -1,42 +1,204 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref, watch } from 'vue'
+import type { ClientBidExtra } from '@/online/protocol'
+
+export type BidExtraChoice = ClientBidExtra['type'] | 'none'
+
+export interface BidTargetOption {
+  id: string
+  name: string
+}
+
+interface SkillOption {
+  id: BidExtraChoice
+  emoji: string
+  label: string
+  hint: string
+}
 
 const bid = defineModel<number>({ required: true })
 
 const props = defineProps<{
   minBid?: number
+  /** Forced rebid: this value is illegal */
+  forbiddenValue?: number | null
   canChallenge?: boolean
   canDeclare?: boolean
+  canSame?: boolean
+  canChange?: boolean
+  /** 特殊能力 (bid-ride skills) allowed this turn */
+  extrasAllowed?: boolean
+  allowReverse?: boolean
+  allowShot?: boolean
+  allowDraw1?: boolean
+  allowLifeDouble?: boolean
+  /** Targets for shot / draw1 (others only) */
+  targetOptions?: readonly BidTargetOption[]
   mobile?: boolean
 }>()
 
 const emit = defineEmits<{
-  declare: [value: number]
+  declare: [value: number, extra?: ClientBidExtra]
   challenge: []
+  same: []
+  change: []
 }>()
 
 const tickKey = ref(0)
 const declareFlash = ref(false)
 const challengeFlash = ref(false)
+const extraChoice = ref<BidExtraChoice>('none')
+const targetId = ref<string>('')
+
+watch(
+  () => props.targetOptions,
+  (opts) => {
+    if (!opts?.length) {
+      targetId.value = ''
+      return
+    }
+    if (!opts.some((o) => o.id === targetId.value)) {
+      targetId.value = opts[0]!.id
+    }
+  },
+  { immediate: true },
+)
+
+// Clear skill when extras become illegal (e.g. already used / forced rebid)
+watch(
+  () => props.extrasAllowed,
+  (ok) => {
+    if (!ok) extraChoice.value = 'none'
+  },
+)
+
+const skillOptions = computed((): SkillOption[] => {
+  const list: SkillOption[] = [
+    {
+      id: 'none',
+      emoji: '·',
+      label: 'なし',
+      hint: '数字だけ宣言',
+    },
+  ]
+  if (props.allowReverse) {
+    list.push({
+      id: 'reverse',
+      emoji: '🔄',
+      label: 'リバース',
+      hint: '進行方向を逆転',
+    })
+  }
+  if (props.allowShot) {
+    list.push({
+      id: 'shot',
+      emoji: '🎯',
+      label: 'ショット',
+      hint: '次の手番を指名',
+    })
+  }
+  if (props.allowDraw1) {
+    list.push({
+      id: 'draw1',
+      emoji: '🃏',
+      label: 'ドロー',
+      hint: '誰かに札+1（R1回）',
+    })
+  }
+  if (props.allowLifeDouble) {
+    list.push({
+      id: 'life_double',
+      emoji: '⚡',
+      label: 'ダブル',
+      hint: '次チャレンジは −2',
+    })
+  }
+  return list
+})
+
+const showSkillBar = computed(
+  () =>
+    props.extrasAllowed &&
+    (props.allowReverse ||
+      props.allowShot ||
+      props.allowDraw1 ||
+      props.allowLifeDouble),
+)
+
+const needsTarget = computed(
+  () => extraChoice.value === 'shot' || extraChoice.value === 'draw1',
+)
+
+const selectedSkill = computed(() =>
+  skillOptions.value.find((s) => s.id === extraChoice.value),
+)
+
+const declareLabel = computed(() => {
+  if (props.mobile) {
+    if (extraChoice.value === 'none') return '宣言する'
+    return `${bid.value} + ${selectedSkill.value?.label ?? ''}`
+  }
+  if (extraChoice.value === 'none') return `${bid.value}を宣言`
+  return `${bid.value} + ${selectedSkill.value?.label ?? ''} で宣言`
+})
 
 function floor() {
   return props.minBid ?? 0
 }
 
 function adjust(delta: number) {
-  const next = Math.max(floor(), bid.value + delta)
+  let next = Math.max(floor(), bid.value + delta)
+  if (
+    props.forbiddenValue != null &&
+    next === props.forbiddenValue &&
+    delta !== 0
+  ) {
+    next = Math.max(floor(), next + (delta > 0 ? 1 : -1))
+  }
   if (next === bid.value && delta < 0) return
   bid.value = next
   tickKey.value += 1
 }
 
+function selectSkill(id: BidExtraChoice) {
+  if (!props.extrasAllowed && id !== 'none') return
+  extraChoice.value = id
+}
+
+function buildExtra(): ClientBidExtra | undefined {
+  if (!props.extrasAllowed || extraChoice.value === 'none') return undefined
+  switch (extraChoice.value) {
+    case 'reverse':
+      return { type: 'reverse' }
+    case 'life_double':
+      return { type: 'life_double' }
+    case 'shot':
+      if (!targetId.value) return undefined
+      return { type: 'shot', targetId: targetId.value }
+    case 'draw1':
+      if (!targetId.value) return undefined
+      return { type: 'draw1', targetId: targetId.value }
+    default:
+      return undefined
+  }
+}
+
 function onDeclare() {
   if (props.canDeclare === false) return
+  if (
+    props.forbiddenValue != null &&
+    bid.value === props.forbiddenValue
+  ) {
+    return
+  }
+  if (needsTarget.value && !targetId.value) return
   declareFlash.value = true
   window.setTimeout(() => {
     declareFlash.value = false
   }, 360)
-  emit('declare', bid.value)
+  emit('declare', bid.value, buildExtra())
+  // Reset skill after fire so next turn starts clean if same component stays
+  extraChoice.value = 'none'
 }
 
 function onChallenge() {
@@ -47,6 +209,16 @@ function onChallenge() {
   }, 360)
   emit('challenge')
 }
+
+function onSame() {
+  if (!props.canSame) return
+  emit('same')
+}
+
+function onChange() {
+  if (!props.canChange) return
+  emit('change')
+}
 </script>
 
 <template>
@@ -55,9 +227,129 @@ function onChallenge() {
     :class="mobile ? 'px-2.5 py-1.5' : 'px-4 py-2.5 sm:py-3'"
   >
     <p v-if="!mobile" class="mb-1.5 text-xs text-sand-dim sm:mb-2">
-      宣言する数字を選んでください
+      <template v-if="forbiddenValue != null">
+        付け直し: {{ forbiddenValue }} は使えません
+      </template>
+      <template v-else>宣言する数字を選んでください</template>
     </p>
-    <p v-else class="mb-1 text-center text-[10px] text-sand-dim">宣言する数字</p>
+    <p v-else class="mb-1 text-center text-[10px] text-sand-dim">
+      <template v-if="forbiddenValue != null">
+        付け直し（{{ forbiddenValue }} 不可）
+      </template>
+      <template v-else>宣言する数字</template>
+    </p>
+
+    <!-- Special abilities (solo + bid-ride share 1 slot / round) -->
+    <div
+      v-if="canSame || canChange || showSkillBar"
+      class="mb-2 space-y-1.5"
+    >
+      <p
+        class="font-medium text-gold-200/90"
+        :class="mobile ? 'text-center text-[10px]' : 'text-xs'"
+      >
+        特殊能力
+        <span class="font-normal text-sand-dim">（このラウンドで1回まで）</span>
+      </p>
+
+      <div
+        v-if="canSame || canChange"
+        class="flex flex-wrap gap-1.5"
+        :class="mobile ? 'justify-center' : ''"
+      >
+        <button
+          v-if="canSame"
+          type="button"
+          class="skill-chip skill-chip--solo"
+          :class="mobile ? 'skill-chip--sm' : ''"
+          @click="onSame"
+        >
+          <span aria-hidden="true">✋</span>
+          セイム
+        </button>
+        <button
+          v-if="canChange"
+          type="button"
+          class="skill-chip skill-chip--solo skill-chip--change"
+          :class="mobile ? 'skill-chip--sm' : ''"
+          @click="onChange"
+        >
+          <span aria-hidden="true">🔀</span>
+          チェンジ
+        </button>
+      </div>
+    </div>
+
+    <!-- Bid-ride skills under same special-ability budget -->
+    <div v-if="showSkillBar" class="mb-2 space-y-1.5">
+      <div
+        class="flex items-baseline justify-between gap-2"
+        :class="mobile ? 'justify-center' : ''"
+      >
+        <p
+          class="text-sand-dim"
+          :class="mobile ? 'text-[10px]' : 'text-[11px]'"
+        >
+          宣言に乗せる
+        </p>
+      </div>
+      <div
+        class="flex flex-wrap gap-1.5"
+        :class="mobile ? 'justify-center' : ''"
+        role="group"
+        aria-label="特殊能力を選ぶ"
+      >
+        <button
+          v-for="opt in skillOptions"
+          :key="opt.id"
+          type="button"
+          class="skill-chip"
+          :class="[
+            mobile ? 'skill-chip--sm' : '',
+            extraChoice === opt.id ? 'skill-chip--on' : '',
+            opt.id !== 'none' ? `skill-chip--${opt.id}` : '',
+          ]"
+          :aria-pressed="extraChoice === opt.id"
+          @click="selectSkill(opt.id)"
+        >
+          <span aria-hidden="true">{{ opt.emoji }}</span>
+          {{ opt.label }}
+        </button>
+      </div>
+      <p
+        v-if="selectedSkill && extraChoice !== 'none'"
+        class="text-sand-dim"
+        :class="mobile ? 'text-center text-[10px]' : 'text-[11px]'"
+      >
+        {{ selectedSkill.hint }}
+      </p>
+      <div
+        v-if="needsTarget"
+        class="flex flex-wrap items-center gap-1.5"
+        :class="mobile ? 'justify-center' : ''"
+      >
+        <span
+          class="text-sand-dim"
+          :class="mobile ? 'text-[10px]' : 'text-[11px]'"
+        >
+          対象
+        </span>
+        <button
+          v-for="t in targetOptions ?? []"
+          :key="t.id"
+          type="button"
+          class="skill-chip skill-chip--target"
+          :class="[
+            mobile ? 'skill-chip--sm' : '',
+            targetId === t.id ? 'skill-chip--on' : '',
+          ]"
+          :aria-pressed="targetId === t.id"
+          @click="targetId = t.id"
+        >
+          {{ t.name }}
+        </button>
+      </div>
+    </div>
 
     <div
       class="flex flex-wrap items-center gap-1.5"
@@ -121,12 +413,12 @@ function onChallenge() {
           :class="[
             declareFlash ? 'btn-fx-press' : '',
             mobile ? '!py-2 text-sm' : '',
+            extraChoice !== 'none' ? 'ring-1 ring-teal-soft/40' : '',
           ]"
           :disabled="canDeclare === false"
           @click="onDeclare"
         >
-          <template v-if="mobile">宣言する</template>
-          <template v-else>{{ bid }}を宣言</template>
+          {{ declareLabel }}
         </button>
         <button
           type="button"
@@ -139,10 +431,71 @@ function onChallenge() {
           @click="onChallenge"
         >
           <span aria-hidden="true">🐾</span>
-          <template v-if="mobile">コヨーテ！</template>
-          <template v-else>コヨーテ！</template>
+          コヨーテ！
         </button>
       </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+.skill-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(201, 168, 76, 0.28);
+  background: rgba(18, 24, 38, 0.9);
+  padding: 0.4rem 0.7rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgba(232, 220, 190, 0.92);
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.12s ease;
+}
+.skill-chip:active {
+  transform: scale(0.96);
+}
+.skill-chip--sm {
+  padding: 0.3rem 0.55rem;
+  font-size: 0.7rem;
+}
+.skill-chip--on {
+  border-color: rgba(94, 200, 200, 0.55);
+  background: linear-gradient(
+    145deg,
+    rgba(30, 70, 70, 0.55),
+    rgba(18, 24, 38, 0.95)
+  );
+  color: #e8f7f5;
+  box-shadow: 0 0 0 1px rgba(94, 200, 200, 0.2), 0 0 14px rgba(45, 212, 191, 0.15);
+}
+.skill-chip--solo {
+  border-color: rgba(214, 199, 168, 0.35);
+}
+.skill-chip--change {
+  border-color: rgba(251, 191, 36, 0.4);
+}
+.skill-chip--target {
+  font-weight: 500;
+}
+.skill-chip--reverse.skill-chip--on {
+  border-color: rgba(45, 212, 191, 0.55);
+  box-shadow: 0 0 14px rgba(45, 212, 191, 0.18);
+}
+.skill-chip--shot.skill-chip--on {
+  border-color: rgba(240, 215, 140, 0.6);
+  box-shadow: 0 0 14px rgba(201, 168, 76, 0.2);
+}
+.skill-chip--draw1.skill-chip--on {
+  border-color: rgba(167, 139, 250, 0.55);
+  box-shadow: 0 0 14px rgba(167, 139, 250, 0.18);
+}
+.skill-chip--life_double.skill-chip--on {
+  border-color: rgba(248, 113, 113, 0.55);
+  box-shadow: 0 0 14px rgba(248, 113, 113, 0.18);
+}
+</style>

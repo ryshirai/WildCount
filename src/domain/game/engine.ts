@@ -8,27 +8,32 @@ import {
 import type { RandomSource } from './random'
 import {
   alivePlayers,
+  allHandCards,
   applyLifeLoss,
   resolveChallenge,
   soleSurvivor,
 } from './resolve'
 import { describeIllegal, getLegalMoves } from './validate'
 import type {
+  BidExtraAction,
   Card,
+  ExtraRulesConfig,
   GameAction,
   GameConfig,
   GameState,
   Player,
   PlayerId,
   StartGameInput,
+  TurnDirection,
 } from './types'
-import { GameError } from './types'
+import { DEFAULT_EXTRA_RULES, GameError } from './types'
 
 export const DEFAULT_CONFIG: GameConfig = {
   initialLives: 3,
   /** Opening bid must be at least 1 (no zero / free open). */
   minOpeningBid: 1,
   deck: STANDARD_DECK,
+  extraRules: DEFAULT_EXTRA_RULES,
 }
 
 const MIN_PLAYERS = 2
@@ -57,6 +62,10 @@ export function createInitialState(input: StartGameInput): GameState {
 
   const raw = input.config ?? {}
   const deck = resolveDeckComposition(raw.deck)
+  const extraRules: ExtraRulesConfig = {
+    ...DEFAULT_EXTRA_RULES,
+    ...(raw.extraRules ?? {}),
+  }
   validateDeckComposition(deck)
 
   const config: GameConfig = {
@@ -64,6 +73,7 @@ export function createInitialState(input: StartGameInput): GameState {
     initialLives: raw.initialLives ?? DEFAULT_CONFIG.initialLives,
     minOpeningBid: raw.minOpeningBid ?? DEFAULT_CONFIG.minOpeningBid,
     deck,
+    extraRules,
   }
 
   const players: Player[] = ids.map((id, seatIndex) => ({
@@ -73,7 +83,7 @@ export function createInitialState(input: StartGameInput): GameState {
     alive: true,
   }))
 
-  return {
+  return emptyExtraFields({
     config,
     phase: 'lobby',
     round: 0,
@@ -88,7 +98,7 @@ export function createInitialState(input: StartGameInput): GameState {
     lastOutcome: null,
     winnerId: null,
     revision: 0,
-  }
+  })
 }
 
 /** Convenience: create state and start first round in one step. */
@@ -116,7 +126,11 @@ export function applyAction(
     case 'START_ROUND':
       return doStartRound(state, rng)
     case 'PLACE_BID':
-      return doPlaceBid(state, action.value)
+      return doPlaceBid(state, action.value, action.extra, rng)
+    case 'SAME':
+      return doSame(state)
+    case 'CHANGE':
+      return doChange(state)
     case 'CHALLENGE':
       return doChallenge(state, rng)
     default: {
@@ -132,6 +146,47 @@ export function applyAction(
 export { getLegalMoves }
 
 // ---------------------------------------------------------------------------
+// Extra-field helpers
+// ---------------------------------------------------------------------------
+
+function emptyExtraFields(
+  base: Omit<
+    GameState,
+    | 'turnDirection'
+    | 'lastAction'
+    | 'bidUnderCurrent'
+    | 'pendingChangeRebid'
+    | 'extraActionUsedThisRound'
+    | 'draw1UsedThisRound'
+    | 'pendingLifeDouble'
+  >,
+): GameState {
+  return {
+    ...base,
+    turnDirection: 1,
+    lastAction: null,
+    bidUnderCurrent: null,
+    pendingChangeRebid: null,
+    extraActionUsedThisRound: [],
+    draw1UsedThisRound: false,
+    pendingLifeDouble: false,
+  }
+}
+
+function resetRoundExtras<T extends GameState>(state: T): T {
+  return {
+    ...state,
+    turnDirection: 1 as TurnDirection,
+    lastAction: null,
+    bidUnderCurrent: null,
+    pendingChangeRebid: null,
+    extraActionUsedThisRound: [],
+    draw1UsedThisRound: false,
+    pendingLifeDouble: false,
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Actions
 // ---------------------------------------------------------------------------
 
@@ -140,12 +195,12 @@ function doStartGame(state: GameState, rng: RandomSource): GameState {
     throw new GameError('START_GAME only from lobby', 'INVALID_PHASE')
   }
   const deck = shuffle(createDeck(state.config.deck), rng)
-  const withDeck: GameState = {
+  const withDeck = resetRoundExtras({
     ...state,
     deck,
     discard: [],
     revision: state.revision + 1,
-  }
+  })
   return dealAndEnterBidding(withDeck, rng, /* startSeat */ 0)
 }
 
@@ -168,20 +223,25 @@ function doStartRound(state: GameState, rng: RandomSource): GameState {
   }
 
   // Move previous hands to discard before re-deal (no-op if already cleared)
-  const prevCards = Object.values(state.hands)
-  const withDiscard: GameState = {
+  const prevCards = allHandCards(state.hands)
+  const withDiscard = resetRoundExtras({
     ...state,
     discard: [...state.discard, ...prevCards],
     hands: {},
     // Keep lastOutcome until the next challenge overwrites it
     revision: state.revision + 1,
-  }
+  })
 
   return dealAndEnterBidding(withDiscard, rng, startSeat)
 }
 
-function doPlaceBid(state: GameState, value: number): GameState {
-  const err = describeIllegal(state, { type: 'PLACE_BID', value })
+function doPlaceBid(
+  state: GameState,
+  value: number,
+  extra: BidExtraAction | undefined,
+  rng: RandomSource,
+): GameState {
+  const err = describeIllegal(state, { type: 'PLACE_BID', value, extra })
   if (err) {
     throw new GameError(err, err.includes('integer') ? 'INVALID_BID' : 'INVALID_ACTION')
   }
@@ -190,13 +250,163 @@ function doPlaceBid(state: GameState, value: number): GameState {
   }
 
   const bidderId = state.currentTurnPlayerId
-  const nextTurn = nextAlivePlayerId(state.players, bidderId)
+  const rebid = state.pendingChangeRebid
+  const isForcedRebid =
+    rebid != null && rebid.playerId === bidderId
+
+  // --- Forced rebid after CHANGE -------------------------------------------
+  if (isForcedRebid && rebid) {
+    return {
+      ...state,
+      currentBid: value,
+      currentBidderId: bidderId,
+      // A stays under the new B (discarded old B is not kept as under)
+      bidUnderCurrent: rebid.minExclusive,
+      currentTurnPlayerId: rebid.resumeNextPlayerId,
+      pendingChangeRebid: null,
+      pendingLifeDouble: false,
+      lastAction: 'bid',
+      revision: state.revision + 1,
+    }
+  }
+
+  // --- Normal bid (+ optional attach) --------------------------------------
+  let turnDirection = state.turnDirection
+  let deck = state.deck
+  let discard = state.discard
+  let hands = state.hands
+  let extraActionUsedThisRound = state.extraActionUsedThisRound
+  let draw1UsedThisRound = state.draw1UsedThisRound
+  let pendingLifeDouble = false
+  let nextTurn: PlayerId
+
+  if (extra) {
+    extraActionUsedThisRound = [...extraActionUsedThisRound, bidderId]
+
+    switch (extra.type) {
+      case 'reverse': {
+        turnDirection = (turnDirection === 1 ? -1 : 1) as TurnDirection
+        nextTurn = nextAlivePlayerId(state.players, bidderId, turnDirection)
+        break
+      }
+      case 'shot': {
+        nextTurn = extra.targetId
+        break
+      }
+      case 'life_double': {
+        pendingLifeDouble = true
+        nextTurn = nextAlivePlayerId(state.players, bidderId, turnDirection)
+        break
+      }
+      case 'draw1': {
+        draw1UsedThisRound = true
+        const drawn = drawResolvingRedraw(deck.slice(), discard.slice(), rng)
+        deck = drawn.deck
+        discard = drawn.discard
+        let card = drawn.card
+        if (card.kind === 'zero_mix' && discard.length > 0) {
+          deck = shuffle([...deck, ...discard], rng)
+          discard = []
+        }
+        const prev = hands[extra.targetId] ?? []
+        hands = {
+          ...hands,
+          [extra.targetId]: [...prev, card],
+        }
+        nextTurn = nextAlivePlayerId(state.players, bidderId, turnDirection)
+        break
+      }
+      default: {
+        const _e: never = extra
+        throw new GameError(`Unknown extra: ${JSON.stringify(_e)}`, 'INVALID_ACTION')
+      }
+    }
+  } else {
+    nextTurn = nextAlivePlayerId(state.players, bidderId, turnDirection)
+  }
+
+  // bidUnderCurrent: previous currentBid becomes the floor under the new bid
+  const bidUnderCurrent = state.currentBid
 
   return {
     ...state,
+    deck,
+    discard,
+    hands,
     currentBid: value,
     currentBidderId: bidderId,
     currentTurnPlayerId: nextTurn,
+    turnDirection,
+    bidUnderCurrent,
+    pendingChangeRebid: null,
+    extraActionUsedThisRound,
+    draw1UsedThisRound,
+    pendingLifeDouble,
+    lastAction: 'bid',
+    revision: state.revision + 1,
+  }
+}
+
+function doSame(state: GameState): GameState {
+  const err = describeIllegal(state, { type: 'SAME' })
+  if (err) throw new GameError(err, 'INVALID_ACTION')
+  if (state.currentTurnPlayerId == null) {
+    throw new GameError('No current turn', 'INVALID_ACTION')
+  }
+
+  const actor = state.currentTurnPlayerId
+  const nextTurn = nextAlivePlayerId(
+    state.players,
+    actor,
+    state.turnDirection,
+  )
+
+  return {
+    ...state,
+    // bid / bidder unchanged
+    currentTurnPlayerId: nextTurn,
+    extraActionUsedThisRound: [...state.extraActionUsedThisRound, actor],
+    pendingLifeDouble: false,
+    lastAction: 'same',
+    revision: state.revision + 1,
+  }
+}
+
+function doChange(state: GameState): GameState {
+  const err = describeIllegal(state, { type: 'CHANGE' })
+  if (err) throw new GameError(err, 'INVALID_ACTION')
+  if (
+    state.currentTurnPlayerId == null ||
+    state.currentBidderId == null ||
+    state.currentBid == null
+  ) {
+    throw new GameError('No current turn / bid', 'INVALID_ACTION')
+  }
+
+  const actor = state.currentTurnPlayerId
+  const prevBidder = state.currentBidderId
+  const forbiddenValue = state.currentBid
+  const minExclusive = state.bidUnderCurrent
+
+  // After rebid, turn goes to CHANGE user's next in current direction
+  const resumeNextPlayerId = nextAlivePlayerId(
+    state.players,
+    actor,
+    state.turnDirection,
+  )
+
+  return {
+    ...state,
+    currentTurnPlayerId: prevBidder,
+    pendingChangeRebid: {
+      playerId: prevBidder,
+      forbiddenValue,
+      minExclusive,
+      resumeNextPlayerId,
+    },
+    extraActionUsedThisRound: [...state.extraActionUsedThisRound, actor],
+    pendingLifeDouble: false,
+    lastAction: 'change',
     revision: state.revision + 1,
   }
 }
@@ -208,17 +418,19 @@ function doChallenge(state: GameState, _rng: RandomSource): GameState {
   const challengerId = state.currentTurnPlayerId!
   const bidderId = state.currentBidderId!
   const bid = state.currentBid!
+  const lifeLoss = state.pendingLifeDouble ? 2 : 1
 
-  // Resolve with cards currently in hands (alive players only; dead have no hand)
-  const cards = Object.values(state.hands)
+  // Resolve with all cards currently in hands
+  const cards = allHandCards(state.hands)
   const outcome = resolveChallenge({
     cards,
     bid,
     bidderId,
     challengerId,
+    lifeLoss,
   })
 
-  const players = applyLifeLoss(state.players, outcome.loserId)
+  const players = applyLifeLoss(state.players, outcome.loserId, lifeLoss)
   const winner = soleSurvivor(players)
 
   // Spent hands → discard after reveal
@@ -236,6 +448,9 @@ function doChallenge(state: GameState, _rng: RandomSource): GameState {
       currentBid: null,
       currentBidderId: null,
       currentTurnPlayerId: null,
+      pendingChangeRebid: null,
+      pendingLifeDouble: false,
+      lastAction: 'challenge',
       revision: state.revision + 1,
     }
   }
@@ -252,6 +467,9 @@ function doChallenge(state: GameState, _rng: RandomSource): GameState {
     currentBid: null,
     currentBidderId: null,
     currentTurnPlayerId: null,
+    pendingChangeRebid: null,
+    pendingLifeDouble: false,
+    lastAction: 'challenge',
     revision: state.revision + 1,
   }
 }
@@ -286,7 +504,7 @@ export function forceEliminatePlayer(
 
   if (winner) {
     // Hand cards discarded without reveal when game ends by forfeit mid-round
-    const discarded = [...state.discard, ...Object.values(state.hands)]
+    const discarded = [...state.discard, ...allHandCards(state.hands)]
     return {
       ...state,
       phase: 'game_over',
@@ -297,12 +515,13 @@ export function forceEliminatePlayer(
       currentBid: null,
       currentBidderId: null,
       currentTurnPlayerId: null,
+      pendingChangeRebid: null,
       revision: state.revision + 1,
     }
   }
 
   if (living.length === 0) {
-    const discarded = [...state.discard, ...Object.values(state.hands)]
+    const discarded = [...state.discard, ...allHandCards(state.hands)]
     return {
       ...state,
       phase: 'game_over',
@@ -313,13 +532,29 @@ export function forceEliminatePlayer(
       currentBid: null,
       currentBidderId: null,
       currentTurnPlayerId: null,
+      pendingChangeRebid: null,
       revision: state.revision + 1,
     }
   }
 
   let currentTurnPlayerId = state.currentTurnPlayerId
-  if (currentTurnPlayerId === playerId) {
-    currentTurnPlayerId = nextAlivePlayerId(players, playerId)
+  let pendingChangeRebid = state.pendingChangeRebid
+
+  // Forced rebidder left → cancel rebid and resume to planned next
+  if (pendingChangeRebid?.playerId === playerId) {
+    const resume = pendingChangeRebid.resumeNextPlayerId
+    pendingChangeRebid = null
+    if (currentTurnPlayerId === playerId) {
+      currentTurnPlayerId = players.find((p) => p.id === resume)?.alive
+        ? resume
+        : nextAlivePlayerId(players, playerId, state.turnDirection)
+    }
+  } else if (currentTurnPlayerId === playerId) {
+    currentTurnPlayerId = nextAlivePlayerId(
+      players,
+      playerId,
+      state.turnDirection,
+    )
   }
 
   // Keep currentBid / currentBidderId even if the bidder left — others may still
@@ -329,6 +564,7 @@ export function forceEliminatePlayer(
     ...state,
     players,
     currentTurnPlayerId,
+    pendingChangeRebid,
     revision: state.revision + 1,
   }
 }
@@ -358,7 +594,7 @@ function dealAndEnterBidding(
 
   let deck = state.deck.slice()
   let discard = state.discard.slice()
-  const hands: Record<PlayerId, Card> = {}
+  const hands: Record<PlayerId, Card[]> = {}
 
   // Deal in seat order among living
   const ordered = [...living].sort((a, b) => a.seatIndex - b.seatIndex)
@@ -375,13 +611,13 @@ function dealAndEnterBidding(
       discard = []
     }
 
-    hands[player.id] = card
+    hands[player.id] = [card]
   }
 
   // Prefer exact seat; else next higher seat; else lowest seat (wrap)
   const turnPlayer = pickStartPlayer(living, startSeat)
 
-  return {
+  return resetRoundExtras({
     ...state,
     phase: 'bidding',
     round: state.round + 1,
@@ -394,7 +630,7 @@ function dealAndEnterBidding(
     roundStartSeatIndex: turnPlayer.seatIndex,
     winnerId: null,
     revision: state.revision + 1,
-  }
+  })
 }
 
 function pickStartPlayer(living: Player[], preferredSeat: number): Player {
@@ -472,17 +708,22 @@ function ensureDeckHasCards(
 // Seat helpers
 // ---------------------------------------------------------------------------
 
-function nextAlivePlayerId(
+export function nextAlivePlayerId(
   players: readonly Player[],
   afterId: PlayerId,
+  direction: TurnDirection = 1,
 ): PlayerId {
   const living = alivePlayers(players).sort((a, b) => a.seatIndex - b.seatIndex)
+  if (living.length === 0) {
+    throw new GameError('No living players', 'INVALID_ACTION')
+  }
   const idx = living.findIndex((p) => p.id === afterId)
   if (idx < 0) {
-    // Current player might have been eliminated mid-logic; start from lowest
     return living[0]!.id
   }
-  return living[(idx + 1) % living.length]!.id
+  const n = living.length
+  const step = direction === 1 ? 1 : -1
+  return living[(idx + step + n) % n]!.id
 }
 
 function nextAliveSeatIndex(

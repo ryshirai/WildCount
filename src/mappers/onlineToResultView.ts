@@ -43,20 +43,28 @@ export function onlineToResultView(
   const fallback = Object.keys(snap.hands)
   const revealIds = ids.length > 0 ? ids : fallback
 
-  const cards: RevealedCard[] = revealIds.map((playerId) => {
-    const hand = snap.hands[playerId] as WireCard
+  const cards: RevealedCard[] = []
+  for (const playerId of revealIds) {
+    const raw = snap.hands[playerId]
+    const list: WireCard[] = Array.isArray(raw)
+      ? raw
+      : raw != null
+        ? [raw as WireCard]
+        : []
     const prof = profile(playerId, view)
-    return {
-      playerId,
-      playerName: prof.name,
-      avatar: prof.avatar,
-      avatarSrc: prof.avatarSrc,
-      kind: hand.kind,
-      value: hand.value ?? null,
-      label: hand.label,
-      isSelf: playerId === selfId,
+    for (const hand of list) {
+      cards.push({
+        playerId,
+        playerName: prof.name,
+        avatar: prof.avatar,
+        avatarSrc: prof.avatarSrc,
+        kind: hand.kind,
+        value: hand.value ?? null,
+        label: hand.label,
+        isSelf: playerId === selfId,
+      })
     }
-  })
+  }
 
   return {
     roomCode: view.roomCode,
@@ -80,6 +88,7 @@ export function onlineToResultView(
     lifeLostName: loser.name,
     lifeLostAvatar: loser.avatar,
     lifeLostAvatarSrc: loser.avatarSrc,
+    lifeLoss: outcome.lifeLoss ?? 1,
     winnerId: snap.winnerId,
     winnerName: winner?.name ?? null,
     isGameOver: snap.winnerId != null,

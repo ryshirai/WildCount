@@ -11,9 +11,13 @@ import { chooseBotAction, estimateRoundTotal } from '../../src/localGame/bot'
 
 function withHands(
   state: GameState,
-  hands: Record<PlayerId, Card>,
+  hands: Record<PlayerId, Card | Card[]>,
 ): GameState {
-  return { ...state, hands: { ...hands } }
+  const normalized: Record<PlayerId, Card[]> = {}
+  for (const [id, h] of Object.entries(hands)) {
+    normalized[id] = Array.isArray(h) ? h : [h]
+  }
+  return { ...state, hands: normalized }
 }
 
 describe('estimateRoundTotal', () => {

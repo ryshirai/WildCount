@@ -2,21 +2,20 @@ import type { CalculationResult, CalculationStep, Card } from './types'
 import { cardLabel } from './deck'
 
 /**
- * Total calculation per docs/game-rules.md (authoritative order):
+ * Total calculation per docs/game-rules.md + docs/extra-rules.md:
  *
  * 1. Collect round cards
  * 2. MAX_TO_ZERO — zero all positive values equal to the max positive
  * 3. Sum number-like values (negatives included; specials without value skip)
- * 4. DOUBLE — multiply by 2^count
- * 5. Final total
+ * 4. DOUBLE and HALF as combined multiplier: trunc(sum * 2^d / 2^h)
+ * 5. Final total (integer, toward 0 via Math.trunc)
  *
  * Phase 0 notes:
  * - “合計値0化” (instant zero total) from design-overview is NOT implemented
  *   (no such card in card-design). Reserved / unused.
  * - `zero_mix` contributes 0 to the numeric sum.
- * - `double` / `max_to_zero` / `redraw` do not add a number; redraw should
- *   already have been resolved at deal time (so redraw cards should not
- *   appear here in normal play). If present, they are ignored in the sum.
+ * - `double` / `half` / `max_to_zero` / `redraw` do not add a number; redraw
+ *   should already have been resolved at deal time.
  */
 export function calculateTotal(cards: readonly Card[]): CalculationResult {
   const steps: CalculationStep[] = []
@@ -89,18 +88,38 @@ export function calculateTotal(cards: readonly Card[]): CalculationResult {
     totalAfter: rawNumberSum,
   })
 
-  // --- 4. DOUBLE ------------------------------------------------------------
+  // --- 4. DOUBLE + HALF (combined multiplier, trunc toward 0) --------------
   const doubleCount = adjusted.filter((c) => c.kind === 'double').length
+  const halfCount = adjusted.filter((c) => c.kind === 'half').length
   let finalTotal = rawNumberSum
-  if (doubleCount > 0) {
-    const factor = 2 ** doubleCount
-    finalTotal = rawNumberSum * factor
-    steps.push({
-      id: 'double',
-      title: '×2（倍化）',
-      detail: `${rawNumberSum} × ${factor}（×2 が ${doubleCount} 枚）`,
-      totalAfter: finalTotal,
-    })
+
+  if (doubleCount > 0 || halfCount > 0) {
+    // trunc(sum * 2^d / 2^h) — use integer multiply then divide for exactness
+    const multiplied = rawNumberSum * 2 ** doubleCount
+    finalTotal = Math.trunc(multiplied / 2 ** halfCount)
+
+    if (doubleCount > 0 && halfCount > 0) {
+      steps.push({
+        id: 'multiplier',
+        title: '×2 / 1/2',
+        detail: `${rawNumberSum} × ${2 ** doubleCount} ÷ ${2 ** halfCount} → ${finalTotal}（×2×${doubleCount}・1/2×${halfCount}）`,
+        totalAfter: finalTotal,
+      })
+    } else if (doubleCount > 0) {
+      steps.push({
+        id: 'double',
+        title: '×2（倍化）',
+        detail: `${rawNumberSum} × ${2 ** doubleCount}（×2 が ${doubleCount} 枚）`,
+        totalAfter: finalTotal,
+      })
+    } else {
+      steps.push({
+        id: 'half',
+        title: '1/2（半減）',
+        detail: `${rawNumberSum} ÷ ${2 ** halfCount} → ${finalTotal}（1/2 が ${halfCount} 枚・0方向切り捨て）`,
+        totalAfter: finalTotal,
+      })
+    }
   } else {
     steps.push({
       id: 'double',
@@ -123,6 +142,7 @@ export function calculateTotal(cards: readonly Card[]): CalculationResult {
     finalTotal,
     adjustedCards: adjusted,
     doubleCount,
+    halfCount,
     maxToZeroApplied: hasMaxToZero,
     rawNumberSum,
   }

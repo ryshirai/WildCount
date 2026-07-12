@@ -8,6 +8,7 @@ import type { ResultViewModel } from '@/mappers/toResultView'
 import type { GameViewModel } from '@/mappers/toGameView'
 import type {
   ChatMessage,
+  ClientBidExtra,
   ClientGameAction,
   ClientMessage,
   PendingResultSnapshot,
@@ -15,6 +16,7 @@ import type {
   ServerMessage,
   StampId,
   WireDeckComposition,
+  WireExtraRules,
 } from '@/online/protocol'
 import {
   formatHttpErrorBody,
@@ -76,6 +78,14 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
   /** Wire / client error code (e.g. REVISION_MISMATCH). Null for local-only msgs. */
   const lastErrorCode = ref<string | null>(null)
   const lastEvent = ref<string | null>(null)
+  /** Impact FX payload from server events (特殊能力 / セイム / チェンジ) */
+  const lastActionFx = ref<{
+    key: string
+    kind: 'reverse' | 'shot' | 'draw1' | 'life_double' | 'same' | 'change'
+    actorName?: string
+    targetName?: string
+    bidValue?: number
+  } | null>(null)
   const displayName = ref(loadSavedDisplayName())
   const eventLog = ref<EventLogItem[]>([])
   /** Room chat lines (newest last). Filled by chat_history + chat. */
@@ -91,9 +101,21 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
   const heldPendingResult = ref<PendingResultSnapshot | null>(null)
   /** Stable ResultViewModel for the current challenge (identity-stable). */
   const heldResultView = ref<ResultViewModel | null>(null)
+  /**
+   * Local player pressed「もう一度遊ぶ」and rematch was accepted.
+   * Views watch this to navigate to lobby (only the requester).
+   */
+  const rematchNavigateToken = ref(0)
+  /**
+   * Peers: room returned to lobby after someone rematched.
+   * Keep result / forfeit UI until they tap「ロビーへ」.
+   */
+  const pendingLobbyReturn = ref(false)
   /** True while an automatic or manual reconnect is in flight */
   const reconnecting = ref(false)
   const reconnectAttempt = ref(0)
+  /** Local player has sent rematch and waits for status=open */
+  let selfRequestedRematch = false
 
   let ws: WebSocket | null = null
   /** Bumped on each new socket so stale close handlers never reconnect. */
@@ -697,6 +719,7 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
         }
         break
       case 'view': {
+        const prevStatus = view.value?.status
         revision.value = msg.revision
         view.value = msg.view
         if (msg.view.selfPlayerId) {
@@ -704,23 +727,44 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
         }
         isHost.value = msg.view.hostId === playerId.value
         // Freeze challenge UI so peer dismiss / disconnect does not rebuild
-        // ResultView or cut-in. Only drop hold when the room truly left result
-        // for this seat (rematch, or reconnected after peers finished).
+        // ResultView or cut-in. Rematch: only the requester drops hold + navigates;
+        // peers keep hold and see pendingLobbyReturn until they choose.
         if (msg.view.pendingResult) {
           captureResultHold(msg.view, msg.view.pendingResult)
+          pendingLobbyReturn.value = false
         } else if (
           msg.view.status === 'open' ||
           msg.view.phase === 'lobby'
         ) {
-          resultDismissed.value = false
-          clearResultHold()
+          const fromPlaying = prevStatus === 'playing'
+          if (selfRequestedRematch) {
+            selfRequestedRematch = false
+            pendingLobbyReturn.value = false
+            resultDismissed.value = false
+            clearResultHold()
+            rematchNavigateToken.value += 1
+          } else if (
+            fromPlaying ||
+            heldResultView.value != null ||
+            heldPendingResult.value != null
+          ) {
+            // Peer rematch (or mid-result room reset): keep local result UI
+            pendingLobbyReturn.value = true
+          } else {
+            resultDismissed.value = false
+            clearResultHold()
+            pendingLobbyReturn.value = false
+          }
         } else if (
           heldResultView.value &&
           msg.view.phase !== 'result'
         ) {
-          // e.g. resume after disconnect while peers already advanced
-          resultDismissed.value = false
-          clearResultHold()
+          // e.g. resume after disconnect while peers already advanced mid-round
+          // (not rematch — next bidding). Drop hold only if not showing rematch prompt.
+          if (!pendingLobbyReturn.value) {
+            resultDismissed.value = false
+            clearResultHold()
+          }
         }
         break
       }
@@ -729,6 +773,15 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
         if (msg.code === 'CONNECTED' || !msg.message?.trim()) break
         setLastEvent(msg.message)
         pushLog(msg.message, msg.code)
+        if (msg.fx?.kind) {
+          lastActionFx.value = {
+            key: `${Date.now()}-${msg.fx.kind}-${Math.random().toString(36).slice(2, 7)}`,
+            kind: msg.fx.kind,
+            actorName: msg.fx.actorName,
+            targetName: msg.fx.targetName,
+            bidValue: msg.fx.bidValue,
+          }
+        }
         break
       }
       case 'error': {
@@ -881,6 +934,12 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     send({ type: 'set_deck', deck })
   }
 
+  /** Host only, lobby: apply extra rules toggles for next game. */
+  function setExtraRules(extraRules: WireExtraRules): void {
+    clearError()
+    send({ type: 'set_extra_rules', extraRules })
+  }
+
   function sendAction(action: ClientGameAction): void {
     clearError()
     const actionId =
@@ -895,8 +954,16 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     })
   }
 
-  function placeBid(value: number): void {
-    sendAction({ type: 'PLACE_BID', value })
+  function placeBid(value: number, extra?: ClientBidExtra): void {
+    sendAction({ type: 'PLACE_BID', value, extra })
+  }
+
+  function playSame(): void {
+    sendAction({ type: 'SAME' })
+  }
+
+  function playChange(): void {
+    sendAction({ type: 'CHANGE' })
   }
 
   function challenge(): void {
@@ -918,9 +985,19 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
   /** After game_over: ask server to reset room to lobby (same seats). */
   function requestRematch(): void {
     clearError()
-    resultDismissed.value = true
-    clearResultHold()
+    selfRequestedRematch = true
+    pendingLobbyReturn.value = false
+    // Do not clear result hold until server confirms (status → open)
     send({ type: 'rematch' })
+  }
+
+  /**
+   * Peer: leave result/forfeit UI after someone rematched; caller navigates to lobby.
+   */
+  function acceptLobbyReturn(): void {
+    pendingLobbyReturn.value = false
+    resultDismissed.value = false
+    clearResultHold()
   }
 
   /** Room chat (online only). Empty / overlong text is ignored client-side. */
@@ -1045,6 +1122,7 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     lastError,
     lastErrorCode,
     lastEvent,
+    lastActionFx,
     clearError,
     displayName,
     eventLog,
@@ -1065,6 +1143,8 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     pendingResult,
     awaitingResultView,
     isGameOver,
+    rematchNavigateToken,
+    pendingLobbyReturn,
     canHumanAct,
     createRoom,
     joinRoom,
@@ -1073,10 +1153,14 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     setReady,
     startGame,
     setDeck,
+    setExtraRules,
     placeBid,
+    playSame,
+    playChange,
     challenge,
     clearPendingResult,
     requestRematch,
+    acceptLobbyReturn,
     sendChat,
     sendReaction,
     updateDisplayName,

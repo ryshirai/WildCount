@@ -11,7 +11,7 @@ import { getProfile, type PlayerProfile, SELF_ID } from '@/localGame/profiles'
 export interface ToResultViewInput {
   outcome: ChallengeOutcome
   /** Hands at the moment of challenge (before engine clears / redeals). */
-  hands: Readonly<Record<PlayerId, Card>>
+  hands: Readonly<Record<PlayerId, readonly Card[]>>
   /** Domain players after life loss (for display consistency). */
   players: readonly Player[]
   round: number
@@ -49,26 +49,31 @@ export function toResultView(input: ToResultViewInput): ResultViewModel {
   const loser = getProfile(outcome.loserId, profiles)
   const winnerProfile = winnerId ? getProfile(winnerId, profiles) : null
 
-  // Reveal in seat order when possible
+  // Reveal in seat order when possible (one entry per card; multi-card via draw1)
   const seatOrder = [...players].sort((a, b) => a.seatIndex - b.seatIndex)
-  const orderedIds = seatOrder.map((p) => p.id).filter((id) => hands[id] != null)
+  const orderedIds = seatOrder
+    .map((p) => p.id)
+    .filter((id) => (hands[id]?.length ?? 0) > 0)
   // Fallback: object key order
   const ids = orderedIds.length > 0 ? orderedIds : Object.keys(hands)
 
-  const cards: RevealedCard[] = ids.map((playerId) => {
-    const card = hands[playerId]!
+  const cards: RevealedCard[] = []
+  for (const playerId of ids) {
+    const hand = hands[playerId] ?? []
     const profile = getProfile(playerId, profiles)
-    return {
-      playerId,
-      playerName: profile.name,
-      avatar: profile.avatar,
-      avatarSrc: profile.avatarSrc,
-      kind: card.kind,
-      value: card.value ?? null,
-      label: cardLabel(card),
-      isSelf: playerId === selfId,
+    for (const card of hand) {
+      cards.push({
+        playerId,
+        playerName: profile.name,
+        avatar: profile.avatar,
+        avatarSrc: profile.avatarSrc,
+        kind: card.kind,
+        value: card.value ?? null,
+        label: cardLabel(card),
+        isSelf: playerId === selfId,
+      })
     }
-  })
+  }
 
   const calcSteps = outcome.calculation.steps.map((s) => ({
     id: s.id,
@@ -94,6 +99,7 @@ export function toResultView(input: ToResultViewInput): ResultViewModel {
     lifeLostName: loser.name,
     lifeLostAvatar: loser.avatar,
     lifeLostAvatarSrc: loser.avatarSrc,
+    lifeLoss: outcome.lifeLoss ?? 1,
     winnerId: winnerId ?? null,
     winnerName: winnerProfile?.name ?? null,
     isGameOver: winnerId != null,

@@ -110,9 +110,31 @@ export type ClientMessage =
    * Payload is a full DeckComposition (numbers + specials counts).
    */
   | { type: 'set_deck'; deck: WireDeckComposition }
+  /**
+   * Host only, lobby only: set extra rules toggles for the next game.
+   */
+  | { type: 'set_extra_rules'; extraRules: WireExtraRules }
+
+/** Wire shape of domain ExtraRulesConfig (turn actions only; 1/2 is deck). */
+export interface WireExtraRules {
+  same: boolean
+  change: boolean
+  reverse: boolean
+  shot: boolean
+  draw1: boolean
+  lifeDouble: boolean
+}
+
+export type ClientBidExtra =
+  | { type: 'reverse' }
+  | { type: 'shot'; targetId: string }
+  | { type: 'draw1'; targetId: string }
+  | { type: 'life_double' }
 
 export type ClientGameAction =
-  | { type: 'PLACE_BID'; value: number }
+  | { type: 'PLACE_BID'; value: number; extra?: ClientBidExtra }
+  | { type: 'SAME' }
+  | { type: 'CHANGE' }
   | { type: 'CHALLENGE' }
 
 /** Wire shape of domain DeckComposition (JSON-safe plain data). */
@@ -122,6 +144,7 @@ export interface WireDeckComposition {
   numbers: Array<{ value: number; count: number }>
   specials: {
     double: number
+    half: number
     max_to_zero: number
     redraw: number
     zero_mix: number
@@ -146,6 +169,19 @@ export type ServerMessage =
       level?: 'info' | 'warn'
       message: string
       code?: string
+      /** Optional impact FX for extra actions / same / change */
+      fx?: {
+        kind:
+          | 'reverse'
+          | 'shot'
+          | 'draw1'
+          | 'life_double'
+          | 'same'
+          | 'change'
+        actorName?: string
+        targetName?: string
+        bidValue?: number
+      }
     }
   | {
       type: 'error'
@@ -177,6 +213,8 @@ export interface PlayerView {
   maxPlayers: number
   /** Mountain deck recipe for the next / current game (lobby-configurable). */
   deck: WireDeckComposition
+  /** Extra rules toggles for the next / current game (lobby-configurable). */
+  extraRules: WireExtraRules
   /** Masked game payload (own Card never included during play). */
   game?: import('./maskedView').MaskedGamePayload
   /** Challenge reveal — includes all hands (self OK). */

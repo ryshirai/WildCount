@@ -19,6 +19,7 @@ import {
   applyDueDisconnectPolicies,
   applyResultDismiss,
   applySetDeck,
+  applySetExtraRules,
   buildPlayerView,
   clearDisconnectDeadline,
   createEmptyRoom,
@@ -43,6 +44,7 @@ import {
   type Env,
   type ServerMessage,
   type WireDeckComposition,
+  type WireExtraRules,
 } from './types'
 
 const STORAGE_ROOM = 'room'
@@ -245,6 +247,9 @@ export class GameRoom {
         return
       case 'set_deck':
         await this.handleSetDeck(ws, room, msg.deck)
+        return
+      case 'set_extra_rules':
+        await this.handleSetExtraRules(ws, room, msg.extraRules)
         return
       default:
         this.send(ws, {
@@ -783,6 +788,52 @@ export class GameRoom {
     this.broadcastView(room)
   }
 
+  private async handleSetExtraRules(
+    ws: WebSocket,
+    room: RoomState,
+    extraRules: WireExtraRules,
+  ): Promise<void> {
+    const playerId = this.playerIdOf(ws)
+    if (!playerId) {
+      this.send(ws, {
+        type: 'error',
+        code: 'BAD_REQUEST',
+        message: 'Join the room first',
+      })
+      return
+    }
+
+    if (playerId !== room.hostId) {
+      this.send(ws, {
+        type: 'error',
+        code: 'UNAUTHORIZED',
+        message: 'Only the host can change extra rules',
+      })
+      return
+    }
+
+    if (room.status !== 'open') {
+      this.send(ws, {
+        type: 'error',
+        code: 'GAME_ALREADY_STARTED',
+        message: 'Cannot change extra rules after start',
+      })
+      return
+    }
+
+    applySetExtraRules(room, extraRules)
+    room.lastActivityAt = Date.now()
+    room.revision += 1
+    await this.saveRoom(room)
+    this.broadcast(room, {
+      type: 'event',
+      level: 'info',
+      message: 'エクストラルールを更新しました',
+      code: 'EXTRA_RULES_UPDATED',
+    })
+    this.broadcastView(room)
+  }
+
   private async handleStart(ws: WebSocket, room: RoomState): Promise<void> {
     const playerId = this.playerIdOf(ws)
     if (!playerId) {
@@ -837,7 +888,10 @@ export class GameRoom {
       const game = startGame(
         {
           playerIds: ids,
-          config: { deck: room.deck },
+          config: {
+            deck: room.deck,
+            extraRules: room.extraRules ?? undefined,
+          },
         },
         seedRandom(seed),
       )
@@ -959,9 +1013,21 @@ export class GameRoom {
       if (action.type === 'PLACE_BID') {
         const round = room.game.round
         const actorId = playerId
+        const domainExtra = action.extra
+          ? action.extra.type === 'shot' || action.extra.type === 'draw1'
+            ? {
+                type: action.extra.type,
+                targetId: action.extra.targetId,
+              }
+            : { type: action.extra.type as 'reverse' | 'life_double' }
+          : undefined
         room.game = applyAction(
           room.game,
-          { type: 'PLACE_BID', value: action.value },
+          {
+            type: 'PLACE_BID',
+            value: action.value,
+            extra: domainExtra,
+          },
           seedRandom(cryptoSeed()),
         )
         const entry: BidHistoryEntry = {
@@ -981,19 +1047,111 @@ export class GameRoom {
 
         const name =
           room.players.find((p) => p.id === actorId)?.displayName ?? '誰か'
+        const targetId =
+          action.extra &&
+          (action.extra.type === 'shot' || action.extra.type === 'draw1')
+            ? action.extra.targetId
+            : undefined
+        const targetName = targetId
+          ? (room.players.find((p) => p.id === targetId)?.displayName ??
+            undefined)
+          : undefined
+        const skillLabel =
+          action.extra == null
+            ? ''
+            : action.extra.type === 'reverse'
+              ? ' + リバース'
+              : action.extra.type === 'shot'
+                ? ` + ショット${targetName ? `→${targetName}` : ''}`
+                : action.extra.type === 'draw1'
+                  ? ` + ドロー${targetName ? `→${targetName}` : ''}`
+                  : action.extra.type === 'life_double'
+                    ? ' + ダブル'
+                    : ''
+        const fx =
+          action.extra == null
+            ? undefined
+            : {
+                kind: action.extra.type,
+                actorName: name,
+                targetName,
+                bidValue: action.value,
+              }
         this.broadcast(room, {
           type: 'event',
           level: 'info',
-          message: `${name} が ${action.value} を宣言`,
+          message: `${name} が ${action.value} を宣言${skillLabel}`,
           code: 'BID',
+          fx,
+        })
+        this.broadcastView(room)
+        return
+      }
+
+      if (action.type === 'SAME') {
+        const actorId = playerId
+        const bid = room.game.currentBid
+        room.game = applyAction(
+          room.game,
+          { type: 'SAME' },
+          seedRandom(cryptoSeed()),
+        )
+        room.revision += 1
+        room.appliedActions = rememberAction(
+          room.appliedActions,
+          actionId,
+          room.revision,
+        )
+        room.lastActivityAt = Date.now()
+        await this.saveRoom(room)
+        const name =
+          room.players.find((p) => p.id === actorId)?.displayName ?? '誰か'
+        this.broadcast(room, {
+          type: 'event',
+          level: 'info',
+          message: `${name} がセイム`,
+          code: 'SAME',
+          fx: {
+            kind: 'same',
+            actorName: name,
+            bidValue: bid ?? undefined,
+          },
+        })
+        this.broadcastView(room)
+        return
+      }
+
+      if (action.type === 'CHANGE') {
+        const actorId = playerId
+        room.game = applyAction(
+          room.game,
+          { type: 'CHANGE' },
+          seedRandom(cryptoSeed()),
+        )
+        room.revision += 1
+        room.appliedActions = rememberAction(
+          room.appliedActions,
+          actionId,
+          room.revision,
+        )
+        room.lastActivityAt = Date.now()
+        await this.saveRoom(room)
+        const name =
+          room.players.find((p) => p.id === actorId)?.displayName ?? '誰か'
+        this.broadcast(room, {
+          type: 'event',
+          level: 'info',
+          message: `${name} がチェンジ`,
+          code: 'CHANGE',
+          fx: { kind: 'change', actorName: name },
         })
         this.broadcastView(room)
         return
       }
 
       // CHALLENGE
-      const handsSnapshot: Record<PlayerId, Card> = {
-        ...(room.game.hands as Record<PlayerId, Card>),
+      const handsSnapshot: Record<PlayerId, readonly Card[]> = {
+        ...room.game.hands,
       }
       const challengedRound = room.game.round
       const challengerId = playerId
@@ -1159,10 +1317,12 @@ export class GameRoom {
     await this.saveRoom(room)
     await this.scheduleNextAlarm(room)
 
+    const who =
+      room.players.find((p) => p.id === playerId)?.displayName ?? '誰か'
     this.broadcast(room, {
       type: 'event',
       level: 'info',
-      message: 'ロビーに戻りました。みんなで準備完了してから開始できます',
+      message: `${who} が再戦を希望しました。各自ロビーへ戻って準備完了してください`,
       code: 'REMATCH',
     })
     this.broadcastView(room)

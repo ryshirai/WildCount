@@ -90,15 +90,17 @@ export function estimateRoundTotal(state: GameState, botId: PlayerId): number {
   let maxPositive = 0
   let positiveCount = 0
 
-  for (const [pid, card] of Object.entries(state.hands)) {
+  for (const [pid, cards] of Object.entries(state.hands)) {
     if (pid === botId) continue
-    const contrib = inspectCard(card)
-    numberSum += contrib.number
-    doubleCount += contrib.double
-    if (contrib.maxToZero) hasMaxToZero = true
-    if (contrib.number > 0) {
-      positiveCount += 1
-      maxPositive = Math.max(maxPositive, contrib.number)
+    for (const card of cards) {
+      const contrib = inspectCard(card)
+      numberSum += contrib.number
+      doubleCount += contrib.double
+      if (contrib.maxToZero) hasMaxToZero = true
+      if (contrib.number > 0) {
+        positiveCount += 1
+        maxPositive = Math.max(maxPositive, contrib.number)
+      }
     }
   }
 
@@ -133,6 +135,8 @@ function inspectCard(card: Card): {
       return { number: 0, double: 0, maxToZero: false }
     case 'double':
       return { number: 0, double: 1, maxToZero: false }
+    case 'half':
+      return { number: 0, double: 0, maxToZero: false }
     case 'max_to_zero':
       return { number: 0, double: 0, maxToZero: true }
     case 'redraw':

@@ -42,9 +42,29 @@ export type ClientMessage =
   | { type: 'end_room' }
   /** Host only, lobby: set mountain deck composition */
   | { type: 'set_deck'; deck: WireDeckComposition }
+  /** Host only, lobby: set extra rules toggles */
+  | { type: 'set_extra_rules'; extraRules: WireExtraRules }
+
+/** Mirror of worker / domain ExtraRulesConfig (turn actions only; 1/2 is deck). */
+export interface WireExtraRules {
+  same: boolean
+  change: boolean
+  reverse: boolean
+  shot: boolean
+  draw1: boolean
+  lifeDouble: boolean
+}
+
+export type ClientBidExtra =
+  | { type: 'reverse' }
+  | { type: 'shot'; targetId: string }
+  | { type: 'draw1'; targetId: string }
+  | { type: 'life_double' }
 
 export type ClientGameAction =
-  | { type: 'PLACE_BID'; value: number }
+  | { type: 'PLACE_BID'; value: number; extra?: ClientBidExtra }
+  | { type: 'SAME' }
+  | { type: 'CHANGE' }
   | { type: 'CHALLENGE' }
 
 /** Mirror of worker WireDeckComposition / domain DeckComposition. */
@@ -54,6 +74,7 @@ export interface WireDeckComposition {
   numbers: Array<{ value: number; count: number }>
   specials: {
     double: number
+    half: number
     max_to_zero: number
     redraw: number
     zero_mix: number
@@ -78,6 +99,19 @@ export type ServerMessage =
       level?: 'info' | 'warn'
       message: string
       code?: string
+      /** Optional impact FX for 特殊能力 / セイム / チェンジ */
+      fx?: {
+        kind:
+          | 'reverse'
+          | 'shot'
+          | 'draw1'
+          | 'life_double'
+          | 'same'
+          | 'change'
+        actorName?: string
+        targetName?: string
+        bidValue?: number
+      }
     }
   | {
       type: 'error'
@@ -92,7 +126,7 @@ export type ServerMessage =
 
 export interface WireCard {
   id: string
-  kind: 'number' | 'double' | 'max_to_zero' | 'redraw' | 'zero_mix'
+  kind: 'number' | 'double' | 'half' | 'max_to_zero' | 'redraw' | 'zero_mix'
   value?: number
   label: string
 }
@@ -109,7 +143,9 @@ export interface MaskedSeat {
   isSelf: boolean
   isCurrentTurn: boolean
   hand: WireCard | null
+  hands?: WireCard[]
   handHidden: boolean
+  handCount?: number
   connected: boolean
   isHost: boolean
 }
@@ -126,9 +162,21 @@ export interface MaskedGamePayload {
   isMyTurn: boolean
   canDeclare: boolean
   canChallenge: boolean
+  canSame?: boolean
+  canChange?: boolean
   turnsUntilSelf: number
   legalMoves: unknown[]
   isGameOver: boolean
+  pendingChangeRebid?: {
+    playerId: string
+    forbiddenValue: number
+    minExclusive: number | null
+    resumeNextPlayerId: string
+  } | null
+  turnDirection?: 1 | -1
+  pendingLifeDouble?: boolean
+  draw1UsedThisRound?: boolean
+  extraActionUsedThisRound?: readonly string[]
 }
 
 export interface PendingResultSnapshot {
@@ -146,6 +194,7 @@ export interface PendingResultSnapshot {
       finalTotal: number
       adjustedCards: unknown[]
       doubleCount: number
+      halfCount?: number
       maxToZeroApplied: boolean
       rawNumberSum: number
     }
@@ -154,8 +203,10 @@ export interface PendingResultSnapshot {
     loserId: string
     bidderId: string
     challengerId: string
+    lifeLoss?: number
   }
-  hands: Record<string, WireCard>
+  /** Per player: one or more revealed cards */
+  hands: Record<string, WireCard | WireCard[]>
   winnerId: string | null
   bidderId: string
   challengerId: string
@@ -174,6 +225,8 @@ export interface PlayerView {
   maxPlayers: number
   /** Mountain deck for next game (host can edit in lobby) */
   deck: WireDeckComposition
+  /** Extra rules toggles for next game (host can edit in lobby) */
+  extraRules: WireExtraRules
   game?: MaskedGamePayload
   pendingResult?: PendingResultSnapshot
 }

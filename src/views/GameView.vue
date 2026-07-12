@@ -17,6 +17,10 @@ import BidControls from '@/components/game/BidControls.vue'
 import type { StampId } from '@/online/stamps'
 import MobilePlayerCarousel from '@/components/game/MobilePlayerCarousel.vue'
 import CoyoteCutIn from '@/components/game/CoyoteCutIn.vue'
+import ExtraActionCutIn, {
+  type ExtraFxKind,
+} from '@/components/game/ExtraActionCutIn.vue'
+import type { ClientBidExtra } from '@/online/protocol'
 import RevealCardTile from '@/components/game/RevealCardTile.vue'
 import PlayerAvatar from '@/components/game/PlayerAvatar.vue'
 import HelpModal from '@/components/common/HelpModal.vue'
@@ -177,6 +181,47 @@ const cutInPlayed = ref(false)
 const revealedCount = ref(0)
 const cardsRevealDone = ref(false)
 
+/** 特殊能力 / セイム / チェンジ impact banner */
+const extraFx = ref<{
+  key: string
+  kind: ExtraFxKind
+  actorName?: string
+  targetName?: string
+  bidValue?: number | null
+} | null>(null)
+
+function playExtraFx(payload: {
+  kind: ExtraFxKind
+  actorName?: string
+  targetName?: string
+  bidValue?: number | null
+}) {
+  // Don't stack over coyote cut-in
+  if (cutInVisible.value) return
+  extraFx.value = {
+    key: `${Date.now()}-${payload.kind}`,
+    ...payload,
+  }
+}
+
+function onExtraFxDone() {
+  extraFx.value = null
+}
+
+function resolveTargetName(targetId?: string): string | undefined {
+  if (!targetId) return undefined
+  return gameView.value?.players.find((p) => p.id === targetId)?.name
+}
+
+function skillLabel(extra?: ClientBidExtra): string {
+  if (!extra) return ''
+  if (extra.type === 'reverse') return 'リバース'
+  if (extra.type === 'shot') return 'ショット'
+  if (extra.type === 'draw1') return 'ドロー'
+  if (extra.type === 'life_double') return 'ダブル'
+  return ''
+}
+
 const CARD_STAGGER_MS = 100
 const CARD_START_MS = 120
 let cardTimers: ReturnType<typeof setTimeout>[] = []
@@ -223,6 +268,35 @@ const canChallenge = computed(() => {
   if (useMock.value) return true
   if (busy.value || isGameOver.value) return false
   return gameView.value?.canChallenge ?? false
+})
+
+const canSame = computed(() => {
+  if (useMock.value) return false
+  if (busy.value || isGameOver.value) return false
+  return gameView.value?.canSame ?? false
+})
+
+const canChange = computed(() => {
+  if (useMock.value) return false
+  if (busy.value || isGameOver.value) return false
+  return gameView.value?.canChange ?? false
+})
+
+const extrasAllowed = computed(() => {
+  if (useMock.value) return false
+  if (busy.value || isGameOver.value) return false
+  return gameView.value?.extrasAllowed ?? false
+})
+
+const forbiddenBidValue = computed(
+  () => gameView.value?.forbiddenBidValue ?? null,
+)
+
+const bidTargetOptions = computed(() => {
+  const players = gameView.value?.players ?? []
+  return players
+    .filter((p) => !p.isSelf && p.lives > 0)
+    .map((p) => ({ id: p.id, name: p.name }))
 })
 
 const minBid = computed(() => {
@@ -510,18 +584,31 @@ watch(
   },
 )
 
-// Rematch resets status to open → all clients return to lobby
+// Online: server event.fx → impact banner (all clients including actor)
 watch(
-  () => onlineGame.view?.status,
-  (status) => {
+  () => onlineGame.lastActionFx,
+  (fx) => {
+    if (!isOnline.value || !fx) return
+    playExtraFx({
+      kind: fx.kind,
+      actorName: fx.actorName,
+      targetName: fx.targetName,
+      bidValue: fx.bidValue ?? null,
+    })
+  },
+)
+
+// Only the player who pressed rematch auto-navigates (peers use banner)
+watch(
+  () => onlineGame.rematchNavigateToken,
+  (token, prev) => {
     if (!isOnline.value) return
-    if (status === 'open') {
-      const code = onlineGame.roomCode
-      void router.replace({
-        name: 'lobby',
-        query: { online: '1', ...(code ? { code } : {}) },
-      })
-    }
+    if (token === 0 || token === prev) return
+    const code = onlineGame.roomCode
+    void router.replace({
+      name: 'lobby',
+      query: { online: '1', ...(code ? { code } : {}) },
+    })
   },
 )
 
@@ -579,20 +666,15 @@ async function playAgainFromForfeit() {
   draftBid.value = gameView.value?.draftBid ?? minBid.value
 }
 
-// Online rematch from forfeit end → lobby
-watch(
-  () => onlineGame.view?.status,
-  (status) => {
-    if (!isOnline.value) return
-    if (status === 'open' && showForfeitEnd.value) {
-      const code = onlineGame.roomCode
-      void router.replace({
-        name: 'lobby',
-        query: { online: '1', ...(code ? { code } : {}) },
-      })
-    }
-  },
-)
+function goToLobbyAfterRematch() {
+  if (!isOnline.value) return
+  onlineGame.acceptLobbyReturn()
+  const code = onlineGame.roomCode
+  void router.replace({
+    name: 'lobby',
+    query: { online: '1', ...(code ? { code } : {}) },
+  })
+}
 
 // Server dissolved room (host end / idle purge) while still on game screen
 watch(
@@ -614,9 +696,21 @@ const showOnlineDisconnect = computed(
       onlineGame.reconnecting),
 )
 
-async function onDeclare(value: number) {
+async function onDeclare(value: number, extra?: ClientBidExtra) {
   if (useMock.value) {
-    showToast(`（モック）宣言: ${value}`)
+    const skill = skillLabel(extra)
+    showToast(skill ? `（モック）宣言: ${value} + ${skill}` : `（モック）宣言: ${value}`)
+    if (extra) {
+      playExtraFx({
+        kind: extra.type,
+        actorName: 'あなた',
+        targetName:
+          extra.type === 'shot' || extra.type === 'draw1'
+            ? resolveTargetName(extra.targetId)
+            : undefined,
+        bidValue: value,
+      })
+    }
     return
   }
   if (isGameOver.value) {
@@ -627,13 +721,76 @@ async function onDeclare(value: number) {
   acting.value = true
   try {
     if (isOnline.value) {
-      onlineGame.placeBid(value)
+      onlineGame.placeBid(value, extra)
+      // Server event drives FX for all clients; local optimistic only if no WS event
     } else {
-      await store.placeBid(value)
+      await store.placeBid(value, extra)
       if (gameView.value) draftBid.value = gameView.value.draftBid
+      if (extra) {
+        playExtraFx({
+          kind: extra.type,
+          actorName: 'あなた',
+          targetName:
+            extra.type === 'shot' || extra.type === 'draw1'
+              ? resolveTargetName(extra.targetId)
+              : undefined,
+          bidValue: value,
+        })
+      }
     }
   } catch (e) {
     showToast(e instanceof Error ? e.message : '宣言に失敗しました')
+  } finally {
+    acting.value = false
+  }
+}
+
+async function onSame() {
+  if (useMock.value) {
+    showToast('（モック）セイム')
+    playExtraFx({
+      kind: 'same',
+      actorName: 'あなた',
+      bidValue: gameView.value?.currentBid ?? draftBid.value,
+    })
+    return
+  }
+  if (isGameOver.value || busy.value) return
+  acting.value = true
+  try {
+    const bidSnap = gameView.value?.currentBid ?? null
+    if (isOnline.value) {
+      onlineGame.playSame()
+    } else {
+      await store.playSame()
+      if (gameView.value) draftBid.value = gameView.value.draftBid
+      playExtraFx({ kind: 'same', actorName: 'あなた', bidValue: bidSnap })
+    }
+  } catch (e) {
+    showToast(e instanceof Error ? e.message : 'セイムに失敗しました')
+  } finally {
+    acting.value = false
+  }
+}
+
+async function onChange() {
+  if (useMock.value) {
+    showToast('（モック）チェンジ')
+    playExtraFx({ kind: 'change', actorName: 'あなた' })
+    return
+  }
+  if (isGameOver.value || busy.value) return
+  acting.value = true
+  try {
+    if (isOnline.value) {
+      onlineGame.playChange()
+    } else {
+      await store.playChange()
+      if (gameView.value) draftBid.value = gameView.value.draftBid
+      playExtraFx({ kind: 'change', actorName: 'あなた' })
+    }
+  } catch (e) {
+    showToast(e instanceof Error ? e.message : 'チェンジに失敗しました')
   } finally {
     acting.value = false
   }
@@ -902,31 +1059,50 @@ async function onChallenge() {
             </div>
 
             <div
-              v-if="showForfeitEnd"
+              v-if="showForfeitEnd || (isOnline && onlineGame.pendingLobbyReturn)"
               class="mx-4 mb-2 shrink-0 rounded-xl border border-gold-400/30 bg-night-900/90 px-4 py-3 text-center"
             >
-              <p class="font-display text-base font-bold text-gold-100">
-                {{ forfeitEndTitle }}
-              </p>
-              <p class="mt-1 text-xs leading-relaxed text-sand-dim">
-                {{ forfeitEndDetail }}
-              </p>
-              <div class="mt-3 flex flex-col gap-2 sm:flex-row sm:justify-center">
-                <button
-                  type="button"
-                  class="btn-gold sm:min-w-[10rem]"
-                  @click="playAgainFromForfeit"
-                >
-                  もう一度遊ぶ
-                </button>
-                <button
-                  type="button"
-                  class="btn-ghost sm:min-w-[8rem]"
-                  @click="requestLeaveGame"
-                >
-                  退出
-                </button>
-              </div>
+              <template v-if="isOnline && onlineGame.pendingLobbyReturn">
+                <p class="font-display text-base font-bold text-teal-soft">
+                  ルームがロビーに戻りました
+                </p>
+                <p class="mt-1 text-xs leading-relaxed text-sand-dim">
+                  誰かが「もう一度遊ぶ」を押しました。準備ができたらロビーへ。
+                </p>
+                <div class="mt-3 flex flex-col gap-2 sm:flex-row sm:justify-center">
+                  <button
+                    type="button"
+                    class="btn-gold sm:min-w-[10rem]"
+                    @click="goToLobbyAfterRematch"
+                  >
+                    ロビーへ
+                  </button>
+                </div>
+              </template>
+              <template v-else>
+                <p class="font-display text-base font-bold text-gold-100">
+                  {{ forfeitEndTitle }}
+                </p>
+                <p class="mt-1 text-xs leading-relaxed text-sand-dim">
+                  {{ forfeitEndDetail }}
+                </p>
+                <div class="mt-3 flex flex-col gap-2 sm:flex-row sm:justify-center">
+                  <button
+                    type="button"
+                    class="btn-gold sm:min-w-[10rem]"
+                    @click="playAgainFromForfeit"
+                  >
+                    もう一度遊ぶ
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-ghost sm:min-w-[8rem]"
+                    @click="requestLeaveGame"
+                  >
+                    退出
+                  </button>
+                </div>
+              </template>
             </div>
             <div
               v-else-if="waitingForResultPeers"
@@ -937,13 +1113,29 @@ async function onChallenge() {
 
             <div class="shrink-0">
               <BidControls
-                v-if="!awaitingResultView && !waitingForResultPeers && !showForfeitEnd"
+                v-if="
+                  !awaitingResultView &&
+                  !waitingForResultPeers &&
+                  !showForfeitEnd &&
+                  !(isOnline && onlineGame.pendingLobbyReturn)
+                "
                 v-model="draftBid"
                 :min-bid="minBid"
+                :forbidden-value="forbiddenBidValue"
                 :can-declare="canDeclare"
                 :can-challenge="canChallenge"
+                :can-same="canSame"
+                :can-change="canChange"
+                :extras-allowed="extrasAllowed"
+                :allow-reverse="gameView?.allowReverse"
+                :allow-shot="gameView?.allowShot"
+                :allow-draw1="gameView?.allowDraw1"
+                :allow-life-double="gameView?.allowLifeDouble"
+                :target-options="bidTargetOptions"
                 @declare="onDeclare"
                 @challenge="onChallenge"
+                @same="onSame"
+                @change="onChange"
               />
             </div>
           </main>
@@ -1195,35 +1387,59 @@ async function onChallenge() {
             </main>
 
             <div
-              v-if="showForfeitEnd"
+              v-if="showForfeitEnd || (isOnline && onlineGame.pendingLobbyReturn)"
               class="mx-3 mb-2 shrink-0 rounded-xl border border-gold-400/30 bg-night-900/90 px-3 py-3 text-center"
             >
-              <p class="font-display text-sm font-bold text-gold-100">
-                {{ forfeitEndTitle }}
-              </p>
-              <p class="mt-1 text-[11px] leading-relaxed text-sand-dim">
-                {{ forfeitEndDetail }}
-              </p>
-              <div class="mt-2.5 flex flex-col gap-2">
-                <button
-                  type="button"
-                  class="btn-gold w-full !py-2.5 text-sm"
-                  @click="playAgainFromForfeit"
-                >
-                  もう一度遊ぶ
-                </button>
-                <button
-                  type="button"
-                  class="btn-ghost w-full !py-2 text-sm"
-                  @click="requestLeaveGame"
-                >
-                  退出
-                </button>
-              </div>
+              <template v-if="isOnline && onlineGame.pendingLobbyReturn">
+                <p class="font-display text-sm font-bold text-teal-soft">
+                  ルームがロビーに戻りました
+                </p>
+                <p class="mt-1 text-[11px] leading-relaxed text-sand-dim">
+                  誰かが「もう一度遊ぶ」を押しました。準備ができたらロビーへ。
+                </p>
+                <div class="mt-2.5 flex flex-col gap-2">
+                  <button
+                    type="button"
+                    class="btn-gold w-full !py-2.5 text-sm"
+                    @click="goToLobbyAfterRematch"
+                  >
+                    ロビーへ
+                  </button>
+                </div>
+              </template>
+              <template v-else>
+                <p class="font-display text-sm font-bold text-gold-100">
+                  {{ forfeitEndTitle }}
+                </p>
+                <p class="mt-1 text-[11px] leading-relaxed text-sand-dim">
+                  {{ forfeitEndDetail }}
+                </p>
+                <div class="mt-2.5 flex flex-col gap-2">
+                  <button
+                    type="button"
+                    class="btn-gold w-full !py-2.5 text-sm"
+                    @click="playAgainFromForfeit"
+                  >
+                    もう一度遊ぶ
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-ghost w-full !py-2 text-sm"
+                    @click="requestLeaveGame"
+                  >
+                    退出
+                  </button>
+                </div>
+              </template>
             </div>
 
             <div
-              v-show="mobileTab !== 'chat' && mobileTab !== 'log' && !showForfeitEnd"
+              v-show="
+                mobileTab !== 'chat' &&
+                mobileTab !== 'log' &&
+                !showForfeitEnd &&
+                !(isOnline && onlineGame.pendingLobbyReturn)
+              "
               class="shrink-0"
             >
               <BidControls
@@ -1231,10 +1447,21 @@ async function onChallenge() {
                 v-model="draftBid"
                 mobile
                 :min-bid="minBid"
+                :forbidden-value="forbiddenBidValue"
                 :can-declare="canDeclare"
                 :can-challenge="canChallenge"
+                :can-same="canSame"
+                :can-change="canChange"
+                :extras-allowed="extrasAllowed"
+                :allow-reverse="gameView?.allowReverse"
+                :allow-shot="gameView?.allowShot"
+                :allow-draw1="gameView?.allowDraw1"
+                :allow-life-double="gameView?.allowLifeDouble"
+                :target-options="bidTargetOptions"
                 @declare="onDeclare"
                 @challenge="onChallenge"
+                @same="onSame"
+                @change="onChange"
               />
             </div>
 
@@ -1400,6 +1627,17 @@ async function onChallenge() {
       :bidder-name="cutInPayload.bidderName"
       :bid-value="cutInPayload.bidValue"
       @done="onCutInDone"
+    />
+
+    <!-- 特殊能力 / セイム / チェンジ impact -->
+    <ExtraActionCutIn
+      v-if="extraFx && !cutInPayload"
+      :key="extraFx.key"
+      :kind="extraFx.kind"
+      :actor-name="extraFx.actorName"
+      :target-name="extraFx.targetName"
+      :bid-value="extraFx.bidValue"
+      @done="onExtraFxDone"
     />
 
     <Transition

@@ -26,6 +26,15 @@ export function onlineToGameView(
   const game = view.game
   if (!game) return null
 
+  const legal = Array.isArray(game.legalMoves) ? game.legalMoves : []
+  const bidMove = legal.find(
+    (m): m is { type: 'PLACE_BID'; extrasAllowed?: boolean; forbiddenValue?: number } =>
+      !!m &&
+      typeof m === 'object' &&
+      (m as { type?: string }).type === 'PLACE_BID',
+  )
+  const er = view.extraRules
+
   return {
     roomCode: view.roomCode,
     playerCount: view.playerCount,
@@ -42,6 +51,14 @@ export function onlineToGameView(
     minBid: game.minBid,
     canDeclare: game.canDeclare,
     canChallenge: game.canChallenge,
+    canSame: game.canSame === true,
+    canChange: game.canChange === true,
+    extrasAllowed: bidMove?.extrasAllowed === true,
+    forbiddenBidValue: bidMove?.forbiddenValue ?? null,
+    allowReverse: er?.reverse === true,
+    allowShot: er?.shot === true,
+    allowDraw1: er?.draw1 === true,
+    allowLifeDouble: er?.lifeDouble === true,
     isGameOver: game.isGameOver,
   }
 }
@@ -64,10 +81,10 @@ function seatsToUi(game: MaskedGamePayload): PlayerSeat[] {
       lives: s.lives,
       handLabel: s.handHidden
         ? null
-        : s.hand
-          ? s.hand.label
-          : s.alive
-            ? null
+        : s.hands && s.hands.length > 0
+          ? s.hands.map((h) => h.label).join(' ')
+          : s.hand
+            ? s.hand.label
             : null,
       handHidden: s.handHidden,
       connected: s.connected,

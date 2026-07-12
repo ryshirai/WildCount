@@ -7,6 +7,7 @@
 export type CardKind =
   | 'number'
   | 'double'
+  | 'half'
   | 'max_to_zero'
   | 'redraw'
   | 'zero_mix'
@@ -18,7 +19,7 @@ export interface Card {
   /**
    * Numeric value for `number` cards.
    * `zero_mix` is treated as 0 in totals (value may be 0 for display).
-   * Undefined for pure specials (double, max_to_zero, redraw).
+   * Undefined for pure specials (double, half, max_to_zero, redraw).
    */
   value?: number
 }
@@ -36,6 +37,8 @@ export interface NumberCount {
 /** Counts for non-number cards. All keys required (use 0 to omit). */
 export interface SpecialCounts {
   double: number
+  /** 1/2 card (extra rule). Multiplier ÷2 per card. */
+  half: number
   max_to_zero: number
   redraw: number
   zero_mix: number
@@ -88,6 +91,7 @@ export interface CalculationResult {
   /** Cards after MAX_TO_ZERO zeroing (value may change for number cards) */
   adjustedCards: Card[]
   doubleCount: number
+  halfCount: number
   maxToZeroApplied: boolean
   rawNumberSum: number
 }
@@ -108,7 +112,67 @@ export interface ChallengeOutcome {
   loserId: PlayerId
   bidderId: PlayerId
   challengerId: PlayerId
+  /** Lives lost by the loser (1 default; 2 when life-double attached) */
+  lifeLoss: number
 }
+
+// ---------------------------------------------------------------------------
+// Extra rules (host toggles; default all false)
+// ---------------------------------------------------------------------------
+
+/**
+ * Lobby / GameConfig toggles for optional rules.
+ * All false → identical to MVP behaviour.
+ * Spec: docs/extra-rules.md
+ */
+/**
+ * Host toggles for optional *turn* actions.
+ * Note: 1/2 (half) cards are deck composition only — not a toggle here.
+ */
+export interface ExtraRulesConfig {
+  /** Same (pass-like keep bid) */
+  same: boolean
+  /** Change (force previous bidder to rebid) */
+  change: boolean
+  /** Reverse turn direction (bid attach) */
+  reverse: boolean
+  /** Shot: name next turn player (bid attach) */
+  shot: boolean
+  /** Draw +1 card for another player (bid attach; 1/round table) */
+  draw1: boolean
+  /** Life double: next challenge loser loses 2 lives (bid attach) */
+  lifeDouble: boolean
+}
+
+export const DEFAULT_EXTRA_RULES: ExtraRulesConfig = Object.freeze({
+  same: false,
+  change: false,
+  reverse: false,
+  shot: false,
+  draw1: false,
+  lifeDouble: false,
+})
+
+export type TurnDirection = 1 | -1
+
+export type LastActionKind = 'bid' | 'same' | 'change' | 'challenge' | null
+
+/** Forced rebid after CHANGE (see docs/extra-rules.md §2.3). */
+export interface PendingChangeRebid {
+  playerId: PlayerId
+  /** Discarded bid B — cannot redeclare this value */
+  forbiddenValue: number
+  /** Previous bid A; null when only opening bid existed */
+  minExclusive: number | null
+  /** After rebid, turn goes to this player (CHANGE user's next in direction) */
+  resumeNextPlayerId: PlayerId
+}
+
+export type BidExtraAction =
+  | { type: 'reverse' }
+  | { type: 'shot'; targetId: PlayerId }
+  | { type: 'draw1'; targetId: PlayerId }
+  | { type: 'life_double' }
 
 // ---------------------------------------------------------------------------
 // Game config & phase
@@ -128,6 +192,8 @@ export interface GameConfig {
    * Default: STANDARD_DECK (see deck.ts).
    */
   deck: DeckComposition
+  /** Extra rules toggles (default all false). */
+  extraRules: ExtraRulesConfig
 }
 
 export type GamePhase =
@@ -150,8 +216,11 @@ export interface GameState {
   /** Draw pile (top = end of array for pop) */
   deck: readonly Card[]
   discard: readonly Card[]
-  /** Alive players' face-down cards this round */
-  hands: Readonly<Record<PlayerId, Card>>
+  /**
+   * Alive players' face-down cards this round.
+   * Usually one card; draw1 can add more → array.
+   */
+  hands: Readonly<Record<PlayerId, readonly Card[]>>
   /** Current bid value, or null if no bid yet this round */
   currentBid: number | null
   /** Player who placed currentBid */
@@ -166,6 +235,25 @@ export interface GameState {
   winnerId: PlayerId | null
   /** Revision counter for consumers (optional bookkeeping) */
   revision: number
+
+  // --- Extra rules state (harmless when all toggles OFF) ---
+  /** Seat order direction; reset to +1 each round */
+  turnDirection: TurnDirection
+  /** Last player action this round (for same-chain ban etc.) */
+  lastAction: LastActionKind
+  /**
+   * Bid value immediately under currentBid (A when current is B).
+   * Used as CHANGE rebid floor. null when current is the opening bid.
+   */
+  bidUnderCurrent: number | null
+  /** Set while the previous bidder must redeclare after CHANGE */
+  pendingChangeRebid: PendingChangeRebid | null
+  /** Player ids who already used their personal action slot this round */
+  extraActionUsedThisRound: readonly PlayerId[]
+  /** True after draw1 is used once this round */
+  draw1UsedThisRound: boolean
+  /** True when last bid carried life_double (next challenge → −2 lives) */
+  pendingLifeDouble: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -175,7 +263,9 @@ export interface GameState {
 export type GameAction =
   | { type: 'START_GAME' }
   | { type: 'START_ROUND' }
-  | { type: 'PLACE_BID'; value: number }
+  | { type: 'PLACE_BID'; value: number; extra?: BidExtraAction }
+  | { type: 'SAME' }
+  | { type: 'CHANGE' }
   | { type: 'CHALLENGE' }
 
 export interface StartGameInput {
@@ -184,8 +274,9 @@ export interface StartGameInput {
    * Partial config. `deck` may be a full DeckComposition or a preset id
    * string (e.g. "standard") — resolved in createInitialState.
    */
-  config?: Omit<Partial<GameConfig>, 'deck'> & {
+  config?: Omit<Partial<GameConfig>, 'deck' | 'extraRules'> & {
     deck?: DeckComposition | string
+    extraRules?: Partial<ExtraRulesConfig>
   }
 }
 
@@ -194,8 +285,17 @@ export interface StartGameInput {
 // ---------------------------------------------------------------------------
 
 export type LegalMove =
-  | { type: 'PLACE_BID'; minValue: number }
+  | {
+      type: 'PLACE_BID'
+      minValue: number
+      /** When set (CHANGE rebid), value must not equal this */
+      forbiddenValue?: number
+      /** Attach extras allowed on this bid */
+      extrasAllowed: boolean
+    }
   | { type: 'CHALLENGE' }
+  | { type: 'SAME' }
+  | { type: 'CHANGE' }
 
 // ---------------------------------------------------------------------------
 // Errors

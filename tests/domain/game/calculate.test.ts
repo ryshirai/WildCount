@@ -8,6 +8,9 @@ function num(value: number, id = `n${value}`): Card {
 function dbl(id = 'd'): Card {
   return { id, kind: 'double' }
 }
+function half(id = 'h'): Card {
+  return { id, kind: 'half' }
+}
 function max0(id = 'm'): Card {
   return { id, kind: 'max_to_zero' }
 }
@@ -105,5 +108,25 @@ describe('calculateTotal', () => {
   it('only doubles (no numbers) → total 0', () => {
     const r = calculateTotal([dbl()])
     expect(r.finalTotal).toBe(0)
+  })
+
+  it('1/2 truncates toward zero for positive totals', () => {
+    // 7 / 2 → 3
+    const r = calculateTotal([num(7), half()])
+    expect(r.halfCount).toBe(1)
+    expect(r.finalTotal).toBe(3)
+  })
+
+  it('1/2 truncates toward zero for negative totals', () => {
+    // -7 / 2 → -3
+    const r = calculateTotal([num(-7), half()])
+    expect(r.finalTotal).toBe(-3)
+  })
+
+  it('×2 and 1/2 cancel', () => {
+    const r = calculateTotal([num(7), dbl(), half()])
+    expect(r.doubleCount).toBe(1)
+    expect(r.halfCount).toBe(1)
+    expect(r.finalTotal).toBe(7)
   })
 })

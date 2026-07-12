@@ -244,7 +244,9 @@ export const useLocalGameStore = defineStore('localGame', () => {
       throw new Error(`Unexpected local action: ${action.type}`)
     }
 
-    const handsSnapshot: Record<PlayerId, Card> = { ...state.value.hands }
+    const handsSnapshot: Record<PlayerId, readonly Card[]> = {
+      ...state.value.hands,
+    }
     const challengedRound = state.value.round
     const bidderId = state.value.currentBidderId
     const bid = state.value.currentBid
@@ -260,11 +262,14 @@ export const useLocalGameStore = defineStore('localGame', () => {
     if (bidderId != null && bid != null) {
       const loserName = getProfile(outcome.loserId, profiles.value).name
       const bidderName = getProfile(bidderId, profiles.value).name
+      const loss = outcome.lifeLoss ?? 1
+      const lossLabel =
+        loss > 1 ? `ライフを ${loss} 失った（ダブル）` : 'ライフを失った'
       pushLog(
         outcome.loserId,
         outcome.bidderWins
-          ? `合計 ${outcome.actualTotal} ≥ ${bid} → ${loserName} がライフを失った`
-          : `合計 ${outcome.actualTotal} < ${bid} → ${loserName} がライフを失った（宣言: ${bidderName}）`,
+          ? `合計 ${outcome.actualTotal} ≥ ${bid} → ${loserName} が${lossLabel}`
+          : `合計 ${outcome.actualTotal} < ${bid} → ${loserName} が${lossLabel}（宣言: ${bidderName}）`,
       )
     }
 
@@ -343,14 +348,39 @@ export const useLocalGameStore = defineStore('localGame', () => {
     }
   }
 
-  async function placeBid(value: number): Promise<{ hasResult: boolean }> {
+  async function placeBid(
+    value: number,
+    extra?: import('@/domain/game').BidExtraAction,
+  ): Promise<{ hasResult: boolean }> {
     if (!state.value) throw new Error('No local game session')
     if (pendingResult.value) throw new Error('先に結果を確認してください')
     if (botsRunning.value) throw new Error('ボットの手番です')
     if (state.value.currentTurnPlayerId !== selfId.value) {
       throw new Error('Not your turn')
     }
-    applyCurrentAction({ type: 'PLACE_BID', value })
+    applyCurrentAction({ type: 'PLACE_BID', value, extra })
+    return runBots()
+  }
+
+  async function playSame(): Promise<{ hasResult: boolean }> {
+    if (!state.value) throw new Error('No local game session')
+    if (pendingResult.value) throw new Error('先に結果を確認してください')
+    if (botsRunning.value) throw new Error('ボットの手番です')
+    if (state.value.currentTurnPlayerId !== selfId.value) {
+      throw new Error('Not your turn')
+    }
+    applyCurrentAction({ type: 'SAME' })
+    return runBots()
+  }
+
+  async function playChange(): Promise<{ hasResult: boolean }> {
+    if (!state.value) throw new Error('No local game session')
+    if (pendingResult.value) throw new Error('先に結果を確認してください')
+    if (botsRunning.value) throw new Error('ボットの手番です')
+    if (state.value.currentTurnPlayerId !== selfId.value) {
+      throw new Error('Not your turn')
+    }
+    applyCurrentAction({ type: 'CHANGE' })
     return runBots()
   }
 
@@ -427,6 +457,8 @@ export const useLocalGameStore = defineStore('localGame', () => {
     startLocalGame,
     restartLastGame,
     placeBid,
+    playSame,
+    playChange,
     challenge,
     clearPendingResult,
     resumeAfterResult,

@@ -70,8 +70,19 @@ describe('applyLifeLoss', () => {
     expect(next.find((p) => p.id === 'b')?.alive).toBe(true)
   })
 
+  it('decrements lives by amount (life double)', () => {
+    const next = applyLifeLoss(base, 'b', 2)
+    expect(next.find((p) => p.id === 'b')?.lives).toBe(1)
+  })
+
   it('eliminates player at 0 lives', () => {
     const next = applyLifeLoss(base, 'a')
+    expect(next.find((p) => p.id === 'a')?.lives).toBe(0)
+    expect(next.find((p) => p.id === 'a')?.alive).toBe(false)
+  })
+
+  it('overkill to 0 is allowed', () => {
+    const next = applyLifeLoss(base, 'a', 2)
     expect(next.find((p) => p.id === 'a')?.lives).toBe(0)
     expect(next.find((p) => p.id === 'a')?.alive).toBe(false)
   })

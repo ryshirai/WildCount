@@ -4,11 +4,13 @@
 
 import {
   cloneDeckComposition,
+  DEFAULT_EXTRA_RULES,
   forceEliminatePlayer,
   GameError,
   STANDARD_DECK,
   validateRoomDeckComposition,
   type DeckComposition,
+  type ExtraRulesConfig,
   type GameState,
 } from '../src/domain/game'
 import {
@@ -30,11 +32,13 @@ import {
   isStampId,
   stampEmoji,
   type ChatMessage,
+  type ClientGameAction,
   type ClientMessage,
   type PlayerView,
   type PlayerViewMember,
   type StampId,
   type WireDeckComposition,
+  type WireExtraRules,
 } from './types'
 
 export type RoomStatus = 'open' | 'playing' | 'closed'
@@ -82,6 +86,11 @@ export interface RoomState {
    * Host edits via set_deck in lobby. Rematch keeps this value.
    */
   deck: DeckComposition
+  /**
+   * Extra rules toggles for the next startGame.
+   * Host edits via set_extra_rules in lobby. Rematch keeps this value.
+   */
+  extraRules: ExtraRulesConfig
 }
 
 export interface WsAttachment {
@@ -107,6 +116,7 @@ export function createEmptyRoom(roomCode: string, now = Date.now()): RoomState {
     chatLog: [],
     chatLastAt: {},
     deck: cloneDeckComposition(STANDARD_DECK),
+    extraRules: { ...DEFAULT_EXTRA_RULES },
   }
 }
 
@@ -342,6 +352,13 @@ export function parseClientMessage(raw: unknown): ClientMessage | { error: strin
       }
       return { type: 'set_deck', deck: parsed.deck }
     }
+    case 'set_extra_rules': {
+      const parsed = parseWireExtraRules(msg.extraRules)
+      if ('error' in parsed) {
+        return { error: parsed.error }
+      }
+      return { type: 'set_extra_rules', extraRules: parsed.extraRules }
+    }
     case 'resume': {
       if (typeof msg.resumeToken !== 'string' || !msg.resumeToken) {
         return { error: 'resumeToken required' }
@@ -356,13 +373,53 @@ export function parseClientMessage(raw: unknown): ClientMessage | { error: strin
       if (!action || typeof action !== 'object' || !('type' in action)) {
         return { error: 'action.action required' }
       }
-      const a = action as { type: string; value?: number }
+      const a = action as {
+        type: string
+        value?: number
+        extra?: {
+          type: string
+          targetId?: string
+        }
+      }
       if (a.type === 'PLACE_BID' && typeof a.value === 'number' && Number.isFinite(a.value)) {
+        const bidAction: ClientGameAction = { type: 'PLACE_BID', value: a.value }
+        if (a.extra && typeof a.extra === 'object' && typeof a.extra.type === 'string') {
+          const ex = a.extra
+          if (ex.type === 'reverse') {
+            bidAction.extra = { type: 'reverse' }
+          } else if (ex.type === 'life_double') {
+            bidAction.extra = { type: 'life_double' }
+          } else if (
+            (ex.type === 'shot' || ex.type === 'draw1') &&
+            typeof ex.targetId === 'string' &&
+            ex.targetId.length > 0
+          ) {
+            bidAction.extra = { type: ex.type, targetId: ex.targetId }
+          } else {
+            return { error: 'Invalid bid extra' }
+          }
+        }
         return {
           type: 'action',
           actionId: msg.actionId,
           expectedRevision: msg.expectedRevision,
-          action: { type: 'PLACE_BID', value: a.value },
+          action: bidAction,
+        }
+      }
+      if (a.type === 'SAME') {
+        return {
+          type: 'action',
+          actionId: msg.actionId,
+          expectedRevision: msg.expectedRevision,
+          action: { type: 'SAME' },
+        }
+      }
+      if (a.type === 'CHANGE') {
+        return {
+          type: 'action',
+          actionId: msg.actionId,
+          expectedRevision: msg.expectedRevision,
+          action: { type: 'CHANGE' },
         }
       }
       if (a.type === 'CHALLENGE') {
@@ -405,6 +462,7 @@ export function buildPlayerView(
   const phase = viewPhase(room.status, pendingResult, room.game)
 
   const deck = room.deck ?? cloneDeckComposition(STANDARD_DECK)
+  const extraRules = room.extraRules ?? { ...DEFAULT_EXTRA_RULES }
 
   return {
     phase,
@@ -417,6 +475,7 @@ export function buildPlayerView(
     playerCount: room.players.length,
     maxPlayers: MAX_PLAYERS,
     deck: toWireDeck(deck),
+    extraRules: toWireExtraRules(extraRules),
     game: room.game
       ? buildMaskedGame(
           room.game,
@@ -432,12 +491,64 @@ export function buildPlayerView(
 
 /** Domain / room deck → wire payload (plain JSON). */
 export function toWireDeck(deck: DeckComposition): WireDeckComposition {
+  const s = deck.specials
   return {
     id: deck.id,
     label: deck.label,
     numbers: deck.numbers.map((n) => ({ value: n.value, count: n.count })),
-    specials: { ...deck.specials },
+    specials: {
+      double: s.double,
+      half: s.half ?? 0,
+      max_to_zero: s.max_to_zero,
+      redraw: s.redraw,
+      zero_mix: s.zero_mix,
+    },
   }
+}
+
+export function toWireExtraRules(rules: ExtraRulesConfig): WireExtraRules {
+  return {
+    same: !!rules.same,
+    change: !!rules.change,
+    reverse: !!rules.reverse,
+    shot: !!rules.shot,
+    draw1: !!rules.draw1,
+    lifeDouble: !!rules.lifeDouble,
+  }
+}
+
+export function parseWireExtraRules(
+  raw: unknown,
+): { extraRules: WireExtraRules } | { error: string } {
+  if (!raw || typeof raw !== 'object') {
+    return { error: 'エクストラルールの設定を読み取れませんでした' }
+  }
+  const r = raw as Record<string, unknown>
+  const keys = [
+    'same',
+    'change',
+    'reverse',
+    'shot',
+    'draw1',
+    'lifeDouble',
+  ] as const
+  const out: WireExtraRules = { ...DEFAULT_EXTRA_RULES }
+  for (const k of keys) {
+    if (r[k] === undefined) continue
+    if (typeof r[k] !== 'boolean') {
+      return { error: `エクストラルール「${k}」は ON/OFF で指定してください` }
+    }
+    out[k] = r[k] as boolean
+  }
+  // Ignore legacy halfCard key if clients still send it
+  return { extraRules: out }
+}
+
+export function applySetExtraRules(
+  room: RoomState,
+  extraRules: WireExtraRules,
+): void {
+  room.extraRules = { ...extraRules }
 }
 
 /**
@@ -460,6 +571,7 @@ export function parseWireDeck(
   const specialsRaw = d.specials as Record<string, unknown>
   const specials = {
     double: specialsRaw.double,
+    half: specialsRaw.half ?? 0,
     max_to_zero: specialsRaw.max_to_zero,
     redraw: specialsRaw.redraw,
     zero_mix: specialsRaw.zero_mix,
@@ -512,6 +624,7 @@ export function parseWireDeck(
     numbers,
     specials: {
       double: specials.double as number,
+      half: specials.half as number,
       max_to_zero: specials.max_to_zero as number,
       redraw: specials.redraw as number,
       zero_mix: specials.zero_mix as number,
@@ -601,6 +714,7 @@ export function ensureLifecycleFields(room: RoomState): void {
   if (!room.chatLog) room.chatLog = []
   if (!room.chatLastAt) room.chatLastAt = {}
   if (!room.deck) room.deck = cloneDeckComposition(STANDARD_DECK)
+  if (!room.extraRules) room.extraRules = { ...DEFAULT_EXTRA_RULES }
 }
 
 export function connectedPlayerCount(room: RoomState): number {

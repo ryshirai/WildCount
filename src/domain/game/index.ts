@@ -1,5 +1,5 @@
 /**
- * Wild Count pure game engine (Phase 0).
+ * Wild Count pure game engine (Phase 0 + Extra rules).
  *
  * No DOM / localStorage / WebSocket / Vue / Pinia dependencies.
  * Inject RandomSource for all randomness.
@@ -17,6 +17,11 @@ export type {
   CalculationResult,
   ChallengeLoserRole,
   ChallengeOutcome,
+  ExtraRulesConfig,
+  TurnDirection,
+  LastActionKind,
+  PendingChangeRebid,
+  BidExtraAction,
   GameConfig,
   GamePhase,
   GameState,
@@ -24,7 +29,7 @@ export type {
   StartGameInput,
   LegalMove,
 } from './types'
-export { GameError } from './types'
+export { GameError, DEFAULT_EXTRA_RULES } from './types'
 
 export {
   createDeck,
@@ -39,6 +44,7 @@ export {
   toEditorDeckComposition,
   isStandardDeckComposition,
   deckSummaryLabel,
+  normalizeSpecials,
   STANDARD_DECK,
   DECK_PRESETS,
   DECK_SIZE,
@@ -58,6 +64,7 @@ export {
   applyLifeLoss,
   alivePlayers,
   soleSurvivor,
+  allHandCards,
 } from './resolve'
 
 export {
@@ -66,13 +73,19 @@ export {
   applyAction,
   getLegalMoves,
   forceEliminatePlayer,
+  nextAlivePlayerId,
   DEFAULT_CONFIG,
 } from './engine'
 
 export {
   canPlaceBid,
   canChallenge,
+  canSame,
+  canChange,
+  canAttachExtra,
   describeIllegal,
   isPlayersTurn,
   getPlayer,
+  hasUsedExtraAction,
+  minBidValue,
 } from './validate'

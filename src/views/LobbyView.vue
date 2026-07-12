@@ -9,8 +9,9 @@ import ReactionOverlay from '@/components/game/ReactionOverlay.vue'
 import StampPickerSheet from '@/components/game/StampPickerSheet.vue'
 import PlayerAvatar from '@/components/game/PlayerAvatar.vue'
 import DeckSettingsPanel from '@/components/lobby/DeckSettingsPanel.vue'
+import ExtraRulesPanel from '@/components/lobby/ExtraRulesPanel.vue'
 import type { StampId } from '@/online/stamps'
-import type { WireDeckComposition } from '@/online/protocol'
+import type { WireDeckComposition, WireExtraRules } from '@/online/protocol'
 import { allowLocalPlay } from '@/config/runtime'
 import { mockLobby } from '@/data/mockLobby'
 import { AVATAR_ASSETS, avatarSrc } from '@/localGame/avatarCatalog'
@@ -366,6 +367,19 @@ function applyDeck(deck: WireDeckComposition) {
   onlineGame.setDeck(deck)
 }
 
+function applyExtraRules(rules: WireExtraRules) {
+  if (!isOnline.value || !isHost.value) {
+    showToast('ルールを変えられるのはホストだけです')
+    return
+  }
+  if (onlineGame.connection !== 'open') {
+    showToast('つながっているときだけ変更できます')
+    return
+  }
+  onlineGame.setExtraRules(rules)
+  showToast('エクストラルールを反映しました')
+}
+
 // Keep draft in sync when server view / store name updates (join, resume)
 watch(
   () => onlineGame.displayName,
@@ -516,6 +530,15 @@ watch(
         :editable="isHost"
         :disabled="onlineGame.connection !== 'open'"
         @apply="applyDeck"
+      />
+
+      <ExtraRulesPanel
+        v-if="isOnline"
+        class="mb-6"
+        :extra-rules="onlineGame.view?.extraRules"
+        :editable="isHost"
+        :disabled="onlineGame.connection !== 'open'"
+        @apply="applyExtraRules"
       />
 
       <!-- Participants -->

@@ -10,6 +10,7 @@ import {
   HELP_CHALLENGE_RULE,
   HELP_CONTROLS,
   HELP_DECK_SIZE,
+  HELP_EXTRA_RULES,
   HELP_NUMBER_SUMMARY,
   HELP_SPECIALS,
   HELP_TABS,
@@ -82,6 +83,7 @@ onUnmounted(() => {
 
 const specialKindClass: Record<string, string> = {
   double: 'help-face help-face--double',
+  half: 'help-face help-face--half',
   max_to_zero: 'help-face help-face--max0',
   redraw: 'help-face help-face--redraw',
   zero_mix: 'help-face help-face--zeromix',
@@ -200,6 +202,49 @@ const specialKindClass: Record<string, string> = {
               >
                 {{ HELP_BASICS.visibilityNote }}
               </p>
+
+              <!-- Extra rules (soft intro on 遊び方) -->
+              <div
+                class="rounded-xl border border-gold-400/15 bg-night-900/50 px-3 py-3 sm:px-3.5"
+              >
+                <h3 class="mb-1.5 text-sm font-semibold text-gold-100">
+                  エクストラルール（任意）
+                </h3>
+                <p class="mb-2.5 text-xs leading-relaxed text-sand-dim">
+                  {{ HELP_BASICS.extrasLead }}
+                </p>
+                <ul class="mb-3 space-y-2">
+                  <li
+                    v-for="(tip, i) in HELP_BASICS.extrasTips"
+                    :key="'xt' + i"
+                    class="flex gap-2 text-xs leading-relaxed text-sand"
+                  >
+                    <span class="shrink-0 text-gold-200/80" aria-hidden="true">·</span>
+                    <span>{{ tip }}</span>
+                  </li>
+                </ul>
+                <p class="mb-2 text-[11px] font-medium text-gold-200/90">
+                  {{ HELP_EXTRA_RULES.sharedNote }}
+                </p>
+                <ul class="space-y-2.5">
+                  <li
+                    v-for="item in HELP_EXTRA_RULES.items"
+                    :key="item.name"
+                    class="rounded-lg border border-gold-400/10 bg-night-800/40 px-2.5 py-2"
+                  >
+                    <p class="text-xs font-semibold text-gold-100">
+                      <span aria-hidden="true" class="mr-1">{{ item.emoji }}</span>
+                      {{ item.name }}
+                    </p>
+                    <p class="mt-0.5 text-[11px] leading-relaxed text-sand-dim">
+                      {{ item.detail }}
+                    </p>
+                  </li>
+                </ul>
+                <p class="mt-2.5 text-[11px] leading-relaxed text-sand-dim">
+                  {{ HELP_EXTRA_RULES.deckNote }}
+                </p>
+              </div>
             </section>
 
             <!-- Special cards -->
@@ -236,6 +281,32 @@ const specialKindClass: Record<string, string> = {
                   </div>
                 </li>
               </ul>
+
+              <div class="rounded-xl border border-gold-400/12 bg-night-900/40 px-3 py-3">
+                <h3 class="mb-2 text-xs font-semibold text-gold-200">
+                  エクストラルール（特殊能力）
+                </h3>
+                <p class="mb-2 text-[11px] leading-relaxed text-sand-dim">
+                  {{ HELP_EXTRA_RULES.intro }}
+                </p>
+                <p class="mb-2 text-[11px] leading-relaxed text-sand-dim">
+                  {{ HELP_EXTRA_RULES.sharedNote }}
+                </p>
+                <ul class="space-y-2">
+                  <li
+                    v-for="item in HELP_EXTRA_RULES.items"
+                    :key="item.name"
+                    class="text-xs leading-relaxed text-sand"
+                  >
+                    <span aria-hidden="true" class="mr-0.5">{{ item.emoji }}</span>
+                    <span class="font-medium text-gold-200/90">{{ item.name }}</span>
+                    <span class="text-sand-dim"> — {{ item.detail }}</span>
+                  </li>
+                </ul>
+                <p class="mt-2 text-[11px] leading-relaxed text-sand-dim">
+                  {{ HELP_EXTRA_RULES.deckNote }}
+                </p>
+              </div>
 
               <div class="rounded-xl border border-gold-400/12 bg-night-900/40 px-3 py-3">
                 <h3 class="mb-2 text-xs font-semibold text-gold-200">数字カード</h3>
@@ -377,6 +448,18 @@ const specialKindClass: Record<string, string> = {
   );
   color: #5ec8c8;
   box-shadow: 0 0 12px rgba(42, 138, 138, 0.25);
+}
+
+.help-face--half {
+  border: 1px solid rgba(167, 139, 250, 0.55);
+  background: linear-gradient(
+    to bottom,
+    rgba(76, 29, 149, 0.55),
+    #0c1220 70%
+  );
+  color: #c4b5fd;
+  font-size: 0.65rem;
+  box-shadow: 0 0 12px rgba(167, 139, 250, 0.2);
 }
 
 .help-face--max0 {

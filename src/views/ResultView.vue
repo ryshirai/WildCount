@@ -60,12 +60,20 @@ const verdictTitle = computed(() => {
   return result.value.bidderWins ? '宣言が通った！' : 'コヨーテ成功！'
 })
 
+const lifeLossAmount = computed(() => {
+  const n = result.value?.lifeLoss
+  return typeof n === 'number' && n > 0 ? n : 1
+})
+
 const verdictDetail = computed(() => {
   if (!result.value) return ''
+  const loss = lifeLossAmount.value
+  const lossPhrase =
+    loss > 1 ? `ライフを ${loss} 失います（ダブル）` : 'ライフを失います'
   if (result.value.bidderWins) {
-    return `合計 ${result.value.finalTotal} は宣言 ${result.value.bidValue} 以上 → チャレンジした人がライフを失います`
+    return `合計 ${result.value.finalTotal} は宣言 ${result.value.bidValue} 以上 → チャレンジした人が${lossPhrase}`
   }
-  return `合計 ${result.value.finalTotal} は宣言 ${result.value.bidValue} より小さい → 宣言した人がライフを失います`
+  return `合計 ${result.value.finalTotal} は宣言 ${result.value.bidValue} より小さい → 宣言した人が${lossPhrase}`
 })
 
 /** Active calc step index (-1 = not started; steps.length = all done) */
@@ -246,20 +254,29 @@ onUnmounted(() => {
   clearStepTimers()
 })
 
-// Online rematch / leave-to-lobby: when status returns to open, go to lobby
+// Only the player who pressed「もう一度遊ぶ」auto-navigates to lobby
 watch(
-  () => onlineGame.view?.status,
-  (status) => {
+  () => onlineGame.rematchNavigateToken,
+  (token, prev) => {
     if (!isOnline.value) return
-    if (status === 'open') {
-      const code = onlineGame.roomCode
-      void router.replace({
-        name: 'lobby',
-        query: { online: '1', ...(code ? { code } : {}) },
-      })
-    }
+    if (token === 0 || token === prev) return
+    const code = onlineGame.roomCode
+    void router.replace({
+      name: 'lobby',
+      query: { online: '1', ...(code ? { code } : {}) },
+    })
   },
 )
+
+function goToLobbyAfterRematch() {
+  if (!isOnline.value) return
+  onlineGame.acceptLobbyReturn()
+  const code = onlineGame.roomCode
+  void router.replace({
+    name: 'lobby',
+    query: { online: '1', ...(code ? { code } : {}) },
+  })
+}
 
 // Host dissolved room / idle purge during result screen
 watch(
@@ -439,16 +456,21 @@ async function playAgain() {
             hide-name
           />
           <div class="min-w-0 text-left">
-            <p class="text-[10px] uppercase tracking-wider text-red-300/80">ライフ −1</p>
+            <p class="text-[10px] uppercase tracking-wider text-red-300/80">
+              ライフ −{{ lifeLossAmount
+              }}<span v-if="lifeLossAmount > 1" class="ml-1 normal-case tracking-normal text-amber-200/90">ダブル</span>
+            </p>
             <p class="truncate font-semibold">
               {{ result.lifeLostName }}
-              <span class="font-normal text-red-200/90">がライフを 1 失いました</span>
+              <span class="font-normal text-red-200/90">
+                がライフを {{ lifeLossAmount }} 失いました
+              </span>
             </p>
           </div>
           <span
             class="heart-crack ml-1 text-lg leading-none text-rose-400"
             aria-hidden="true"
-          >♥</span>
+          >{{ lifeLossAmount > 1 ? '♥♥' : '♥' }}</span>
         </div>
       </section>
 
@@ -544,8 +566,31 @@ async function playAgain() {
         </ul>
       </section>
 
+      <!-- Peer rematch: room is lobby; stay on result until they choose -->
+      <div
+        v-if="isOnline && onlineGame.pendingLobbyReturn"
+        class="mb-4 rounded-2xl border border-teal-soft/35 bg-night-900/90 px-4 py-3 text-center"
+      >
+        <p class="text-sm font-medium text-teal-soft">
+          ルームがロビーに戻りました
+        </p>
+        <p class="mt-1 text-[11px] text-sand-dim">
+          誰かが「もう一度遊ぶ」を押しました。結果を見終わったらロビーへどうぞ。
+        </p>
+        <button
+          type="button"
+          class="btn-gold mt-3 w-full sm:max-w-xs"
+          @click="goToLobbyAfterRematch"
+        >
+          ロビーへ
+        </button>
+      </div>
+
       <!-- Actions: single primary CTA only (no トップへ — easy mis-tap) -->
-      <div class="flex flex-col gap-3 sm:flex-row sm:justify-center">
+      <div
+        v-else
+        class="flex flex-col gap-3 sm:flex-row sm:justify-center"
+      >
         <button
           v-if="localMeta.isGameOver && !useMock"
           type="button"

@@ -22,6 +22,14 @@ function sampleView(): PlayerView {
       })),
       specials: { ...STANDARD_DECK.specials },
     },
+    extraRules: {
+      same: false,
+      change: false,
+      reverse: false,
+      shot: false,
+      draw1: false,
+      lifeDouble: false,
+    },
     players: [
       {
         id: 'a',

@@ -45,15 +45,15 @@ describe('maskedView', () => {
 
     // JSON wire must not contain self card id
     const json = JSON.stringify(payload)
-    const selfCard = game.hands['a']!
+    const selfCard = game.hands['a']![0]!
     expect(json).not.toContain(selfCard.id)
-    expect(json).toContain(game.hands['b']!.id)
+    expect(json).toContain(game.hands['b']![0]!.id)
   })
 
   it('pending result includes all hands including self', () => {
-    const hands: Record<string, Card> = {
-      a: { id: 'c1', kind: 'number', value: 5 },
-      b: { id: 'c2', kind: 'double' },
+    const hands: Record<string, Card[]> = {
+      a: [{ id: 'c1', kind: 'number', value: 5 }],
+      b: [{ id: 'c2', kind: 'double' }],
     }
     const snap = buildPendingResultSnapshot({
       round: 1,
@@ -67,6 +67,7 @@ describe('maskedView', () => {
           finalTotal: 5,
           adjustedCards: [],
           doubleCount: 0,
+          halfCount: 0,
           maxToZeroApplied: false,
           rawNumberSum: 5,
         },
@@ -75,10 +76,11 @@ describe('maskedView', () => {
         loserId: 'a',
         bidderId: 'a',
         challengerId: 'b',
+        lifeLoss: 1,
       },
     })
-    expect(snap.hands.a?.label).toBeTruthy()
-    expect(snap.hands.b?.kind).toBe('double')
+    expect(snap.hands.a?.[0]?.label).toBeTruthy()
+    expect(snap.hands.b?.[0]?.kind).toBe('double')
   })
 
   it('cardToWire preserves kind/value', () => {

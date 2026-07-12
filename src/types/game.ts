@@ -83,7 +83,13 @@ export interface LobbyMock {
 }
 
 /** Card face shown on reveal */
-export type CardKind = 'number' | 'double' | 'max_to_zero' | 'redraw' | 'zero_mix'
+export type CardKind =
+  | 'number'
+  | 'double'
+  | 'half'
+  | 'max_to_zero'
+  | 'redraw'
+  | 'zero_mix'
 
 export interface RevealedCard {
   playerId: PlayerId
@@ -125,4 +131,9 @@ export interface ResultMock {
   lifeLostName: string
   lifeLostAvatar: string
   lifeLostAvatarSrc?: string
+  /**
+   * Lives lost by the loser this challenge.
+   * 1 default; 2 when life-double (特殊能力ダブル) was pending.
+   */
+  lifeLoss?: number
 }

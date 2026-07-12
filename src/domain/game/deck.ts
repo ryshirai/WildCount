@@ -28,6 +28,7 @@ export const STANDARD_DECK: DeckComposition = Object.freeze({
   ]),
   specials: Object.freeze({
     double: 1,
+    half: 0,
     max_to_zero: 1,
     redraw: 1,
     zero_mix: 1,
@@ -76,7 +77,12 @@ export function countCards(composition: DeckComposition): number {
   const numbers = composition.numbers.reduce((sum, n) => sum + n.count, 0)
   const s = composition.specials
   return (
-    numbers + s.double + s.max_to_zero + s.redraw + s.zero_mix
+    numbers +
+    s.double +
+    (s.half ?? 0) +
+    s.max_to_zero +
+    s.redraw +
+    s.zero_mix
   )
 }
 
@@ -86,7 +92,7 @@ export function cloneDeckComposition(source: DeckComposition): DeckComposition {
     id: source.id,
     label: source.label,
     numbers: source.numbers.map((n) => ({ value: n.value, count: n.count })),
-    specials: { ...source.specials },
+    specials: normalizeSpecials(source.specials),
   }
 }
 
@@ -105,7 +111,7 @@ export function toEditorDeckComposition(
       value,
       count: byValue.get(value) ?? 0,
     })),
-    specials: { ...source.specials },
+    specials: normalizeSpecials(source.specials),
   }
 }
 
@@ -121,15 +127,31 @@ export function isStandardDeckComposition(composition: DeckComposition): boolean
     const found = composition.numbers.find((n) => n.value === value)
     if ((found?.count ?? 0) !== count) return false
   }
-  const s = composition.specials
+  const s = normalizeSpecials(composition.specials)
   const ss = STANDARD_DECK.specials
   return (
     s.double === ss.double &&
+    s.half === ss.half &&
     s.max_to_zero === ss.max_to_zero &&
     s.redraw === ss.redraw &&
     s.zero_mix === ss.zero_mix
   )
 }
+
+/** Ensure half is present (older compositions may omit it). */
+export function normalizeSpecials(
+  specials: Partial<SpecialCounts> &
+    Pick<SpecialCounts, 'double' | 'max_to_zero' | 'redraw' | 'zero_mix'>,
+): SpecialCounts {
+  return {
+    double: specials.double ?? 0,
+    half: specials.half ?? 0,
+    max_to_zero: specials.max_to_zero ?? 0,
+    redraw: specials.redraw ?? 0,
+    zero_mix: specials.zero_mix ?? 0,
+  }
+}
+
 
 /**
  * Human-readable short label for lobby chips.
@@ -169,7 +191,7 @@ export function validateDeckComposition(composition: DeckComposition): void {
     }
   }
 
-  const s = composition.specials
+  const s = normalizeSpecials(composition.specials)
   for (const [key, count] of Object.entries(s) as [keyof SpecialCounts, number][]) {
     if (!Number.isInteger(count) || count < 0) {
       throw new GameError(
@@ -236,12 +258,13 @@ export function defineDeckComposition(
     id: partial.id,
     label: partial.label,
     numbers: partial.numbers.map((n) => ({ ...n })),
-    specials: {
+    specials: normalizeSpecials({
       double: partial.specials?.double ?? 0,
+      half: partial.specials?.half ?? 0,
       max_to_zero: partial.specials?.max_to_zero ?? 0,
       redraw: partial.specials?.redraw ?? 0,
       zero_mix: partial.specials?.zero_mix ?? 0,
-    },
+    }),
   }
 }
 
@@ -275,12 +298,15 @@ export function createDeck(
     }
   }
 
-  const s = composition.specials
+  const s = normalizeSpecials(composition.specials)
   for (let i = 0; i < s.zero_mix; i++) {
     deck.push({ id: id('zero_mix'), kind: 'zero_mix', value: 0 })
   }
   for (let i = 0; i < s.double; i++) {
     deck.push({ id: id('double'), kind: 'double' })
+  }
+  for (let i = 0; i < s.half; i++) {
+    deck.push({ id: id('half'), kind: 'half' })
   }
   for (let i = 0; i < s.max_to_zero; i++) {
     deck.push({ id: id('max0'), kind: 'max_to_zero' })
@@ -321,6 +347,8 @@ export function cardLabel(card: Card): string {
       return card.value! >= 0 ? `+${card.value}` : `${card.value}`
     case 'double':
       return '×2'
+    case 'half':
+      return '1/2'
     case 'max_to_zero':
       // Compact: hand tiles are ~2.5rem wide; "MAX→0" overflowed / cramped.
       return 'M→0'

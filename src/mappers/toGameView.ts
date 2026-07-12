@@ -1,4 +1,10 @@
-import { cardLabel, type GameState, type PlayerId } from '@/domain/game'
+import {
+  cardLabel,
+  getLegalMoves,
+  minBidValue,
+  type GameState,
+  type PlayerId,
+} from '@/domain/game'
 import type { EventLogItem, GameRoomMock, PlayerSeat } from '@/types/game'
 import { getProfile, type PlayerProfile, SELF_ID } from '@/localGame/profiles'
 
@@ -26,6 +32,14 @@ export interface GameViewModel extends GameRoomMock {
   minBid: number
   canDeclare: boolean
   canChallenge: boolean
+  canSame: boolean
+  canChange: boolean
+  extrasAllowed: boolean
+  forbiddenBidValue: number | null
+  allowReverse: boolean
+  allowShot: boolean
+  allowDraw1: boolean
+  allowLifeDouble: boolean
   isGameOver: boolean
 }
 
@@ -67,6 +81,10 @@ export function toGameView(input: ToGameViewInput): GameViewModel {
       const bid = bidByPlayer.get(p.id) ?? null
       const isSelf = p.id === selfId
       const hand = state.hands[p.id]
+      const handLabels =
+        p.alive && hand && hand.length > 0
+          ? hand.map((c) => cardLabel(c))
+          : null
       return {
         id: p.id,
         // UI mock used 1-based seat badges
@@ -80,7 +98,7 @@ export function toGameView(input: ToGameViewInput): GameViewModel {
         isCurrentTurn: p.alive && state.currentTurnPlayerId === p.id,
         lives: p.lives,
         // Indian poker: self never sees own face; others are visible
-        handLabel: p.alive && hand ? cardLabel(hand) : null,
+        handLabel: handLabels ? handLabels.join(' ') : null,
         handHidden: isSelf,
       }
     })
@@ -91,16 +109,25 @@ export function toGameView(input: ToGameViewInput): GameViewModel {
     selfId,
   )
 
-  const minBid =
-    state.currentBid == null
-      ? state.config.minOpeningBid
-      : state.currentBid + 1
-
   const isSelfTurn =
     state.phase === 'bidding' && state.currentTurnPlayerId === selfId
-  const canDeclare = isSelfTurn
-  const canChallenge =
-    isSelfTurn && state.currentBid != null && state.currentBidderId != null
+  const legal = isSelfTurn ? getLegalMoves(state) : []
+  const bidMove = legal.find((m) => m.type === 'PLACE_BID')
+  const minBid =
+    bidMove && bidMove.type === 'PLACE_BID'
+      ? bidMove.minValue
+      : minBidValue(state)
+  const canDeclare = isSelfTurn && bidMove != null
+  const canChallenge = isSelfTurn && legal.some((m) => m.type === 'CHALLENGE')
+  const canSame = isSelfTurn && legal.some((m) => m.type === 'SAME')
+  const canChange = isSelfTurn && legal.some((m) => m.type === 'CHANGE')
+  const extrasAllowed =
+    bidMove != null && bidMove.type === 'PLACE_BID' && bidMove.extrasAllowed
+  const forbiddenBidValue =
+    bidMove && bidMove.type === 'PLACE_BID'
+      ? (bidMove.forbiddenValue ?? null)
+      : null
+  const er = state.config.extraRules
 
   return {
     roomCode,
@@ -118,6 +145,14 @@ export function toGameView(input: ToGameViewInput): GameViewModel {
     minBid,
     canDeclare,
     canChallenge,
+    canSame,
+    canChange,
+    extrasAllowed,
+    forbiddenBidValue,
+    allowReverse: er.reverse,
+    allowShot: er.shot,
+    allowDraw1: er.draw1,
+    allowLifeDouble: er.lifeDouble,
     isGameOver: state.phase === 'game_over',
   }
 }

@@ -6,6 +6,7 @@
 import {
   cardLabel,
   getLegalMoves,
+  minBidValue,
   type Card,
   type ChallengeOutcome,
   type GameState,
@@ -40,9 +41,16 @@ export interface MaskedSeat {
   hasDeclared: boolean
   isSelf: boolean
   isCurrentTurn: boolean
-  /** Present only for others (or self when revealAll). */
+  /**
+   * Present only for others (or self when revealAll).
+   * First card for backward-compatible single-tile UIs.
+   */
   hand: WireCard | null
+  /** All visible cards (others only). Empty when masked/self. */
+  hands: WireCard[]
   handHidden: boolean
+  /** Card count for self forehead ? tiles */
+  handCount: number
   connected: boolean
   isHost: boolean
 }
@@ -59,16 +67,24 @@ export interface MaskedGamePayload {
   isMyTurn: boolean
   canDeclare: boolean
   canChallenge: boolean
+  canSame: boolean
+  canChange: boolean
   turnsUntilSelf: number
   legalMoves: LegalMove[]
   isGameOver: boolean
+  /** Forced rebid after CHANGE */
+  pendingChangeRebid: GameState['pendingChangeRebid']
+  turnDirection: GameState['turnDirection']
+  pendingLifeDouble: boolean
+  draw1UsedThisRound: boolean
+  extraActionUsedThisRound: readonly string[]
 }
 
 export interface PendingResultSnapshot {
   round: number
   outcome: ChallengeOutcome
   /** Full hands at challenge time — includes everyone's cards for result UI */
-  hands: Record<string, WireCard>
+  hands: Record<string, WireCard[]>
   winnerId: string | null
   bidderId: string
   challengerId: string
@@ -107,10 +123,11 @@ export function buildMaskedGame(
     .map((p) => {
       const roomP = profileById.get(p.id)
       const isSelf = p.id === selfPlayerId
-      const hand = game.hands[p.id]
+      const handCards = game.hands[p.id] ?? []
       const bid = p.alive ? (bidByPlayer.get(p.id) ?? null) : null
       // Mask: never send own card face during play
-      const showHand = p.alive && hand != null && !isSelf
+      const showHand = p.alive && handCards.length > 0 && !isSelf
+      const wireHands = showHand ? handCards.map(cardToWire) : []
       return {
         id: p.id,
         seatIndex: p.seatIndex,
@@ -122,8 +139,10 @@ export function buildMaskedGame(
         hasDeclared: p.alive && bid != null,
         isSelf,
         isCurrentTurn: p.alive && game.currentTurnPlayerId === p.id,
-        hand: showHand ? cardToWire(hand) : null,
+        hand: wireHands[0] ?? null,
+        hands: wireHands,
         handHidden: isSelf,
+        handCount: p.alive ? handCards.length : 0,
         connected: roomP?.connected ?? false,
         isHost: p.id === hostId,
       }
@@ -140,10 +159,7 @@ export function buildMaskedGame(
     selfPlayerId,
   )
 
-  const minBid =
-    game.currentBid == null
-      ? game.config.minOpeningBid
-      : game.currentBid + 1
+  const minBid = minBidValue(game)
 
   const isMyTurn =
     selfPlayerId != null &&
@@ -163,24 +179,30 @@ export function buildMaskedGame(
     seats,
     minBid,
     isMyTurn,
-    canDeclare: isMyTurn,
-    canChallenge:
-      isMyTurn && game.currentBid != null && game.currentBidderId != null,
+    canDeclare: isMyTurn && legalMoves.some((m) => m.type === 'PLACE_BID'),
+    canChallenge: isMyTurn && legalMoves.some((m) => m.type === 'CHALLENGE'),
+    canSame: isMyTurn && legalMoves.some((m) => m.type === 'SAME'),
+    canChange: isMyTurn && legalMoves.some((m) => m.type === 'CHANGE'),
     turnsUntilSelf,
     legalMoves,
     isGameOver: game.phase === 'game_over',
+    pendingChangeRebid: game.pendingChangeRebid,
+    turnDirection: game.turnDirection,
+    pendingLifeDouble: game.pendingLifeDouble,
+    draw1UsedThisRound: game.draw1UsedThisRound,
+    extraActionUsedThisRound: game.extraActionUsedThisRound,
   }
 }
 
 export function buildPendingResultSnapshot(args: {
   outcome: ChallengeOutcome
-  hands: Readonly<Record<PlayerId, Card>>
+  hands: Readonly<Record<PlayerId, readonly Card[]>>
   round: number
   winnerId: string | null
 }): PendingResultSnapshot {
-  const hands: Record<string, WireCard> = {}
-  for (const [id, card] of Object.entries(args.hands)) {
-    hands[id] = cardToWire(card)
+  const hands: Record<string, WireCard[]> = {}
+  for (const [id, cards] of Object.entries(args.hands)) {
+    hands[id] = cards.map(cardToWire)
   }
   return {
     round: args.round,
@@ -200,7 +222,7 @@ export function assertNoSelfHandLeak(
 ): void {
   const self = gamePayload.seats.find((s) => s.id === selfPlayerId)
   if (!self) return
-  if (self.hand != null) {
+  if (self.hand != null || self.hands.length > 0) {
     throw new Error('Self hand must not be present in masked game payload')
   }
 }

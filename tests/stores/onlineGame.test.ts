@@ -189,6 +189,25 @@ describe('onlineGame store', () => {
         status: 'open',
         canStart: false,
         playerCount: 1,
+        maxPlayers: 10,
+        deck: {
+          numbers: [{ value: 1, count: 10 }],
+          specials: {
+            double: 0,
+            half: 0,
+            max_to_zero: 0,
+            redraw: 0,
+            zero_mix: 0,
+          },
+        },
+        extraRules: {
+          same: false,
+          change: false,
+          reverse: false,
+          shot: false,
+          draw1: false,
+          lifeDouble: false,
+        },
       },
     })
     await joinP

@@ -25,7 +25,7 @@ describe('toResultView', () => {
     const bidderId = state.currentTurnPlayerId!
     state = applyAction(state, { type: 'PLACE_BID', value: 100 }, rng)
     const challengerId = state.currentTurnPlayerId!
-    const hands: Record<string, Card> = { ...state.hands }
+    const hands: Record<string, readonly Card[]> = { ...state.hands }
     const round = state.round
     state = applyAction(state, { type: 'CHALLENGE' }, rng)
 
@@ -77,6 +77,7 @@ describe('toResultView', () => {
         finalTotal: 5,
         adjustedCards: [],
         doubleCount: 0,
+        halfCount: 0,
         maxToZeroApplied: false,
         rawNumberSum: 5,
       },
@@ -85,11 +86,12 @@ describe('toResultView', () => {
       loserId: 'bot1',
       bidderId: 'bot1',
       challengerId: SELF_ID,
+      lifeLoss: 1,
     }
 
     const hands = {
-      [SELF_ID]: { id: 'c1', kind: 'number' as const, value: 3 },
-      bot1: { id: 'c2', kind: 'number' as const, value: 2 },
+      [SELF_ID]: [{ id: 'c1', kind: 'number' as const, value: 3 }],
+      bot1: [{ id: 'c2', kind: 'number' as const, value: 2 }],
     }
 
     const players: Player[] = [
@@ -110,5 +112,44 @@ describe('toResultView', () => {
     expect(vm.winnerId).toBe(SELF_ID)
     expect(vm.winnerName).toBe('あなた')
     expect(vm.bidderWins).toBe(false)
+    expect(vm.lifeLoss).toBe(1)
+  })
+
+  it('maps lifeLoss 2 from life-double outcome', () => {
+    const outcome: ChallengeOutcome = {
+      bid: 10,
+      actualTotal: 5,
+      calculation: {
+        steps: [{ id: 's1', title: '合計', detail: '5', totalAfter: 5 }],
+        finalTotal: 5,
+        adjustedCards: [],
+        doubleCount: 0,
+        halfCount: 0,
+        maxToZeroApplied: false,
+        rawNumberSum: 5,
+      },
+      bidderWins: false,
+      loserRole: 'bidder',
+      loserId: 'bot1',
+      bidderId: 'bot1',
+      challengerId: SELF_ID,
+      lifeLoss: 2,
+    }
+
+    const vm = toResultView({
+      outcome,
+      hands: {
+        [SELF_ID]: [{ id: 'c1', kind: 'number', value: 3 }],
+        bot1: [{ id: 'c2', kind: 'number', value: 2 }],
+      },
+      players: [
+        { id: SELF_ID, seatIndex: 0, lives: 3, alive: true },
+        { id: 'bot1', seatIndex: 1, lives: 1, alive: true },
+      ],
+      round: 1,
+      profiles: DEFAULT_PROFILES,
+    })
+
+    expect(vm.lifeLoss).toBe(2)
   })
 })

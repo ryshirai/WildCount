@@ -32,6 +32,7 @@ const SPECIAL_ROWS: Array<{
   hint: string
 }> = [
   { key: 'double', label: '×2', hint: '合計を2倍にする' },
+  { key: 'half', label: '1/2', hint: '合計を半分にする（0方向切り捨て）' },
   { key: 'max_to_zero', label: 'M→0', hint: '最大のプラスを0に' },
   { key: 'redraw', label: '?', hint: '配ったら引き直し' },
   { key: 'zero_mix', label: '0*', hint: '0扱いで捨て札を混ぜる' },
@@ -43,7 +44,13 @@ function wireToComposition(wire: WireDeckComposition | null | undefined): DeckCo
     id: wire.id,
     label: wire.label,
     numbers: wire.numbers.map((n) => ({ value: n.value, count: n.count })),
-    specials: { ...wire.specials },
+    specials: {
+      double: wire.specials.double,
+      half: wire.specials.half ?? 0,
+      max_to_zero: wire.specials.max_to_zero,
+      redraw: wire.specials.redraw,
+      zero_mix: wire.specials.zero_mix,
+    },
   }
 }
 
@@ -52,7 +59,13 @@ function compositionToWire(comp: DeckComposition): WireDeckComposition {
     id: comp.id,
     label: comp.label,
     numbers: comp.numbers.map((n) => ({ value: n.value, count: n.count })),
-    specials: { ...comp.specials },
+    specials: {
+      double: comp.specials.double,
+      half: comp.specials.half ?? 0,
+      max_to_zero: comp.specials.max_to_zero,
+      redraw: comp.specials.redraw,
+      zero_mix: comp.specials.zero_mix,
+    },
   }
 }
 
@@ -74,6 +87,7 @@ function compositionsEqual(a: DeckComposition, b: DeckComposition): boolean {
   const sb = b.specials
   return (
     sa.double === sb.double &&
+    (sa.half ?? 0) === (sb.half ?? 0) &&
     sa.max_to_zero === sb.max_to_zero &&
     sa.redraw === sb.redraw &&
     sa.zero_mix === sb.zero_mix
@@ -97,7 +111,7 @@ const numberCardTotal = computed(() =>
 
 const specialCardTotal = computed(() => {
   const s = serverDeck.value.specials
-  return s.double + s.max_to_zero + s.redraw + s.zero_mix
+  return s.double + (s.half ?? 0) + s.max_to_zero + s.redraw + s.zero_mix
 })
 
 /** High-to-low number rows with count > 0 for summary strip */
