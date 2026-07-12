@@ -1157,6 +1157,30 @@
 - ホスト開始前に全員 ready を必須にする同期開始
 - サーバ側での pendingResult 全員 ACK 待ち
 
+→ 一覧の正本: **`docs/backlog.md`**（HOLD-1 / HOLD-2 ほか）
+
+---
+
+## 2026-07-12 — 残タスク一覧 docs/backlog.md
+
+### 背景・目的
+
+- work-log 以外で、積み残し・hold を一覧できるようにする。
+
+### 実施内容
+
+1. `docs/backlog.md` を新設（P1-5/6 todo、開始同期・結果 ACK 等 hold、改善 idea）
+2. `phase1-multiplayer.md` §10 に状態列 + backlog へのリンク
+3. `AGENTS.md` に backlog 参照を追加
+
+### 主なパス変更
+
+| パス | 内容 |
+|------|------|
+| `docs/backlog.md` | 残タスク正本（新設） |
+| `docs/phase1-multiplayer.md` | スライス状態 |
+| `AGENTS.md` | Related に backlog |
+
 ---
 
 ## ログの書き方

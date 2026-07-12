@@ -51,5 +51,7 @@ Follow these instructions when working in this repository.
 
 ### Related
 
+- **Remaining tasks (backlog)**: `docs/backlog.md` — open / hold items (not the work log)
 - UI mock notes: `docs/ui-mock.md`
 - Design / rules: `docs/design-overview.md`, `docs/game-rules.md`, `docs/card-design.md`
+- Phase 1 multiplayer: `docs/phase1-multiplayer.md`

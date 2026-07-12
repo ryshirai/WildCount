@@ -59,14 +59,17 @@ npm run format       # Prettier
 ```
 wild-count/
 ├── .devcontainer/          # VS Code Dev Container設定
-├── docs/                   # ゲームルール仕様書など
+├── docs/                   # 仕様・作業ログ・残タスク
+│   ├── backlog.md          # 残タスク一覧（正本）
+│   ├── phase1-multiplayer.md
+│   └── work-log.md         # セッション作業ログ
 ├── public/                 # 静的ファイル（icons, images）
 ├── src/                    # フロントエンド
 │   ├── domain/game/        # 純粋ゲームエンジン（Phase 0）
 │   ├── components/
 │   ├── views/
 │   ├── stores/
-│   └── composables/
+│   └── online/
 ├── worker/                 # Cloudflare Workers
 │   ├── GameRoom.ts
 │   └── ...
@@ -75,6 +78,15 @@ wild-count/
 ├── wrangler.jsonc
 └── README.md
 ```
+
+## ドキュメント
+
+| パス | 内容 |
+|------|------|
+| [`docs/backlog.md`](docs/backlog.md) | **残タスク・hold・改善案の一覧** |
+| [`docs/phase1-multiplayer.md`](docs/phase1-multiplayer.md) | マルチプレイ設計（Worker / DO / WS） |
+| [`docs/work-log.md`](docs/work-log.md) | セッションごとの作業ログ |
+| [`docs/game-rules.md`](docs/game-rules.md) | ゲームルール |
 
 ## 開発フロー
 

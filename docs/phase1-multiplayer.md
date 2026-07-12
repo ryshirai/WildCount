@@ -280,15 +280,17 @@ interface RoomPlayer {
 
 ## 10. 実装スライス
 
-| ID | 内容 | 受け入れの核 |
-|----|------|----------------|
-| **P1-0** | 本ドキュメント | 型・TTL・domain 対応が書かれている |
-| **P1-1** | Worker 足場・DO・WS accept・proxy | `wrangler dev` 起動、WS 接続可 |
-| **P1-2** | 作成・参加・ロビー同期 | 2 タブでメンバー一覧更新、host 開始ボタン |
-| **P1-3** | start / bid / challenge / result | 同期進行 + 手札マスク |
-| **P1-4** | resumeToken 再接続 | リロードで席復帰 |
-| **P1-5** | ホスト移譲・空ルーム削除 | 60s / idle alarm |
-| **P1-6** | エラー UI・テスト・docs 更新 | test/build 緑 |
+進捗・hold・改善案の **一覧正本** は `docs/backlog.md`。
+
+| ID | 状態 | 内容 | 受け入れの核 |
+|----|------|------|----------------|
+| **P1-0** | done | 本ドキュメント | 型・TTL・domain 対応が書かれている |
+| **P1-1** | done | Worker 足場・DO・WS accept・proxy | `wrangler dev` 起動、WS 接続可 |
+| **P1-2** | done | 作成・参加・ロビー同期 | 2 タブでメンバー一覧更新、host 開始ボタン |
+| **P1-3** | done | start / bid / challenge / result | 同期進行 + 手札マスク |
+| **P1-4** | done | resumeToken 再接続 | リロードで席復帰 |
+| **P1-5** | **todo** | ホスト移譲・空ルーム削除 | 60s / idle alarm |
+| **P1-6** | **todo** | エラー UI・テスト・docs 更新 | test/build 緑 |
 
 ---
 
@@ -338,3 +340,4 @@ interface RoomPlayer {
 | 2026-07-12 | **P1-2 完了** — join/ready/start・view broadcast・onlineGame・Home/Lobby 本線接続。action は P1-3 |
 | 2026-07-12 | **P1-3 完了** — action（bid/challenge）・マスク済み game seats・pendingResult・Game/Result UI 接続 |
 | 2026-07-12 | **P1-4 完了** — resumeToken 再接続（localStorage lastRoom、ensureSession、自動再接続、切断バナー、ホーム復帰） |
+| 2026-07-12 | スライス状態列を追加。残タスク正本を `docs/backlog.md` に分離 |
