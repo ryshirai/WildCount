@@ -8,7 +8,7 @@ export interface PlayerSeat {
   name: string
   /** Emoji / short icon for avatar placeholder */
   avatar: string
-  /** Declared bid this round; null if not yet declared or is self hidden */
+  /** Declared bid this round; null if not yet declared */
   bid: number | null
   /** Whether this seat has already declared */
   hasDeclared: boolean
@@ -18,6 +18,14 @@ export interface PlayerSeat {
   isCurrentTurn: boolean
   /** Remaining lives (0 = eliminated) */
   lives: number
+  /**
+   * Hand card face label (e.g. "+5", "×2", "MAX→0").
+   * Indian poker: others' cards are visible; self is always `handHidden`.
+   * null when no hand (eliminated / not dealt).
+   */
+  handLabel: string | null
+  /** true → show as ? (own forehead card; local player must not see it) */
+  handHidden: boolean
 }
 
 export interface EventLogItem {
@@ -32,7 +40,8 @@ export interface GameRoomMock {
   roomCode: string
   playerCount: number
   round: number
-  currentBid: number
+  /** Current bid; null when no one has declared this round */
+  currentBid: number | null
   /** How many seats until local player's turn */
   turnsUntilSelf: number
   players: PlayerSeat[]

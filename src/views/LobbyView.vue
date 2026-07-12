@@ -2,12 +2,16 @@
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { mockLobby } from '@/data/mockLobby'
+import { DEFAULT_PROFILES } from '@/localGame/profiles'
+import { useLocalGameStore } from '@/stores/localGame'
 import AppLogo from '@/components/common/AppLogo.vue'
 import MockBadge from '@/components/common/MockBadge.vue'
 import PlayerAvatar from '@/components/game/PlayerAvatar.vue'
+import type { LobbyPlayer } from '@/types/game'
 
 const router = useRouter()
 const route = useRoute()
+const localGame = useLocalGameStore()
 
 const toast = ref<string | null>(null)
 const copied = ref(false)
@@ -25,10 +29,20 @@ const roomCode = computed(() => {
   return mockLobby.roomCode
 })
 
-const players = mockLobby.players
-const maxPlayers = mockLobby.maxPlayers
-const readyCount = computed(() => players.filter((p) => p.isReady).length)
-const canStart = computed(() => isHost.value && players.length >= 2)
+/** Local demo lobby: self + bots (engine lineup), not full mock list. */
+const players = computed<LobbyPlayer[]>(() =>
+  DEFAULT_PROFILES.map((p, i) => ({
+    id: p.id,
+    name: p.name,
+    avatar: p.avatar,
+    isHost: i === 0,
+    isSelf: i === 0,
+    isReady: true,
+  })),
+)
+const maxPlayers = 10
+const readyCount = computed(() => players.value.filter((p) => p.isReady).length)
+const canStart = computed(() => isHost.value && players.value.length >= 2)
 
 function showToast(msg: string) {
   toast.value = msg
@@ -55,7 +69,11 @@ function startGame() {
     showToast('ホストのみ開始できます（2人以上）')
     return
   }
-  showToast('（モック）ゲーム開始')
+  localGame.startLocalGame({
+    roomCode: roomCode.value,
+    initialLives: 3,
+    deck: 'standard',
+  })
   void router.push({ name: 'game' })
 }
 

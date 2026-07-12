@@ -1,7 +1,7 @@
 <script setup lang="ts">
 withDefaults(
   defineProps<{
-    currentBid: number
+    currentBid: number | null
     turnsUntilSelf?: number
     compact?: boolean
     showTurnsHint?: boolean
@@ -25,7 +25,7 @@ withDefaults(
       :class="compact ? 'mt-1 text-6xl' : 'mt-2 text-7xl sm:text-8xl'"
       style="text-shadow: 0 0 40px rgba(201, 168, 76, 0.35)"
     >
-      {{ currentBid }}
+      {{ currentBid == null ? '—' : currentBid }}
     </p>
     <p
       v-if="showTurnsHint && turnsUntilSelf != null"

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 const bid = defineModel<number>({ required: true })
 
-defineProps<{
+const props = defineProps<{
   minBid?: number
   canChallenge?: boolean
   canDeclare?: boolean
@@ -13,8 +13,12 @@ const emit = defineEmits<{
   challenge: []
 }>()
 
+function floor() {
+  return props.minBid ?? 0
+}
+
 function adjust(delta: number) {
-  bid.value = Math.max(0, bid.value + delta)
+  bid.value = Math.max(floor(), bid.value + delta)
 }
 </script>
 

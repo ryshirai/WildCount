@@ -21,27 +21,43 @@ defineProps<{
       >
         <div
           class="truncate text-[10px] font-medium"
-          :class="player.isSelf ? 'text-teal-soft' : 'text-sand-dim'"
+          :class="[
+            player.isSelf ? 'text-teal-soft' : 'text-sand-dim',
+            player.lives <= 0 ? 'opacity-40' : '',
+          ]"
         >
           {{ player.name }}
         </div>
         <div
           class="flex h-10 w-10 items-center justify-center rounded-full bg-night-700 text-lg ring-2"
-          :class="
+          :class="[
+            player.lives <= 0 ? 'opacity-40 grayscale' : '',
             player.isCurrentTurn
               ? 'ring-gold-300 shadow-gold-glow'
               : player.isSelf
                 ? 'ring-teal-soft/70'
-                : 'ring-gold-400/25'
-          "
+                : 'ring-gold-400/25',
+          ]"
         >
           {{ player.avatar }}
         </div>
+        <div class="text-[9px] text-sand-dim">
+          <template v-if="player.lives <= 0">脱落</template>
+          <template v-else>{{ '♥'.repeat(player.lives) }}</template>
+        </div>
+        <!-- Hand: others face-up, self ? -->
         <BidCard
-          :value="player.bid"
-          :mystery="player.isSelf && player.bid === null"
+          v-if="player.lives > 0"
+          :label="player.handHidden ? null : player.handLabel"
+          :mystery="player.handHidden || player.handLabel == null"
           compact
         />
+        <div
+          v-if="player.lives > 0 && player.bid != null"
+          class="font-display text-[10px] font-bold text-gold-200"
+        >
+          {{ player.bid }}
+        </div>
       </div>
     </div>
   </div>

@@ -3,8 +3,10 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import AppLogo from '@/components/common/AppLogo.vue'
 import MockBadge from '@/components/common/MockBadge.vue'
+import { useLocalGameStore } from '@/stores/localGame'
 
 const router = useRouter()
+const localGame = useLocalGameStore()
 
 const roomCode = ref('')
 const playerName = ref('')
@@ -103,16 +105,35 @@ function joinRoom() {
         </button>
       </section>
 
+      <!-- Local engine demo -->
+      <section class="panel mt-4 p-5 text-center sm:p-6">
+        <h2 class="mb-1 text-sm font-semibold text-gold-200">ローカル対戦（エンジン接続）</h2>
+        <p class="mb-4 text-xs text-sand-dim">
+          Worker なし・ボット3体とブラウザだけで宣言→コヨーテ→結果を通します
+        </p>
+        <button
+          type="button"
+          class="btn-gold w-full"
+          @click="
+            localGame.startLocalGame();
+            void router.push({ name: 'game' })
+          "
+        >
+          ローカルデモを開始
+        </button>
+      </section>
+
       <!-- Mock nav shortcuts -->
       <nav
-        class="mt-8 rounded-2xl border border-gold-400/10 bg-night-900/40 p-4 text-center"
+        class="mt-6 rounded-2xl border border-gold-400/10 bg-night-900/40 p-4 text-center"
         aria-label="モック画面リンク"
       >
         <p class="mb-3 text-[11px] uppercase tracking-wider text-sand-dim">UI モック導線</p>
         <div class="flex flex-wrap items-center justify-center gap-2">
           <RouterLink to="/lobby" class="btn-ghost text-xs">待機ロビー</RouterLink>
-          <RouterLink to="/game" class="btn-ghost text-xs">ゲーム画面</RouterLink>
-          <RouterLink to="/result" class="btn-ghost text-xs">結果・公開</RouterLink>
+          <RouterLink to="/game" class="btn-ghost text-xs">ゲーム（エンジン）</RouterLink>
+          <RouterLink to="/game?mock=1" class="btn-ghost text-xs">ゲーム（固定モック）</RouterLink>
+          <RouterLink to="/result?mock=1" class="btn-ghost text-xs">結果（固定モック）</RouterLink>
         </div>
       </nav>
     </div>

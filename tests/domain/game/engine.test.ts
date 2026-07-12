@@ -42,25 +42,28 @@ describe('startGame / bidding', () => {
     ).toThrow(GameError)
   })
 
-  it('opening bid must be >= minOpeningBid (0); then strictly increasing', () => {
+  it('opening bid must be >= minOpeningBid (1); then strictly increasing', () => {
     const rng = seedRandom(1)
     let state = startGame({ playerIds: ['a', 'b'] }, rng)
 
-    expect(() => applyAction(state, { type: 'PLACE_BID', value: -1 }, rng)).toThrow(
+    expect(() => applyAction(state, { type: 'PLACE_BID', value: 0 }, rng)).toThrow(
       GameError,
     )
-
-    state = applyAction(state, { type: 'PLACE_BID', value: 0 }, rng)
-    expect(state.currentBid).toBe(0)
-    expect(state.currentBidderId).toBe('a')
-    expect(state.currentTurnPlayerId).toBe('b')
-
-    expect(() => applyAction(state, { type: 'PLACE_BID', value: 0 }, rng)).toThrow(
+    expect(() => applyAction(state, { type: 'PLACE_BID', value: -1 }, rng)).toThrow(
       GameError,
     )
 
     state = applyAction(state, { type: 'PLACE_BID', value: 1 }, rng)
     expect(state.currentBid).toBe(1)
+    expect(state.currentBidderId).toBe('a')
+    expect(state.currentTurnPlayerId).toBe('b')
+
+    expect(() => applyAction(state, { type: 'PLACE_BID', value: 1 }, rng)).toThrow(
+      GameError,
+    )
+
+    state = applyAction(state, { type: 'PLACE_BID', value: 2 }, rng)
+    expect(state.currentBid).toBe(2)
     expect(state.currentTurnPlayerId).toBe('a')
   })
 
@@ -79,7 +82,7 @@ describe('startGame / bidding', () => {
       rng,
     )
 
-    state = applyAction(state, { type: 'PLACE_BID', value: 0 }, rng)
+    state = applyAction(state, { type: 'PLACE_BID', value: 1 }, rng)
     // b challenges
     state = applyAction(state, { type: 'CHALLENGE' }, rng)
 
@@ -117,7 +120,7 @@ describe('startGame / bidding', () => {
   })
 })
 
-/** Force a quick challenge: opening bid 0, next player challenges. */
+/** Force a quick challenge: opening bid 1, next player challenges. */
 function playOneForcedChallenge(
   state: GameState,
   rng: ReturnType<typeof seedRandom>,
@@ -127,7 +130,7 @@ function playOneForcedChallenge(
     return applyAction(state, { type: 'START_ROUND' }, rng)
   }
   if (state.currentBid == null) {
-    const next = applyAction(state, { type: 'PLACE_BID', value: 0 }, rng)
+    const next = applyAction(state, { type: 'PLACE_BID', value: 1 }, rng)
     return applyAction(next, { type: 'CHALLENGE' }, rng)
   }
   return applyAction(state, { type: 'CHALLENGE' }, rng)

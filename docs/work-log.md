@@ -271,6 +271,130 @@
 
 ---
 
+## 2026-07-12 — Phase 0.5: ゲームエンジンを UI モックにローカル接続
+
+### 背景・目的
+
+- Worker / WebSocket なしで、既存 Vue UI から `src/domain/game` を動かし、
+  **宣言 → チャレンジ → 結果画面（実計算）→ 次ラウンド** をブラウザだけで通す。
+
+### 実施内容
+
+1. **ローカルセッション（Pinia）** `src/stores/localGame.ts`
+   - `startLocalGame`（self + ボット3 / lives:3 / deck:standard / seedRandom）
+   - `placeBid` / `challenge` → `applyAction`、ボット手番は同期で自動消化
+   - イベントログ・宣言履歴はセッション側で保持
+
+2. **チャレンジ後の結果表示方針（明記）**
+   - エンジンはチャレンジ後に自動で次ラウンド or `game_over`
+   - **方針**: チャレンジ直前の `hands` + `round` をスナップショットし、
+     `lastOutcome` と合わせて `pendingResult` を構築。結果画面はこれだけ参照。
+     次ラウンド state は裏で保持し、「次のラウンドへ」で `clearPendingResult` → `/game`
+
+3. **Mapper**
+   - `toGameView`: GameState → UI ViewModel（席・ライフ・手番・合法手フラグ・自分カード表示）
+   - `toResultView`: ChallengeOutcome + hands → カード公開・`calculation.steps`
+
+4. **ボット** `src/localGame/bot.ts`
+   - 宣言なし → min で PLACE_BID
+   - 宣言あり → 30% CHALLENGE、否则 min〜min+3 で RAISE
+
+5. **画面接続**
+   - GameView / ResultView を store 購読。`?mock=1` で旧固定モック分岐
+   - ロビー「ゲームを開始」・トップ「ローカルデモを開始」→ `startLocalGame`
+   - ライフ表示（♥）・脱落グレーアウト・ゲーム終了バナー
+
+6. **テスト** mapper + store 薄単体。domain テストは維持
+
+### 主なパス変更
+
+| パス | 内容 |
+|------|------|
+| `src/stores/localGame.ts` | ローカルセッション / ボット / pendingResult |
+| `src/mappers/toGameView.ts` / `toResultView.ts` | domain → UI |
+| `src/localGame/bot.ts` / `profiles.ts` | ボットポリシー・表示名 |
+| `src/views/GameView.vue` / `ResultView.vue` | store 接続 |
+| `src/views/LobbyView.vue` / `HomeView.vue` | 開始導線 |
+| `src/components/game/PlayerSeat.vue` 他 | ライフ表示・minBid |
+| `tests/mappers/*` / `tests/stores/localGame.test.ts` | 接続層テスト |
+| `docs/ui-mock.md` | エンジン接続済み（ローカル）に更新 |
+
+### 明示的にやっていないこと
+
+- Cloudflare Worker / Durable Object / WebSocket
+- ルームコード本実装・参加・再接続
+- domain エンジン本体の改修（outcome 保持はセッション側で対応）
+- デッキ選択 UI / パス手番 / 本格 Pinia 永続化
+- Playwright E2E
+
+### 確認結果
+
+- `npm test` — 46 passed
+- `npm run build` — 成功
+
+### 次に考えられる作業
+
+1. Worker 側で `applyAction` を正本状態として保持
+2. ボット遅延演出（300–500ms）や手番ハイライト強化
+3. デッキ選択 UI
+
+---
+
+## 2026-07-12 — カード見え方をインディアンポーカー式に修正
+
+### 背景・目的
+
+- ルール上は **自分の手札は見えない / 他プレイヤーのカードは見える**（コヨーテ・インディアンポーカー式）。
+- Phase 0.5 ではローカルデモ用に「自分のカードを表示」していたが誤りだった。
+
+### 実施内容
+
+1. `PlayerSeat.handLabel` / `handHidden` を UI 型に追加
+2. `toGameView`: self → `handHidden: true`、他プレイヤー → 表向き `cardLabel`
+3. 席 UI は手札タイル + 宣言チップを分離。GameView の「あなたのカード」表示を削除
+4. `docs/game-rules.md` に見え方セクションを追記
+
+### 確認結果
+
+- `npm test` / `npm run build` で確認
+
+---
+
+## 2026-07-12 — ローカルデモのボット進行にペース付け
+
+### 背景・目的
+
+- ボットが同期で一気に手を打つため、デモで何が起きたか追えない。
+
+### 実施内容
+
+1. ボット手番ごとに **約 600ms** の遅延 + 宣言後の短い間
+2. チャレンジ後、結果画面へ行く前に **約 900ms** の間（「コヨーテ！」を見せる）
+3. 上部ステータス「🦉 ○○ の手番…」/ ボット進行中は操作ボタン無効
+4. 単体テストは `botDelayMs: 0` / `resultPauseMs: 0` で即時
+
+### 確認結果
+
+- `npm test` / `npm run build`
+
+---
+
+## 2026-07-12 — 初手宣言の下限を 1 に変更
+
+- `DEFAULT_CONFIG.minOpeningBid`: 0 → **1**
+- `docs/game-rules.md` と domain テストを追随
+
+---
+
+## 2026-07-12 — ボット思考 3–5 秒 / 結果は手動遷移
+
+### 実施内容
+
+1. ボット手番: 乱数で **3〜5 秒** 考える（テストは `botDelayMs: 0`）
+2. コヨーテ後は結果画面へ自動遷移しない → ゲーム画面にバナー + **「結果を見る」** ボタン
+
+---
+
 ## ログの書き方
 
 **正規のルールは `AGENTS.md` を参照。** 変更のあったセッションでは、このファイルに日付見出しで **追記** する（過去エントリは消さない）。

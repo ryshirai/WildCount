@@ -119,7 +119,7 @@ export interface GameConfig {
   initialLives: number
   /**
    * Minimum first bid of a round (inclusive).
-   * Phase 0: fixed at 0.
+   * Default: 1 (宣言は 1 以上).
    */
   minOpeningBid: number
   /**

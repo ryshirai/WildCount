@@ -15,39 +15,69 @@ npm run dev
 | 項目 | 状態 |
 |------|------|
 | トップ（作成 / 参加） | モック実装済み：ルーム作成・コード入力 → ロビーへ遷移 |
-| 待機ロビー | モック実装済み：参加者一覧・ルームコード・ホスト開始 |
-| ゲーム画面（PC） | モック実装済み：円形10人席 + 中央宣言 + 操作バー + イベントログ |
-| ゲーム画面（モバイル） | モック実装済み：横スクロール席 + 中央宣言 + 下部操作 + タブ |
-| 結果・カード公開 | モック実装済み：公開カード + 合計計算過程の仮置き |
-| データ | `src/data/mock*.ts` の固定値 |
-| ゲームエンジン | 未接続 |
+| 待機ロビー | ローカルデモ：自己 + ボット3体表示。開始でエンジン接続 |
+| ゲーム画面（PC） | **エンジン接続済み（ローカル）**：円形席 + 中央宣言 + 操作バー + イベントログ。**インディアンポーカー式**（自分の札は `?`、他は表向き） |
+| ゲーム画面（モバイル） | **エンジン接続済み（ローカル）**：同上のカード見え方 |
+| 結果・カード公開 | **エンジン接続済み（ローカル）**：`lastOutcome.calculation` 由来の過程表示 |
+| データ | Pinia `localGame` + mapper。固定モックは `?mock=1` で参照可 |
+| ゲームエンジン | **ローカル接続済み**（Worker / WebSocket なし） |
 | チャット | UIのみ（MVP外・トースト表示） |
 
 ## ルート
 
 | パス | 画面 |
 |------|------|
-| `/` | トップ（ルーム作成 / コード参加） |
-| `/lobby` | 待機ロビー |
-| `/game` | ゲーム画面 |
-| `/result` | 結果・カード公開 |
+| `/` | トップ（ルーム作成 / コード参加 / **ローカルデモ開始**） |
+| `/lobby` | 待機ロビー → 「ゲームを開始」で `startLocalGame` |
+| `/game` | ゲーム画面（エンジン） |
+| `/game?mock=1` | ゲーム画面（旧固定モック） |
+| `/result` | 結果・カード公開（`pendingResult`） |
+| `/result?mock=1` | 結果（旧固定モック） |
 | `/game-mock` | → `/game` へリダイレクト |
 
-モック導線:
+導線:
 
-- トップ下部の「UI モック導線」から各画面へ
-- ゲームの「コヨーテ！」→ 結果画面（約0.6秒後）
-- ロビーの「ゲームを開始」→ ゲーム画面
+- トップ「ローカルデモを開始」→ `startLocalGame` → `/game`
+- ロビー「ゲームを開始」→ 同上
+- ゲームの「宣言する」「コヨーテ！」→ `applyAction` 経由（ボット手番は自動消化）
+- コヨーテ後 → `/result`（過程はエンジン計算）→「次のラウンドへ」→ `/game`
+- 旧モック: `?mock=1`
+
+## ローカル接続アーキテクチャ（Phase 0.5）
+
+```
+src/
+├── stores/localGame.ts       # Pinia: GameState 保持・ボット・pendingResult
+├── mappers/
+│   ├── toGameView.ts         # GameState → UI ViewModel
+│   └── toResultView.ts       # ChallengeOutcome + hands → ResultMock
+├── localGame/
+│   ├── bot.ts                # 合法手ランダム/簡易ポリシー
+│   └── profiles.ts           # self + ボット表示名
+├── domain/game/              # 純粋エンジン（Vue 非依存・変更なし）
+└── views/
+    ├── GameView.vue
+    └── ResultView.vue
+```
+
+### チャレンジ後の結果表示方針
+
+エンジンはチャレンジ解決後に **自動で次ラウンド**（または `game_over`）へ進む。
+
+- チャレンジ直前の `hands` と `round` をセッションにスナップショット
+- `applyAction(CHALLENGE)` 後の `lastOutcome` と合わせて `pendingResult` を構築
+- 結果画面は `pendingResult` のみ参照（次ラウンド state は裏で保持）
+- 「次のラウンドへ」で `clearPendingResult` → `/game` を表示
 
 ## コンポーネント構成
 
 ```
 src/
 ├── views/
-│   ├── HomeView.vue                # トップ
-│   ├── LobbyView.vue               # 待機ロビー
-│   ├── GameView.vue                # ゲーム（レスポンシブ）
-│   └── ResultView.vue              # 結果・公開
+│   ├── HomeView.vue
+│   ├── LobbyView.vue
+│   ├── GameView.vue
+│   └── ResultView.vue
 ├── components/
 │   ├── common/
 │   │   ├── AppLogo.vue
@@ -62,11 +92,14 @@ src/
 │       ├── BidControls.vue
 │       ├── EventLog.vue
 │       └── MobilePlayerCarousel.vue
-├── data/
+├── stores/localGame.ts
+├── mappers/
+├── localGame/
+├── data/                     # 固定モック（?mock=1 フォールバック）
 │   ├── mockGame.ts
 │   ├── mockLobby.ts
 │   └── mockResult.ts
-└── types/game.ts
+└── types/game.ts             # UI 用型（domain と分離）
 ```
 
 ## デザイン方針
@@ -79,6 +112,6 @@ src/
 
 ## 次の画面候補
 
-1. ゲーム終了（勝者表示）
+1. Cloudflare Worker / DO によるマルチプレイ接続
 2. 見た目の詰め（アバター・背景・席配置）
-3. エンジン接続後の実データ差し替え
+3. デッキ選択 UI / ルームコード本実装

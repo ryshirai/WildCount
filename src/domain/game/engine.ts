@@ -26,7 +26,8 @@ import { GameError } from './types'
 
 export const DEFAULT_CONFIG: GameConfig = {
   initialLives: 3,
-  minOpeningBid: 0,
+  /** Opening bid must be at least 1 (no zero / free open). */
+  minOpeningBid: 1,
   deck: STANDARD_DECK,
 }
 
