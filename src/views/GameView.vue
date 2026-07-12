@@ -62,6 +62,7 @@ const botsRunning = computed(() =>
 )
 const statusMessage = computed(() => {
   if (isOnline.value) {
+    // lastEvent is short-lived (auto-cleared in store); prefer turn / connection otherwise
     if (onlineGame.lastEvent) return onlineGame.lastEvent
     if (onlineGame.gameView?.isSelfTurn) return 'あなたの手番です'
     if (onlineGame.connection === 'closed' || onlineGame.connection === 'error') {

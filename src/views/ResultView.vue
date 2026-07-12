@@ -305,21 +305,24 @@ function goHome() {
 
 <template>
   <div class="page-fixed desert-bg safe-x">
+    <!-- safe-top on outer, py-3 on inner (same pattern as Lobby / Game) -->
     <header
-      class="flex shrink-0 items-center justify-between gap-3 border-b border-gold-400/15 bg-night-900/90 px-4 py-3 backdrop-blur-md safe-top sm:px-6"
+      class="shrink-0 border-b border-gold-400/15 bg-night-900/90 backdrop-blur-md safe-top"
     >
-      <AppLogo size="sm" />
-      <div v-if="result" class="flex items-center gap-2">
-        <span class="chip font-mono">{{ result.roomCode }}</span>
-        <span class="chip">Round {{ result.round }}</span>
-        <button
-          v-if="!calcDone"
-          type="button"
-          class="btn-ghost !px-2 !py-1 text-[11px]"
-          @click="skipCalc"
-        >
-          スキップ
-        </button>
+      <div class="flex items-center justify-between gap-3 px-4 py-3 sm:px-6">
+        <AppLogo size="sm" />
+        <div v-if="result" class="flex items-center gap-2">
+          <span class="chip font-mono">{{ result.roomCode }}</span>
+          <span class="chip">Round {{ result.round }}</span>
+          <button
+            v-if="!calcDone"
+            type="button"
+            class="btn-ghost !px-2 !py-1 text-[11px]"
+            @click="skipCalc"
+          >
+            スキップ
+          </button>
+        </div>
       </div>
     </header>
 

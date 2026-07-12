@@ -347,38 +347,42 @@ watch(
 
 <template>
   <div class="page-scroll desert-bg safe-x">
-    <!-- Header -->
+    <!-- Header: safe-top on outer (notch), py-3 on inner so top padding is not wiped -->
     <header
-      class="sticky top-0 z-20 flex shrink-0 items-center justify-between gap-3 border-b border-gold-400/15 bg-night-900/90 px-4 py-3 backdrop-blur-md safe-top sm:px-6"
+      class="sticky top-0 z-30 shrink-0 border-b border-gold-400/15 bg-night-900/90 backdrop-blur-md safe-top"
     >
-      <AppLogo size="sm" />
-      <div class="flex items-center gap-2">
-        <span
-          v-if="isOnline"
-          class="chip text-[10px]"
-          :class="
-            onlineGame.connection === 'open'
-              ? '!border-teal-soft/30 !text-teal-soft'
-              : '!border-red-400/30 !text-red-200'
-          "
-        >
-          {{ connectionLabel }}
-        </span>
-        <button
-          type="button"
-          class="btn-ghost !p-2 text-sm font-bold"
-          title="遊び方・ルール"
-          aria-label="遊び方・ルール"
-          @click="helpOpen = true"
-        >
-          ?
-        </button>
-        <button type="button" class="btn-ghost text-xs" @click="leaveLobby">退出</button>
+      <div
+        class="flex items-center justify-between gap-3 px-4 py-3 sm:px-6"
+      >
+        <AppLogo size="sm" />
+        <div class="flex items-center gap-2">
+          <span
+            v-if="isOnline"
+            class="chip text-[10px]"
+            :class="
+              onlineGame.connection === 'open'
+                ? '!border-teal-soft/30 !text-teal-soft'
+                : '!border-red-400/30 !text-red-200'
+            "
+          >
+            {{ connectionLabel }}
+          </span>
+          <button
+            type="button"
+            class="btn-ghost !p-2 text-sm font-bold"
+            title="遊び方・ルール"
+            aria-label="遊び方・ルール"
+            @click="helpOpen = true"
+          >
+            ?
+          </button>
+          <button type="button" class="btn-ghost text-xs" @click="leaveLobby">退出</button>
+        </div>
       </div>
     </header>
 
     <div
-      class="relative z-10 mx-auto flex w-full max-w-2xl flex-1 flex-col px-4 py-6 safe-bottom sm:py-8"
+      class="relative mx-auto flex w-full max-w-2xl flex-1 flex-col px-4 py-6 safe-bottom sm:py-8"
     >
       <!-- Disconnect / reconnect (P1-4) -->
       <div

@@ -1109,19 +1109,23 @@
     radial-gradient(1px 1px at 40% 48%, rgba(255, 255, 255, 0.18), transparent);
 }
 
-/* Content above decorative layers (flex/grid items honor z-index) */
-.desert-bg > * {
-  z-index: 1;
+/*
+ * Stacking: decoration behind content, without flattening all children to the
+ * same z-index (that broke sticky headers under scrolling siblings — Tailwind
+ * z-20 lost to `.desert-bg > *` specificity).
+ */
+.desert-bg {
+  isolation: isolate;
 }
 
-/* Soft cactus silhouettes (left / right) */
+/* Soft cactus silhouettes (left / right) — behind in-flow UI */
 .desert-bg::before,
 .desert-bg::after {
   content: '';
   position: absolute;
   bottom: 0;
   pointer-events: none;
-  z-index: 0;
+  z-index: -1;
   opacity: 0.38;
   background: #070d16;
 }

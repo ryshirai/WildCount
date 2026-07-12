@@ -99,6 +99,8 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     timer: ReturnType<typeof setTimeout>
   } | null = null
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+  /** Clears ephemeral status-bar events (RESUME, BID, etc.) */
+  let lastEventClearTimer: ReturnType<typeof setTimeout> | null = null
 
   const isOnlineSession = computed(
     () => roomCode.value != null && connection.value !== 'idle',
@@ -514,7 +516,7 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
         break
       }
       case 'event':
-        lastEvent.value = msg.message
+        setLastEvent(msg.message)
         pushLog(msg.message, msg.code)
         break
       case 'error': {
@@ -575,13 +577,41 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     }, ttl)
   }
 
+  /**
+   * Ephemeral banner text under the game header.
+   * Must auto-clear — otherwise RESUME / BID stick forever in statusMessage.
+   */
+  function setLastEvent(message: string | null, ttlMs = 3200): void {
+    if (lastEventClearTimer) {
+      clearTimeout(lastEventClearTimer)
+      lastEventClearTimer = null
+    }
+    lastEvent.value = message
+    if (!message) return
+    lastEventClearTimer = setTimeout(() => {
+      lastEventClearTimer = null
+      if (lastEvent.value === message) lastEvent.value = null
+    }, ttlMs)
+  }
+
   function pushLog(message: string, code?: string) {
     logSeq += 1
+    // Server events are often full sentences ("太郎 が再接続しました").
+    // EventLog renders `{name}が{message}` — split so we don't get "ルームが太郎 が…".
+    let name = 'ルーム'
+    let body = message
+    const m = message.match(/^(.+?)\s+が\s*(.+)$/u)
+    if (m) {
+      name = m[1].trim()
+      body = m[2].trim()
+    } else if (code === 'CHALLENGE') {
+      name = 'コヨーテ'
+    }
     const item: EventLogItem = {
       id: `oe${logSeq}`,
       avatar: '📡',
-      name: code === 'CHALLENGE' ? 'コヨーテ' : 'ルーム',
-      message,
+      name,
+      message: body,
       timeLabel: 'たった今',
     }
     eventLog.value = [item, ...eventLog.value].slice(0, 40)
@@ -708,6 +738,7 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     view.value = null
     connection.value = 'idle'
     clearError()
+    setLastEvent(null)
     eventLog.value = []
     chatMessages.value = []
     floatingReactions.value = []
