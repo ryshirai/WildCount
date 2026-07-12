@@ -2251,6 +2251,42 @@
 
 ---
 
+## 2026-07-12 — ロビー山札カスタマイズ（UX-10）
+
+### 背景・目的
+- ルーム作成後、ホストが山札の枚数・構成を変えられるようにする（ドメインの `DeckComposition` をオンラインに接続）
+
+### 実施内容
+1. `RoomState.deck` + `PlayerView.deck`、WS `set_deck`（host / ロビーのみ）
+2. `start` 時に `config.deck: room.deck` を渡して配札
+3. ロビー UI `DeckSettingsPanel`（数字・特殊の ±、スタンダード復帰、適用）
+4. 10〜120 枚バリデーション、旧 DO スナップショットは standard へ migrate
+5. テスト（deck / roomLogic）と docs 更新
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/domain/game/deck.ts` | clone / editor / room validate / summary |
+| `worker/types.ts` · `roomLogic.ts` · `GameRoom.ts` | set_deck / deck 同期 / start 適用 |
+| `src/online/protocol.ts` · `src/stores/onlineGame.ts` | クライアント wire + `setDeck` |
+| `src/components/lobby/DeckSettingsPanel.vue` · `LobbyView.vue` | 山札 UI |
+| `docs/phase1-multiplayer.md` · `game-rules.md` · `backlog.md` | 仕様・UX-10 done |
+
+### 明示的にやっていないこと
+- 追加プリセット（54 枚 large 等）
+- ホーム作成時の事前デッキ選択
+- ローカル対戦ロビーからのカスタム山札 UI
+
+### 確認結果
+- `npm test` — 124 passed
+- `npm run typecheck` / `lint` / `build` — 成功
+
+### 次に考えられる作業
+1. large プリセット追加（card-design と整合）
+2. ゲーム画面に「この山札 N 枚」チップ表示
+
+---
+
 ## ログの書き方
 
 **正規のルールは `AGENTS.md` を参照。** 変更のあったセッションでは、このファイルに日付見出しで **追記** する（過去エントリは消さない）。

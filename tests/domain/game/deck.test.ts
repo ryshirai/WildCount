@@ -1,13 +1,20 @@
 import { describe, expect, it } from 'vitest'
 import {
+  cloneDeckComposition,
   countCards,
   createDeck,
   defineDeckComposition,
+  deckSummaryLabel,
   DECK_PRESETS,
   DECK_SIZE,
+  isStandardDeckComposition,
+  MAX_CUSTOM_DECK_CARDS,
+  MIN_CUSTOM_DECK_CARDS,
   resolveDeckComposition,
   STANDARD_DECK,
+  toEditorDeckComposition,
   validateDeckComposition,
+  validateRoomDeckComposition,
   GameError,
   startGame,
   seedRandom,
@@ -106,5 +113,39 @@ describe('DeckComposition', () => {
         state.discard.length +
         Object.keys(state.hands).length,
     ).toBe(total)
+  })
+
+  it('clone / editor helpers and standard detection', () => {
+    const cloned = cloneDeckComposition(STANDARD_DECK)
+    expect(cloned).not.toBe(STANDARD_DECK)
+    expect(isStandardDeckComposition(cloned)).toBe(true)
+    expect(deckSummaryLabel(cloned)).toContain('枚')
+
+    const editor = toEditorDeckComposition(STANDARD_DECK)
+    expect(editor.numbers).toHaveLength(11)
+    expect(isStandardDeckComposition(editor)).toBe(true)
+
+    editor.numbers[0]!.count += 1
+    expect(isStandardDeckComposition(editor)).toBe(false)
+    expect(deckSummaryLabel({ ...editor, id: 'custom', label: undefined })).toMatch(
+      /カスタム/,
+    )
+  })
+
+  it('validateRoomDeckComposition enforces lobby min/max', () => {
+    expect(() => validateRoomDeckComposition(STANDARD_DECK)).not.toThrow()
+
+    const tiny = defineDeckComposition({
+      numbers: [{ value: 1, count: 3 }],
+      specials: {},
+    })
+    expect(() => validateRoomDeckComposition(tiny)).toThrow(GameError)
+    expect(countCards(tiny)).toBeLessThan(MIN_CUSTOM_DECK_CARDS)
+
+    const huge = defineDeckComposition({
+      numbers: [{ value: 1, count: MAX_CUSTOM_DECK_CARDS + 1 }],
+      specials: {},
+    })
+    expect(() => validateRoomDeckComposition(huge)).toThrow(GameError)
   })
 })

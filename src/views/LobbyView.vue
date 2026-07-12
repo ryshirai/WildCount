@@ -8,7 +8,9 @@ import ChatPanel from '@/components/game/ChatPanel.vue'
 import ReactionOverlay from '@/components/game/ReactionOverlay.vue'
 import StampPickerSheet from '@/components/game/StampPickerSheet.vue'
 import PlayerAvatar from '@/components/game/PlayerAvatar.vue'
+import DeckSettingsPanel from '@/components/lobby/DeckSettingsPanel.vue'
 import type { StampId } from '@/online/stamps'
+import type { WireDeckComposition } from '@/online/protocol'
 import { allowLocalPlay } from '@/config/runtime'
 import { mockLobby } from '@/data/mockLobby'
 import { AVATAR_ASSETS, avatarSrc } from '@/localGame/avatarCatalog'
@@ -352,6 +354,18 @@ function applyDisplayName() {
   showToast(`表示名を「${next}」に変更しました`)
 }
 
+function applyDeck(deck: WireDeckComposition) {
+  if (!isOnline.value || !isHost.value) {
+    showToast('ホストのみ山札を変更できます')
+    return
+  }
+  if (onlineGame.connection !== 'open') {
+    showToast('接続中のみ変更できます')
+    return
+  }
+  onlineGame.setDeck(deck)
+}
+
 // Keep draft in sync when server view / store name updates (join, resume)
 watch(
   () => onlineGame.displayName,
@@ -493,6 +507,16 @@ watch(
           </p>
         </label>
       </section>
+
+      <!-- Mountain deck (online lobby; host can customize) -->
+      <DeckSettingsPanel
+        v-if="isOnline"
+        class="mb-6"
+        :deck="onlineGame.view?.deck"
+        :editable="isHost"
+        :disabled="onlineGame.connection !== 'open'"
+        @apply="applyDeck"
+      />
 
       <!-- Participants -->
       <section class="panel mb-6 flex min-h-0 flex-1 flex-col p-4 sm:p-5">

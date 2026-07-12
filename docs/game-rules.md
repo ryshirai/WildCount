@@ -70,5 +70,6 @@ if (actualTotal >= bid) {
 | 引き直し `?` | 配札時に捨てて再ドロー（手札に残さない） |
 | 捨て札ミックス0 | 数値 **0** として合計。配札後に捨て札を山へ戻してシャッフル |
 | 山札切れ | 捨て札を戻してシャッフル。それでも足りなければエラー |
-| デッキ枚数 | デフォルトは card-design 表の合計 **36**（`STANDARD_DECK`）。構成は `DeckComposition` で差し替え可能（将来ルーム作成時に選択） |
+| デッキ枚数 | デフォルトは card-design 表の合計 **36**（`STANDARD_DECK`）。構成は `DeckComposition` で差し替え可能 |
 | デッキ拡張 | プリセット追加は `DECK_PRESETS`、カスタムは `defineDeckComposition` / オブジェクト指定 |
+| ルーム山札 | オンラインロビーで **ホスト** が `set_deck` により枚数を変更可能（10〜120 枚）。参加者全員の `PlayerView.deck` に同期。`start` 時にその構成で配札 |

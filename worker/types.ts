@@ -105,10 +105,28 @@ export type ClientMessage =
   | { type: 'leave' }
   /** Host only: dissolve room for everyone (lobby or in-game) */
   | { type: 'end_room' }
+  /**
+   * Host only, lobby only: set mountain deck composition for the next game.
+   * Payload is a full DeckComposition (numbers + specials counts).
+   */
+  | { type: 'set_deck'; deck: WireDeckComposition }
 
 export type ClientGameAction =
   | { type: 'PLACE_BID'; value: number }
   | { type: 'CHALLENGE' }
+
+/** Wire shape of domain DeckComposition (JSON-safe plain data). */
+export interface WireDeckComposition {
+  id?: string
+  label?: string
+  numbers: Array<{ value: number; count: number }>
+  specials: {
+    double: number
+    max_to_zero: number
+    redraw: number
+    zero_mix: number
+  }
+}
 
 export type ServerMessage =
   | {
@@ -157,6 +175,8 @@ export interface PlayerView {
   canStart: boolean
   playerCount: number
   maxPlayers: number
+  /** Mountain deck recipe for the next / current game (lobby-configurable). */
+  deck: WireDeckComposition
   /** Masked game payload (own Card never included during play). */
   game?: import('./maskedView').MaskedGamePayload
   /** Challenge reveal — includes all hands (self OK). */
