@@ -14,13 +14,13 @@ npm run dev
 
 | 項目 | 状態 |
 |------|------|
-| トップ（作成 / 参加） | **ローカル対戦を主導線**（人数 3–4・表示名・任意シード）。ルーム作成/参加は UI モック。`?mock=1` は開発用 details |
-| 待機ロビー | ローカルデモ：自己 + ボット3体表示。開始でエンジン接続 |
+| トップ（作成 / 参加） | **ローカル対戦**（人数 3–4・表示名・任意シード）と **オンライン作成/参加**（Worker / DO）が並存。`?mock=1` は開発用 details |
+| 待機ロビー | オンライン：WS メンバー同期・host 開始。モック導線時は従来デモ lineup |
 | ゲーム画面（PC） | **エンジン接続済み（ローカル）**：円形席 + 中央宣言 + 操作バー + イベントログ。**インディアンポーカー式**（自分の札は `?`、他は表向き） |
 | ゲーム画面（モバイル） | **エンジン接続済み（ローカル）**：同上のカード見え方 |
 | 結果・カード公開 | **エンジン接続済み + B5 演出**：スタッガー公開・特殊札 CSS/SVG・計算ステップ段階ハイライト（`lastOutcome.calculation`） |
 | データ | Pinia `localGame` + mapper。固定モックは `?mock=1` で参照可 |
-| ゲームエンジン | **ローカル接続済み**（Worker / WebSocket なし） |
+| ゲームエンジン | **ローカル** + **オンライン P1-3**（ロビー〜宣言/コヨーテ/結果。再接続磨きは P1-4） |
 | チャット | UIのみ（MVP外・トースト表示） |
 | 背景 | **B7**: `.desert-bg` 夜砂漠（月・砂丘・星・シルエット） |
 | PWA | **B7**: `vite-plugin-pwa` + `public/icons` マニフェスト（ホーム画面追加可） |
@@ -51,17 +51,21 @@ npm run dev
 ```
 src/
 ├── stores/localGame.ts       # Pinia: GameState 保持・ボット・pendingResult
+├── stores/onlineGame.ts      # Phase 1: Worker WS クライアント
+├── online/                   # protocol / workerUrl / resumeStorage
 ├── mappers/
 │   ├── toGameView.ts         # GameState → UI ViewModel
 │   └── toResultView.ts       # ChallengeOutcome + hands → ResultMock
 ├── localGame/
 │   ├── bot.ts                # 見える札概算ポリシー（B6）
 │   └── profiles.ts           # self + ボット / buildDemoLineup
-├── domain/game/              # 純粋エンジン（Vue 非依存・変更なし）
+├── domain/game/              # 純粋エンジン（Vue 非依存）
 └── views/
     ├── GameView.vue
     └── ResultView.vue
 ```
+
+オンライン詳細: `docs/phase1-multiplayer.md` · Worker: `worker/`
 
 ### チャレンジ後の結果表示方針
 
@@ -127,7 +131,6 @@ src/
 
 ## 次の画面候補
 
-1. 任意 B7: 砂漠背景強化 / PWA マニフェスト
-2. Cloudflare Worker / DO によるマルチプレイ接続
-2. 見た目の詰め（アバター・背景・席配置）
-3. デッキ選択 UI / ルームコード本実装
+1. Phase 1 マルチプレイ UI 接続（`docs/phase1-multiplayer.md` — P1-0/P1-1 足場済み）
+2. トップ「ルーム作成/参加」を `onlineGame` + Worker に接続（P1-2+）
+3. デッキ選択 UI

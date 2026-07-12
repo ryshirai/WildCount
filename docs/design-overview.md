@@ -74,9 +74,10 @@
 
 ## 4. ルーム・プレイヤー設計
 
-- ルームコード：8文字（見間違いにくい文字のみ）
+- ルームコード：**6文字**（見間違いにくい文字のみ。詳細は `docs/phase1-multiplayer.md`）
 - ホスト自動移譲：切断60秒猶予 → 最長参加者に移譲
 - 再接続：`localStorage` + resumeToken + 完全スナップショット
+- Phase 1 実装メモ：`docs/phase1-multiplayer.md`（Worker / DO / WS）
 
 ## 5. 状態管理・通信
 

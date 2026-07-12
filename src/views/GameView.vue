@@ -5,6 +5,7 @@ import { storeToRefs } from 'pinia'
 import { mockGameRoom } from '@/data/mockGame'
 import { mockResult } from '@/data/mockResult'
 import { useLocalGameStore } from '@/stores/localGame'
+import { useOnlineGameStore } from '@/stores/onlineGame'
 import GameHeader from '@/components/game/GameHeader.vue'
 import PlayerCircle from '@/components/game/PlayerCircle.vue'
 import CurrentBidDisplay from '@/components/game/CurrentBidDisplay.vue'
@@ -20,16 +21,48 @@ import type { GameRoomMock, RevealedCard } from '@/types/game'
 const router = useRouter()
 const route = useRoute()
 const store = useLocalGameStore()
+const onlineGame = useOnlineGameStore()
 const {
-  gameView,
-  pendingResult,
+  gameView: localGameView,
+  pendingResult: localPendingResult,
   hasSession,
-  botsRunning,
-  statusMessage,
-  awaitingResultView,
+  botsRunning: localBotsRunning,
+  statusMessage: localStatusMessage,
+  awaitingResultView: localAwaitingResult,
 } = storeToRefs(store)
 
 const useMock = computed(() => route.query.mock === '1')
+/** Online multiplayer session (Worker / DO). */
+const isOnline = computed(
+  () =>
+    onlineGame.isOnlineSession ||
+    route.query.online === '1' ||
+    onlineGame.view != null,
+)
+
+const gameView = computed(() =>
+  isOnline.value ? onlineGame.gameView : localGameView.value,
+)
+const pendingResult = computed(() =>
+  isOnline.value ? onlineGame.pendingResult : localPendingResult.value,
+)
+const awaitingResultView = computed(() =>
+  isOnline.value ? onlineGame.awaitingResultView : localAwaitingResult.value,
+)
+const botsRunning = computed(() =>
+  isOnline.value ? false : localBotsRunning.value,
+)
+const statusMessage = computed(() => {
+  if (isOnline.value) {
+    if (onlineGame.lastEvent) return onlineGame.lastEvent
+    if (onlineGame.gameView?.isSelfTurn) return 'あなたの手番です'
+    if (onlineGame.connection === 'closed' || onlineGame.connection === 'error') {
+      return onlineGame.lastError ?? '接続が不安定です'
+    }
+    return null
+  }
+  return localStatusMessage.value
+})
 
 const toast = ref<string | null>(null)
 const mobileTab = ref<'chat' | 'players' | 'log'>('players')
@@ -101,6 +134,7 @@ const minBid = computed(() => {
 
 const isGameOver = computed(() => {
   if (useMock.value) return false
+  if (isOnline.value) return onlineGame.isGameOver
   return gameView.value?.isGameOver ?? false
 })
 
@@ -114,6 +148,10 @@ const paceHint = computed(() => {
   if (statusMessage.value) return statusMessage.value
   if (botsRunning.value) return 'ボット進行中…'
   if (gameView.value?.isSelfTurn) return 'あなたの手番です'
+  if (isOnline.value && gameView.value) {
+    const n = gameView.value.turnsUntilSelf
+    if (n > 0) return `あなたまであと ${n} 人`
+  }
   return null
 })
 
@@ -152,7 +190,6 @@ const coyoteBanner = computed(() => {
     isMock: false as const,
   }
 })
-
 function clearCardTimers() {
   for (const t of cardTimers) clearTimeout(t)
   cardTimers = []
@@ -192,11 +229,12 @@ function resetPostChallengeUi() {
   mockCutIn.value = null
 }
 
-/** Fire cut-in once when a challenge result becomes pending */
+/** Fire cut-in when a (new) challenge result becomes pending */
 watch(
   pendingResult,
-  (r) => {
-    if (r && !cutInPlayed.value) {
+  (r, prev) => {
+    if (r && r !== prev) {
+      // New snapshot (including first challenge after dismiss)
       cutInVisible.value = true
       cutInPlayed.value = true
       revealedCount.value = 0
@@ -248,7 +286,10 @@ function openResult() {
     void router.push({ name: 'result', query: { mock: '1' } })
     return
   }
-  void router.push({ name: 'result' })
+  void router.push({
+    name: 'result',
+    query: isOnline.value ? { online: '1' } : undefined,
+  })
 }
 
 onMounted(() => {
@@ -262,6 +303,11 @@ onUnmounted(() => {
 async function bootstrap() {
   if (useMock.value) {
     draftBid.value = mockGameRoom.draftBid
+    return
+  }
+  // Online: server is source of truth — do not start local bots
+  if (isOnline.value) {
+    if (gameView.value) draftBid.value = gameView.value.draftBid
     return
   }
   // Challenge already pending — stay here for cut-in / card reveal
@@ -279,6 +325,18 @@ async function bootstrap() {
   }
 }
 
+watch(
+  () => onlineGame.lastError,
+  (msg) => {
+    if (msg && isOnline.value) showToast(msg)
+  },
+)
+
+function leaveOnline() {
+  onlineGame.leave()
+  void router.push({ name: 'home' })
+}
+
 async function onDeclare(value: number) {
   if (useMock.value) {
     showToast(`（モック）宣言: ${value}`)
@@ -291,8 +349,12 @@ async function onDeclare(value: number) {
   if (busy.value) return
   acting.value = true
   try {
-    await store.placeBid(value)
-    if (gameView.value) draftBid.value = gameView.value.draftBid
+    if (isOnline.value) {
+      onlineGame.placeBid(value)
+    } else {
+      await store.placeBid(value)
+      if (gameView.value) draftBid.value = gameView.value.draftBid
+    }
   } catch (e) {
     showToast(e instanceof Error ? e.message : '宣言に失敗しました')
   } finally {
@@ -322,7 +384,11 @@ async function onChallenge() {
   if (busy.value) return
   acting.value = true
   try {
-    await store.challenge()
+    if (isOnline.value) {
+      onlineGame.challenge()
+    } else {
+      await store.challenge()
+    }
   } catch (e) {
     showToast(e instanceof Error ? e.message : 'チャレンジに失敗しました')
   } finally {
@@ -333,7 +399,20 @@ async function onChallenge() {
 
 <template>
   <div class="page-fixed desert-bg safe-x">
-    <template v-if="room">
+    <!-- Online: waiting for first view snapshot -->
+    <div
+      v-if="isOnline && !room"
+      class="relative z-10 mx-auto flex h-full w-full max-w-lg flex-col items-center justify-center gap-4 px-4 safe-top safe-bottom"
+    >
+      <p class="text-sm text-sand-dim">ゲーム状態を同期中…</p>
+      <p v-if="onlineGame.lastError" class="text-center text-xs text-red-200">
+        {{ onlineGame.lastError }}
+      </p>
+      <button type="button" class="btn-ghost" @click="leaveOnline">退出</button>
+      <MockBadge />
+    </div>
+
+    <template v-else-if="room">
       <!-- ========== Desktop / tablet ========== -->
       <div class="hidden h-full min-h-0 flex-1 flex-col lg:flex">
         <div class="shrink-0 safe-top">

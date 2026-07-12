@@ -66,8 +66,16 @@ export default defineConfig({
   server: {
     host: true,
     port: 5173,
+    // Phase 1: proxy API + WS to wrangler dev (default :8787)
+    proxy: {
+      '/api': {
+        target: process.env.VITE_WORKER_PROXY ?? 'http://127.0.0.1:8787',
+        changeOrigin: true,
+        ws: true,
+      },
+    },
   },
   test: {
-    include: ['tests/**/*.test.ts', 'src/**/*.test.ts'],
+    include: ['tests/**/*.test.ts', 'src/**/*.test.ts', 'worker/**/*.test.ts'],
   },
 })

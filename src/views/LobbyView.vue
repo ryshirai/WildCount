@@ -1,37 +1,71 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { mockLobby } from '@/data/mockLobby'
-import { buildDemoLineup, DEFAULT_PROFILES } from '@/localGame/profiles'
-import { useLocalGameStore } from '@/stores/localGame'
 import AppLogo from '@/components/common/AppLogo.vue'
 import MockBadge from '@/components/common/MockBadge.vue'
 import PlayerAvatar from '@/components/game/PlayerAvatar.vue'
+import { mockLobby } from '@/data/mockLobby'
+import { AVATAR_ASSETS, avatarSrc } from '@/localGame/avatarCatalog'
+import { buildDemoLineup, DEFAULT_PROFILES } from '@/localGame/profiles'
+import { useLocalGameStore } from '@/stores/localGame'
+import { useOnlineGameStore } from '@/stores/onlineGame'
 import type { LobbyPlayer } from '@/types/game'
 
 const router = useRouter()
 const route = useRoute()
 const localGame = useLocalGameStore()
+const onlineGame = useOnlineGameStore()
 
 const toast = ref<string | null>(null)
 const copied = ref(false)
+const starting = ref(false)
 
-/** Host when query host=1 or default mock */
+const isOnline = computed(
+  () =>
+    onlineGame.isOnlineSession ||
+    route.query.online === '1' ||
+    onlineGame.view != null,
+)
+
 const isHost = computed(() => {
+  if (isOnline.value) return onlineGame.isHost
   if (route.query.host === '0') return false
   if (route.query.host === '1') return true
   return mockLobby.isHost
 })
 
 const roomCode = computed(() => {
+  if (isOnline.value && onlineGame.roomCode) return onlineGame.roomCode
   const q = route.query.code
   if (typeof q === 'string' && q.length > 0) return q.toUpperCase()
   return mockLobby.roomCode
 })
 
-/** Local demo lobby: self + bots (engine lineup), not full mock list. */
-const players = computed<LobbyPlayer[]>(() =>
-  DEFAULT_PROFILES.map((p, i) => ({
+function avatarForIndex(index: number | undefined) {
+  const i = typeof index === 'number' ? index % AVATAR_ASSETS.length : 0
+  const meta = AVATAR_ASSETS[i]!
+  return { emoji: meta.emoji, src: avatarSrc(meta.id) }
+}
+
+/** Online lobby from server view; offline uses demo lineup mock. */
+const players = computed<LobbyPlayer[]>(() => {
+  if (isOnline.value && onlineGame.view) {
+    const selfId = onlineGame.playerId
+    return onlineGame.view.players.map((p) => {
+      const av = avatarForIndex(p.avatarIndex)
+      return {
+        id: p.id,
+        name: p.displayName,
+        avatar: av.emoji,
+        avatarSrc: av.src,
+        isHost: p.isHost,
+        isSelf: p.id === selfId,
+        isReady: p.ready,
+        connected: p.connected,
+      }
+    })
+  }
+  return DEFAULT_PROFILES.map((p, i) => ({
     id: p.id,
     name: p.name,
     avatar: p.avatar,
@@ -39,11 +73,35 @@ const players = computed<LobbyPlayer[]>(() =>
     isHost: i === 0,
     isSelf: i === 0,
     isReady: true,
-  })),
-)
-const maxPlayers = 10
+  }))
+})
+
+const maxPlayers = computed(() => onlineGame.view?.maxPlayers ?? 10)
 const readyCount = computed(() => players.value.filter((p) => p.isReady).length)
-const canStart = computed(() => isHost.value && players.value.length >= 2)
+const canStart = computed(() => {
+  if (isOnline.value) return onlineGame.canStart
+  return isHost.value && players.value.length >= 2
+})
+
+const connectionLabel = computed(() => {
+  switch (onlineGame.connection) {
+    case 'open':
+      return '接続中'
+    case 'connecting':
+      return '接続中…'
+    case 'closed':
+      return '切断'
+    case 'error':
+      return 'エラー'
+    default:
+      return ''
+  }
+})
+
+const selfReady = computed(() => {
+  const me = players.value.find((p) => p.isSelf)
+  return me?.isReady ?? false
+})
 
 function showToast(msg: string) {
   toast.value = msg
@@ -51,6 +109,30 @@ function showToast(msg: string) {
     if (toast.value === msg) toast.value = null
   }, 2200)
 }
+
+// Surface store errors / events
+watch(
+  () => onlineGame.lastError,
+  (msg) => {
+    if (msg && isOnline.value) showToast(msg)
+  },
+)
+watch(
+  () => onlineGame.lastEvent,
+  (msg) => {
+    if (msg && isOnline.value) showToast(msg)
+  },
+)
+
+// When host starts → navigate all clients to game (P1-3 will flesh out controls)
+watch(
+  () => onlineGame.isPlaying,
+  (playing) => {
+    if (playing && isOnline.value) {
+      void router.push({ name: 'game', query: { online: '1' } })
+    }
+  },
+)
 
 async function copyCode() {
   try {
@@ -65,12 +147,30 @@ async function copyCode() {
   }
 }
 
+function toggleReady() {
+  if (!isOnline.value) return
+  onlineGame.setReady(!selfReady.value)
+}
+
 function startGame() {
+  if (isOnline.value) {
+    if (!canStart.value) {
+      showToast('ホストのみ・2人以上で開始できます')
+      return
+    }
+    starting.value = true
+    onlineGame.startGame()
+    // Navigation via isPlaying watch; clear busy after a beat
+    window.setTimeout(() => {
+      starting.value = false
+    }, 2000)
+    return
+  }
+
   if (!canStart.value) {
     showToast('ホストのみ開始できます（2人以上）')
     return
   }
-  // Lobby still uses the default 4-seat demo lineup (host UI mock).
   localGame.startLocalGame({
     profiles: buildDemoLineup({ playerCount: 4 }),
     roomCode: roomCode.value,
@@ -81,6 +181,9 @@ function startGame() {
 }
 
 function leaveLobby() {
+  if (isOnline.value) {
+    onlineGame.leave()
+  }
   void router.push({ name: 'home' })
 }
 </script>
@@ -92,7 +195,20 @@ function leaveLobby() {
       class="sticky top-0 z-20 flex shrink-0 items-center justify-between gap-3 border-b border-gold-400/15 bg-night-900/90 px-4 py-3 backdrop-blur-md safe-top sm:px-6"
     >
       <AppLogo size="sm" />
-      <button type="button" class="btn-ghost text-xs" @click="leaveLobby">退出</button>
+      <div class="flex items-center gap-2">
+        <span
+          v-if="isOnline"
+          class="chip text-[10px]"
+          :class="
+            onlineGame.connection === 'open'
+              ? '!border-teal-soft/30 !text-teal-soft'
+              : '!border-red-400/30 !text-red-200'
+          "
+        >
+          {{ connectionLabel }}
+        </span>
+        <button type="button" class="btn-ghost text-xs" @click="leaveLobby">退出</button>
+      </div>
     </header>
 
     <div
@@ -131,7 +247,10 @@ function leaveLobby() {
             v-for="p in players"
             :key="p.id"
             class="flex flex-col items-center rounded-xl border border-gold-400/15 bg-night-900/50 px-3 py-4"
-            :class="p.isSelf ? 'ring-1 ring-teal-soft/50' : ''"
+            :class="[
+              p.isSelf ? 'ring-1 ring-teal-soft/50' : '',
+              isOnline && 'connected' in p && !p.connected ? 'opacity-50' : '',
+            ]"
           >
             <PlayerAvatar
               :avatar="p.avatar"
@@ -147,6 +266,12 @@ function leaveLobby() {
                     class="rounded bg-gold-400/20 px-1.5 py-0.5 text-[10px] font-medium text-gold-200"
                   >
                     ホスト
+                  </span>
+                  <span
+                    v-if="isOnline && 'connected' in p && !p.connected"
+                    class="rounded bg-night-700 px-1.5 py-0.5 text-[10px] text-sand-dim"
+                  >
+                    切断
                   </span>
                   <span
                     class="rounded px-1.5 py-0.5 text-[10px]"
@@ -179,13 +304,21 @@ function leaveLobby() {
       <!-- Actions -->
       <div class="flex flex-col gap-3 safe-bottom sm:flex-row sm:justify-center">
         <button
+          v-if="isOnline"
+          type="button"
+          class="btn-ghost w-full sm:max-w-[10rem]"
+          @click="toggleReady"
+        >
+          {{ selfReady ? '準備を取り消す' : '準備完了' }}
+        </button>
+        <button
           v-if="isHost"
           type="button"
           class="btn-gold w-full sm:max-w-xs"
-          :disabled="players.length < 2"
+          :disabled="!canStart || starting"
           @click="startGame"
         >
-          ゲームを開始
+          {{ starting ? '開始中…' : 'ゲームを開始' }}
         </button>
         <div
           v-else

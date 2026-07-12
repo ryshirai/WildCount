@@ -63,6 +63,8 @@ export interface LobbyPlayer {
   isHost: boolean
   isSelf: boolean
   isReady: boolean
+  /** Online only: false when WS disconnected */
+  connected?: boolean
 }
 
 export interface LobbyMock {

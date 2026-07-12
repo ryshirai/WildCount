@@ -8,6 +8,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { mockResult } from '@/data/mockResult'
 import { useLocalGameStore } from '@/stores/localGame'
+import { useOnlineGameStore } from '@/stores/onlineGame'
 import AppLogo from '@/components/common/AppLogo.vue'
 import MockBadge from '@/components/common/MockBadge.vue'
 import PlayerAvatar from '@/components/game/PlayerAvatar.vue'
@@ -17,22 +18,36 @@ import type { ResultMock } from '@/types/game'
 const router = useRouter()
 const route = useRoute()
 const store = useLocalGameStore()
+const onlineGame = useOnlineGameStore()
 const { resultView, isGameOver } = storeToRefs(store)
 
 const useMock = computed(() => route.query.mock === '1')
+const isOnline = computed(
+  () =>
+    onlineGame.isOnlineSession ||
+    route.query.online === '1' ||
+    onlineGame.view != null,
+)
+
+const activeResult = computed(() =>
+  isOnline.value ? onlineGame.pendingResult : resultView.value,
+)
 
 const result = computed<ResultMock | null>(() => {
   if (useMock.value) return mockResult
-  return resultView.value
+  return activeResult.value
 })
 
 const localMeta = computed(() => {
-  if (useMock.value || !resultView.value) {
+  if (useMock.value || !activeResult.value) {
     return { isGameOver: false, winnerName: null as string | null }
   }
+  const r = activeResult.value
   return {
-    isGameOver: resultView.value.isGameOver || isGameOver.value,
-    winnerName: resultView.value.winnerName,
+    isGameOver:
+      r.isGameOver ||
+      (isOnline.value ? onlineGame.isGameOver : isGameOver.value),
+    winnerName: r.winnerName,
   }
 })
 
@@ -116,8 +131,11 @@ watch(
 )
 
 onMounted(() => {
-  if (!useMock.value && !resultView.value) {
-    void router.replace({ name: 'game' })
+  if (!useMock.value && !activeResult.value) {
+    void router.replace({
+      name: 'game',
+      query: isOnline.value ? { online: '1' } : undefined,
+    })
   }
 })
 
@@ -130,6 +148,11 @@ function goNextRound() {
     void router.push({ name: 'game', query: { mock: '1' } })
     return
   }
+  if (isOnline.value) {
+    onlineGame.clearPendingResult()
+    void router.push({ name: 'game', query: { online: '1' } })
+    return
+  }
   store.clearPendingResult()
   void router.push({ name: 'game' })
 }
@@ -139,18 +162,31 @@ async function playAgain() {
     void router.push({ name: 'game', query: { mock: '1' } })
     return
   }
+  if (isOnline.value) {
+    // Online: leave and recreate from home (no server rematch yet)
+    onlineGame.leave()
+    void router.push({ name: 'home' })
+    return
+  }
   await store.restartLastGame()
   void router.push({ name: 'game' })
 }
 
 function goHome() {
-  if (!useMock.value) {
-    store.clearPendingResult()
-    store.resetSession()
+  if (useMock.value) {
+    void router.push({ name: 'home' })
+    return
   }
+  if (isOnline.value) {
+    onlineGame.clearPendingResult()
+    onlineGame.leave()
+    void router.push({ name: 'home' })
+    return
+  }
+  store.clearPendingResult()
+  store.resetSession()
   void router.push({ name: 'home' })
-}
-</script>
+}</script>
 
 <template>
   <div class="page-fixed desert-bg safe-x">

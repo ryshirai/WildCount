@@ -918,6 +918,154 @@
 
 ---
 
+## 2026-07-12 — Phase 1 P1-0 / P1-1（設計メモ + Worker 足場）
+
+### 背景・目的
+
+- 身内招待制マルチプレイの Phase 1 を開始。まず設計を固定し、Worker / DO / WebSocket の起動可能な足場を置く。
+
+### 実施内容
+
+1. **P1-0** — `docs/phase1-multiplayer.md` を追加（メッセージ型、ルームコード 6 文字、再接続、host 移譲 60s、idle TTL、domain 呼び出し表）。
+2. **P1-1** — `worker/index.ts` + `worker/GameRoom.ts`（Hibernation WS accept、ping/pong、`POST /api/rooms`、meta）。
+3. `wrangler.jsonc` に DO migration（`GameRoom` SQLite class）。
+4. Vite `server.proxy` で `/api` → wrangler（既定 `127.0.0.1:8787`）。`VITE_WORKER_URL` を `env.d.ts` に宣言。
+5. `roomCode` 単体テスト。ローカルデモコードは未変更。
+
+### 主なパス変更
+
+| パス | 内容 |
+|------|------|
+| `docs/phase1-multiplayer.md` | Phase 1 設計メモ（新設） |
+| `worker/index.ts` | Worker エントリ・HTTP ルーティング |
+| `worker/GameRoom.ts` | DO + WS scaffold |
+| `worker/types.ts` / `roomCode.ts` / `env.d.ts` | 型・コード生成・最小 CF 型 |
+| `worker/roomCode.test.ts` | ルームコード単体テスト |
+| `wrangler.jsonc` | DO migrations |
+| `vite.config.ts` | `/api` proxy + worker テスト include |
+| `docs/ui-mock.md` | 次工程を Phase 1 に更新 |
+| `docs/work-log.md` | 本エントリ |
+
+### 明示的にやっていないこと
+
+- join / ロビー同期 / ゲーム進行（P1-2 / P1-3）
+- フロント `onlineGame` store・トップ UI 本接続
+- resume / ホスト移譲 / idle 削除の実装
+- 本番 `wrangler deploy`
+
+### 確認結果
+
+- `npm test` 56 件すべて成功（roomCode 3 件追加）
+- `npm run build` 成功
+- `npm run worker:dev` 起動後:
+  - `GET /api/health` → ok
+  - `POST /api/rooms` → 6 文字 roomCode
+  - `GET /api/rooms/:code` → meta
+  - WS `/api/rooms/:code/ws` → CONNECTED event + JSON `ping`→`pong`
+
+### 次に考えられる作業
+
+1. **P1-2** — join / メンバー一覧 broadcast / host 開始ボタン（フロント online 接続）
+2. **P1-3** — domain `startGame` / `applyAction` + マスク済み view
+3. P1-4 再接続 → P1-5 host/TTL → P1-6 磨ぎ
+
+---
+
+## 2026-07-12 — Phase 1 P1-2（ルーム作成・参加・ロビー同期）
+
+### 背景・目的
+
+- 身内招待で複数ブラウザが同一ルームに入り、メンバー一覧がリアルタイム更新され、ホストが開始できるところまで。
+
+### 実施内容
+
+1. **GameRoom** — `join` / `ready` / `start` / 切断時 `connected` 更新、`view` broadcast、`hello` + resumeToken 発行。
+2. **start** — host のみ・2 人以上で domain `startGame`（状態は DO に保存）。action は P1-3。
+3. **roomLogic** — 純粋ヘルパ + 単体テスト（表示名、canStart、parse）。
+4. **フロント** — `stores/onlineGame.ts`、`src/online/*`（URL・resumeStorage・protocol）。
+5. **HomeView** — ルーム作成/参加を Worker 本線に接続（ローカルデモは維持）。
+6. **LobbyView** — オンライン参加者一覧・準備トグル・host 開始。開始後 `/game?online=1`。
+7. **GameView** — オンライン時はローカル bots を起動しない。P1-3 までのプレースホルダ席一覧。
+
+### 主なパス変更
+
+| パス | 内容 |
+|------|------|
+| `worker/GameRoom.ts` | ロビー + start 本実装 |
+| `worker/roomLogic.ts` | 状態ヘルパ・view 生成 |
+| `worker/roomLogic.test.ts` | 単体テスト |
+| `src/stores/onlineGame.ts` | WS クライアント store |
+| `src/online/*` | protocol / workerUrl / resumeStorage |
+| `src/views/HomeView.vue` | オンライン作成・参加 |
+| `src/views/LobbyView.vue` | オンラインロビー UI |
+| `src/views/GameView.vue` | オンライン時 bots 抑止 + 仮画面 |
+| `docs/work-log.md` | 本エントリ |
+
+### 明示的にやっていないこと
+
+- bid / challenge の同期操作と手札マスク view（P1-3）
+- リロード再接続の磨き（token 保存は済、P1-4 で完成）
+- ホスト移譲 60s・idle TTL（P1-5）
+- 本番 deploy
+
+### 確認結果
+
+- `npm test` 60 件成功 / `npm run build` 成功
+- wrangler 上の 2 WS クライアント: join 同期・ready 同期・host start → phase playing・guest start 拒否・開始後 join 拒否
+
+### 次に考えられる作業
+
+1. **P1-3** — `action` + マスク済み PlayerView + Result UI
+2. P1-4 再接続磨き
+3. P1-5 host 移譲 / 空ルーム削除
+
+---
+
+## 2026-07-12 — Phase 1 P1-3（ゲーム進行・マスク view・結果）
+
+### 背景・目的
+
+- ホスト開始後、宣言 / コヨーテを domain 経由で同期し、手札マスクと結果 UI を既存画面に載せる。
+
+### 実施内容
+
+1. **maskedView** — 自分の Card を送らない seats、`pendingResult` では全札公開。単体テストで JSON リーク検証。
+2. **GameRoom.handleAction** — `actionId` + `expectedRevision`、冪等、`applyAction`（PLACE_BID / CHALLENGE）、bidHistory、チャレンジ前 hands スナップショット。
+3. **onlineGame** — `placeBid` / `challenge` / `gameView` / `pendingResult` / `clearPendingResult`。
+4. **mappers** — `onlineToGameView` / `onlineToResultView`。
+5. **GameView / ResultView** — オンライン時は localGame ではなく online store。ボット非起動。カットイン〜結果〜次ラウンド。
+
+### 主なパス変更
+
+| パス | 内容 |
+|------|------|
+| `worker/maskedView.ts` | マスク済み game / pendingResult |
+| `worker/GameRoom.ts` | action 処理 |
+| `worker/roomLogic.ts` | view にフル game payload |
+| `src/stores/onlineGame.ts` | 操作 API + view モデル |
+| `src/mappers/onlineTo*.ts` | UI 接続 |
+| `src/views/GameView.vue` / `ResultView.vue` | オンライン分岐 |
+| `docs/work-log.md` | 本エントリ |
+
+### 明示的にやっていないこと
+
+- リロード再接続の完全磨き（P1-4）
+- ホスト移譲 60s / idle TTL（P1-5）
+- オンライン「もう一度遊ぶ」のサーバー再戦（ホームへ戻る）
+
+### 確認結果
+
+- `npm test` 64 件成功 / `npm run build` 成功
+- wrangler 2 クライアント: start → mask 確認 → bid → challenge → pendingResult（自分の札含む）→ 結果 phase
+
+### 次に考えられる作業
+
+1. **P1-4** — resume 磨き
+2. **P1-5** — host 移譲・空ルーム
+3. **P1-6** — エラー UI / 切断バナー / docs 仕上げ
+
+---
+
 ## ログの書き方
 
 **正規のルールは `AGENTS.md` を参照。** 変更のあったセッションでは、このファイルに日付見出しで **追記** する（過去エントリは消さない）。

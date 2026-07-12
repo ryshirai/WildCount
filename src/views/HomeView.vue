@@ -7,14 +7,18 @@ import {
   buildDemoLineup,
   type DemoPlayerCount,
 } from '@/localGame/profiles'
+import { loadSavedDisplayName } from '@/online/resumeStorage'
 import { useLocalGameStore } from '@/stores/localGame'
+import { useOnlineGameStore } from '@/stores/onlineGame'
 
 const router = useRouter()
 const localGame = useLocalGameStore()
+const onlineGame = useOnlineGameStore()
 
 const roomCode = ref('')
-const playerName = ref('')
+const playerName = ref(loadSavedDisplayName())
 const toast = ref<string | null>(null)
+const onlineBusy = ref(false)
 
 /** Local demo options (B6) */
 const demoPlayerCount = ref<DemoPlayerCount>(4)
@@ -35,11 +39,11 @@ function showToast(msg: string) {
   toast.value = msg
   window.setTimeout(() => {
     if (toast.value === msg) toast.value = null
-  }, 2200)
+  }, 2800)
 }
 
 function normalizeCode(raw: string) {
-  return raw.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 8)
+  return raw.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 6)
 }
 
 function onCodeInput(e: Event) {
@@ -47,26 +51,51 @@ function onCodeInput(e: Event) {
   roomCode.value = normalizeCode(el.value)
 }
 
-function createRoom() {
-  // Mock: always go to lobby as host
-  showToast('（モック）ルームを作成しました')
-  void router.push({ name: 'lobby', query: { host: '1' } })
+async function createRoom() {
+  if (onlineBusy.value) return
+  onlineBusy.value = true
+  try {
+    // Leave any previous online session
+    if (onlineGame.isOnlineSession) onlineGame.leave()
+    const code = await onlineGame.createRoom(playerName.value)
+    showToast(`ルーム ${code} を作成しました`)
+    await router.push({ name: 'lobby', query: { code, online: '1' } })
+  } catch (e) {
+    showToast(e instanceof Error ? e.message : 'ルーム作成に失敗しました')
+  } finally {
+    onlineBusy.value = false
+  }
 }
 
-function joinRoom() {
+async function joinRoom() {
+  if (onlineBusy.value) return
   const code = roomCode.value.trim()
   if (code.length < 4) {
     showToast('ルームコードを入力してください')
     return
   }
-  showToast(`（モック）${code} に参加`)
-  void router.push({ name: 'lobby', query: { code, host: '0' } })
+  onlineBusy.value = true
+  try {
+    if (onlineGame.isOnlineSession) onlineGame.leave()
+    await onlineGame.joinRoom(code, playerName.value)
+    showToast(`${code} に参加しました`)
+    await router.push({
+      name: 'lobby',
+      query: { code: onlineGame.roomCode ?? code, online: '1' },
+    })
+  } catch (e) {
+    showToast(e instanceof Error ? e.message : '参加に失敗しました')
+  } finally {
+    onlineBusy.value = false
+  }
 }
 
 async function startLocalDemo() {
   if (demoStarting.value) return
   demoStarting.value = true
   try {
+    // Ensure online session does not interfere
+    if (onlineGame.isOnlineSession) onlineGame.leave()
     const profiles = buildDemoLineup({
       playerCount: demoPlayerCount.value,
       selfName: demoSelfName.value || undefined,
@@ -183,14 +212,17 @@ async function startLocalDemo() {
         </button>
       </section>
 
-      <!-- Create (multiplayer mock) -->
+      <!-- Create online room -->
       <section class="panel mb-4 p-5 sm:p-6">
-        <h2 class="mb-1 text-sm font-semibold text-gold-200">ルームを作成</h2>
+        <div class="mb-1 flex items-center gap-2">
+          <h2 class="text-sm font-semibold text-gold-200">ルームを作成</h2>
+          <span class="chip text-[10px]">オンライン</span>
+        </div>
         <p class="mb-4 text-xs text-sand-dim">
-          ホストとして新しいルームを開き、コードを共有します（UI モック）
+          ホストとしてルームを開き、6 文字コードを共有します（Worker 必要）
         </p>
         <label class="mb-3 block">
-          <span class="mb-1.5 block text-xs text-sand-dim">表示名（任意・モック）</span>
+          <span class="mb-1.5 block text-xs text-sand-dim">表示名（任意）</span>
           <input
             v-model="playerName"
             type="text"
@@ -199,8 +231,13 @@ async function startLocalDemo() {
             class="w-full rounded-xl border border-gold-400/25 bg-night-900/80 px-4 py-3 text-sm text-sand outline-none transition placeholder:text-sand-dim/50 focus:border-gold-400/50 focus:ring-1 focus:ring-gold-400/30"
           />
         </label>
-        <button type="button" class="btn-gold w-full" @click="createRoom">
-          ルームを作成する
+        <button
+          type="button"
+          class="btn-gold w-full"
+          :disabled="onlineBusy"
+          @click="createRoom"
+        >
+          {{ onlineBusy ? '接続中…' : 'ルームを作成する' }}
         </button>
       </section>
 
@@ -211,10 +248,13 @@ async function startLocalDemo() {
         <div class="h-px flex-1 bg-gold-400/15" />
       </div>
 
-      <!-- Join -->
+      <!-- Join online -->
       <section class="panel p-5 sm:p-6">
-        <h2 class="mb-1 text-sm font-semibold text-gold-200">ルームに参加</h2>
-        <p class="mb-4 text-xs text-sand-dim">ホストから共有されたルームコードを入力（UI モック）</p>
+        <div class="mb-1 flex items-center gap-2">
+          <h2 class="text-sm font-semibold text-gold-200">ルームに参加</h2>
+          <span class="chip text-[10px]">オンライン</span>
+        </div>
+        <p class="mb-4 text-xs text-sand-dim">ホストから共有されたルームコードを入力</p>
         <label class="mb-3 block">
           <span class="mb-1.5 block text-xs text-sand-dim">ルームコード</span>
           <input
@@ -224,17 +264,23 @@ async function startLocalDemo() {
             autocomplete="off"
             spellcheck="false"
             placeholder="例: AB7KQ2"
+            maxlength="6"
             class="w-full rounded-xl border border-gold-400/25 bg-night-900/80 px-4 py-3 font-mono text-lg tracking-[0.2em] text-gold-100 outline-none transition placeholder:tracking-normal placeholder:text-sand-dim/50 focus:border-gold-400/50 focus:ring-1 focus:ring-gold-400/30"
             @input="onCodeInput"
             @keydown.enter="joinRoom"
           />
         </label>
-        <button type="button" class="btn-teal w-full" @click="joinRoom">
-          参加する
+        <button
+          type="button"
+          class="btn-teal w-full"
+          :disabled="onlineBusy"
+          @click="joinRoom"
+        >
+          {{ onlineBusy ? '接続中…' : '参加する' }}
         </button>
       </section>
 
-      <!-- Dev mock nav (collapsed by default emphasis) -->
+      <!-- Dev mock nav -->
       <details
         class="mt-6 rounded-2xl border border-gold-400/10 bg-night-900/40 p-4"
       >
@@ -244,13 +290,13 @@ async function startLocalDemo() {
           開発用 · UI モック導線
         </summary>
         <nav class="mt-3 flex flex-wrap items-center justify-center gap-2" aria-label="モック画面リンク">
-          <RouterLink to="/lobby" class="btn-ghost text-xs">待機ロビー</RouterLink>
+          <RouterLink to="/lobby" class="btn-ghost text-xs">待機ロビー（モック）</RouterLink>
           <RouterLink to="/game" class="btn-ghost text-xs">ゲーム（エンジン）</RouterLink>
           <RouterLink to="/game?mock=1" class="btn-ghost text-xs">ゲーム（固定モック）</RouterLink>
           <RouterLink to="/result?mock=1" class="btn-ghost text-xs">結果（固定モック）</RouterLink>
         </nav>
         <p class="mt-2 text-center text-[10px] text-sand-dim/80">
-          <code class="font-mono">?mock=1</code> は固定データ。本番デモは上のローカル対戦を使用。
+          オンラインは上の作成/参加。Worker: <code class="font-mono">npm run worker:dev</code>
         </p>
       </details>
     </div>
