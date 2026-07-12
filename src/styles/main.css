@@ -124,6 +124,26 @@
     @apply bid-chip !min-w-[1.35rem] !rounded !px-1 !py-px !text-[10px];
   }
 
+  /* Fresh bid chip pop-in */
+  .bid-chip--pop {
+    animation: bid-chip-pop 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* Stepper value tick on ± */
+  .bid-step-tick {
+    animation: bid-step-tick 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* Declare / challenge button press flash */
+  .btn-fx-press {
+    animation: btn-fx-press 0.35s ease-out both;
+  }
+
+  /* Your-turn arrival banner */
+  .turn-arrive {
+    animation: turn-arrive 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
   /* Result reveal card faces (B5) */
   .reveal-card {
     @apply relative flex flex-col items-center justify-center gap-0.5
@@ -556,8 +576,35 @@
   .coyote-cutin__who,
   .coyote-cutin__hint,
   .coyote-cutin__corner,
-  .coyote-cutin__ring {
+  .coyote-cutin__ring,
+  .bid-num--up,
+  .bid-num--down,
+  .bid-num--slam,
+  .bid-num--fade,
+  .bid-glow--up,
+  .bid-glow--down,
+  .bid-delta,
+  .bid-chip--pop,
+  .bid-step-tick,
+  .btn-fx-press,
+  .turn-arrive,
+  .fx-confetti__piece,
+  .total-slam,
+  .heart-crack,
+  .verdict-win-glow,
+  .verdict-lose-glow,
+  .calc-done-pop,
+  .result-banner-in,
+  .life-lost-pulse,
+  .avatar-turn-ring {
     animation: none !important;
+  }
+
+  .bid-glow--up,
+  .bid-glow--down,
+  .bid-delta,
+  .fx-confetti {
+    display: none !important;
   }
 
   .coyote-cutin__flash {
@@ -635,6 +682,382 @@
 
 .avatar-turn-ring {
   animation: turn-ring-pulse 2.2s ease-in-out infinite;
+}
+
+/* ========== Dopamine micro-fx (bid / result / turn) ========== */
+
+@keyframes bid-num-up {
+  0% {
+    transform: scale(0.72) translateY(12px);
+    opacity: 0.55;
+    filter: brightness(1.4);
+  }
+  55% {
+    transform: scale(1.12) translateY(-4px);
+    opacity: 1;
+    filter: brightness(1.25);
+  }
+  100% {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+    filter: brightness(1);
+  }
+}
+
+@keyframes bid-num-down {
+  0% {
+    transform: scale(1.08) translateY(-6px);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes bid-num-slam {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+    filter: brightness(1.6);
+  }
+  60% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+}
+
+@keyframes bid-num-fade {
+  from {
+    opacity: 0.4;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.bid-num--up {
+  animation: bid-num-up 0.48s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.bid-num--down {
+  animation: bid-num-down 0.35s ease-out both;
+}
+
+.bid-num--slam {
+  animation: bid-num-slam 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.bid-num--fade {
+  animation: bid-num-fade 0.3s ease-out both;
+}
+
+@keyframes bid-glow-pulse {
+  0% {
+    opacity: 0.85;
+    transform: translate(-50%, -50%) scale(0.55);
+    background: radial-gradient(
+      circle,
+      rgba(201, 168, 76, 0.45) 0%,
+      transparent 68%
+    );
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.35);
+    background: radial-gradient(
+      circle,
+      rgba(201, 168, 76, 0) 0%,
+      transparent 70%
+    );
+  }
+}
+
+@keyframes bid-glow-pulse-down {
+  0% {
+    opacity: 0.55;
+    transform: translate(-50%, -50%) scale(0.7);
+    background: radial-gradient(
+      circle,
+      rgba(248, 113, 113, 0.3) 0%,
+      transparent 68%
+    );
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.2);
+  }
+}
+
+.bid-glow--up {
+  animation: bid-glow-pulse 0.65s ease-out forwards;
+}
+
+.bid-glow--down {
+  animation: bid-glow-pulse-down 0.55s ease-out forwards;
+}
+
+@keyframes bid-delta-float {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 8px) scale(0.7);
+  }
+  18% {
+    opacity: 1;
+    transform: translate(-50%, -4px) scale(1.08);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -42px) scale(0.95);
+  }
+}
+
+.bid-delta {
+  animation: bid-delta-float 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  text-shadow: 0 0 12px rgba(0, 0, 0, 0.55);
+}
+
+.bid-delta--up {
+  color: #f0d78c;
+}
+
+.bid-delta--down {
+  color: #fca5a5;
+}
+
+@keyframes bid-chip-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.4) translateY(6px);
+  }
+  55% {
+    opacity: 1;
+    transform: scale(1.18) translateY(-2px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes bid-step-tick {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.18);
+    color: #f5e6b8;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes btn-fx-press {
+  0% {
+    box-shadow: 0 0 0 0 rgba(201, 168, 76, 0.55);
+    filter: brightness(1.15);
+  }
+  100% {
+    box-shadow: 0 0 0 14px rgba(201, 168, 76, 0);
+    filter: brightness(1);
+  }
+}
+
+@keyframes turn-arrive {
+  0% {
+    transform: scale(0.96);
+    box-shadow: 0 0 0 0 rgba(45, 212, 191, 0.35);
+  }
+  45% {
+    transform: scale(1.01);
+    box-shadow: 0 0 28px 2px rgba(45, 212, 191, 0.28);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(45, 212, 191, 0);
+  }
+}
+
+/* Confetti burst */
+@keyframes fx-confetti-fall {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, -12px, 0) rotate(0deg) scale(0.6);
+  }
+  12% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--fx-drift, 18px), 110vh, 0)
+      rotate(calc(var(--fx-rot, 40deg) + 280deg)) scale(0.85);
+  }
+}
+
+.fx-confetti__piece {
+  position: absolute;
+  top: -8%;
+  display: block;
+  border-radius: 1px;
+  animation-name: fx-confetti-fall;
+  animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+  animation-fill-mode: both;
+  will-change: transform, opacity;
+  --fx-drift: 14px;
+}
+
+.fx-confetti__piece--0 {
+  width: 7px;
+  height: 11px;
+  --fx-drift: -22px;
+}
+
+.fx-confetti__piece--1 {
+  width: 5px;
+  height: 14px;
+  border-radius: 999px;
+  --fx-drift: 28px;
+}
+
+.fx-confetti__piece--2 {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  --fx-drift: 8px;
+}
+
+.fx-confetti--gold .fx-confetti__piece--0,
+.fx-confetti--mixed .fx-confetti__piece:nth-child(3n) {
+  background: linear-gradient(160deg, #f5e6b8, #c9a84c);
+}
+
+.fx-confetti--gold .fx-confetti__piece--1,
+.fx-confetti--mixed .fx-confetti__piece:nth-child(3n + 1) {
+  background: linear-gradient(160deg, #e8d5a3, #a8872e);
+}
+
+.fx-confetti--gold .fx-confetti__piece--2,
+.fx-confetti--mixed .fx-confetti__piece:nth-child(3n + 2) {
+  background: linear-gradient(160deg, #2a8a8a, #5ecfcf);
+}
+
+.fx-confetti--teal .fx-confetti__piece--0 {
+  background: linear-gradient(160deg, #7ee8e8, #2a8a8a);
+}
+
+.fx-confetti--teal .fx-confetti__piece--1 {
+  background: linear-gradient(160deg, #f5e6b8, #c9a84c);
+}
+
+.fx-confetti--teal .fx-confetti__piece--2 {
+  background: linear-gradient(160deg, #5ecfcf, #1a5c5c);
+}
+
+/* Count-up slam for final total */
+@keyframes total-slam {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.3;
+    filter: brightness(1.5);
+  }
+  55% {
+    transform: scale(1.14);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+}
+
+.total-slam {
+  animation: total-slam 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Life-lost heart crack */
+@keyframes heart-crack {
+  0% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  25% {
+    transform: scale(1.35) rotate(-12deg);
+  }
+  50% {
+    transform: scale(1.1) rotate(10deg);
+  }
+  70% {
+    transform: scale(1.25) rotate(-6deg);
+    filter: brightness(1.3);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+.heart-crack {
+  animation: heart-crack 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  display: inline-block;
+}
+
+/* Verdict win / lose ring accents */
+@keyframes verdict-win-glow {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 0 rgba(94, 207, 207, 0.15),
+      inset 0 0 0 0 rgba(94, 207, 207, 0);
+  }
+  50% {
+    box-shadow:
+      0 0 32px 2px rgba(94, 207, 207, 0.22),
+      inset 0 0 24px rgba(42, 138, 138, 0.08);
+  }
+}
+
+@keyframes verdict-lose-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(248, 113, 113, 0.1);
+  }
+  50% {
+    box-shadow: 0 0 28px 1px rgba(248, 113, 113, 0.18);
+  }
+}
+
+.verdict-win-glow {
+  animation: verdict-win-glow 1.8s ease-in-out 2 both;
+}
+
+.verdict-lose-glow {
+  animation: verdict-lose-glow 1.6s ease-in-out 2 both;
+}
+
+/* Calc done banner pop */
+@keyframes calc-done-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.94);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(-2px) scale(1.03);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.calc-done-pop {
+  animation: calc-done-pop 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 /*

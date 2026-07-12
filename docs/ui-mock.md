@@ -14,11 +14,12 @@ npm run dev
 
 | 項目 | 状態 |
 |------|------|
-| トップ（作成 / 参加） | **ローカル対戦**（人数 3–4・表示名・任意シード）と **オンライン作成/参加**（Worker / DO）が並存。`?mock=1` は開発用 details |
+| トップ（作成 / 参加） | **本番**: オンライン作成/参加のみ。**DEV**: ローカル対戦 + 開発用 mock 導線（`src/config/runtime.ts`） |
 | 待機ロビー | オンライン：WS メンバー同期・host 開始。モック導線時は従来デモ lineup |
 | ゲーム画面（PC） | **エンジン接続済み（ローカル）**：円形席 + 中央宣言 + 操作バー + イベントログ。**インディアンポーカー式**（自分の札は `?`、他は表向き） |
 | ゲーム画面（モバイル） | **エンジン接続済み（ローカル）**：同上のカード見え方 |
-| 結果・カード公開 | **エンジン接続済み + B5 演出**：スタッガー公開・特殊札 CSS/SVG・計算ステップ段階ハイライト（`lastOutcome.calculation`） |
+| 結果・カード公開 | **エンジン接続済み + B5 演出**：スタッガー公開・特殊札 CSS/SVG・計算ステップ段階ハイライト（`lastOutcome.calculation`）＋ 合計カウントアップ / 紙吹雪 |
+| マイクロ演出 | 宣言数字ポップ・`+N` 浮上・bid-chip pop・手番 arrive・結果 confetti（`prefers-reduced-motion` 対応） |
 | データ | Pinia `localGame` + mapper。固定モックは `?mock=1` で参照可 |
 | ゲームエンジン | **ローカル** + **オンライン P1-3**（ロビー〜宣言/コヨーテ/結果。再接続磨きは P1-4） |
 | チャット | UIのみ（MVP外・トースト表示） |
@@ -39,12 +40,12 @@ npm run dev
 
 導線:
 
-- トップ「ローカルデモを開始」→ 人数/表示名/シード → `startLocalGame` → `/game`
-- ロビー「ゲームを開始」→ 同上（4 席固定）
-- ゲームの「宣言する」「コヨーテ！」→ `applyAction` 経由（ボットは見える札で概算）
+- **本番**: トップ「ルーム作成/参加」→ ロビー → ゲーム → 結果（オンラインのみ）
+- **DEV のみ**: トップ「ローカルデモを開始」→ `startLocalGame` → `/game`；`?mock=1` 固定モック；オフラインロビー
+- ゲームの「宣言する」「コヨーテ！」→ online / local の store 経由
 - コヨーテ後 → カード公開 → `/result` →「次のラウンドへ」→ `/game`
-- ゲーム終了 →「もう一度遊ぶ」（前回設定維持）/「トップへ」
-- 旧モック: `?mock=1`（トップ details 内）
+- ゲーム終了 →「もう一度遊ぶ」/「トップへ」
+- フラグ: `allowLocalPlay` / `allowUiMock` = `import.meta.env.DEV`
 
 ## ローカル接続アーキテクチャ（Phase 0.5）
 
@@ -88,14 +89,15 @@ src/
 ├── components/
 │   ├── common/
 │   │   ├── AppLogo.vue
-│   │   └── MockBadge.vue
+│   │   ├── MockBadge.vue
+│   │   └── FxConfetti.vue       # 結果の CSS 紙吹雪
 │   └── game/
 │       ├── GameHeader.vue
 │       ├── PlayerCircle.vue
 │       ├── PlayerSeat.vue
 │       ├── PlayerAvatar.vue
 │       ├── BidCard.vue
-│       ├── CurrentBidDisplay.vue
+│       ├── CurrentBidDisplay.vue # 中央宣言 + 数字ポップ
 │       ├── BidControls.vue
 │       ├── EventLog.vue
 │       ├── MobilePlayerCarousel.vue
@@ -121,6 +123,7 @@ src/
 - 席 UI（B4）: 手番金リング、宣言済みチップ、手札下宣言チップ、ステータスバー色分け
 - 結果 UI（B5）: `RevealCardTile`、公開スタッガー、計算ステップハイライト
 - コヨーテ成立: `CoyoteCutIn` → **ゲーム画面でカード公開** → 「結果を見る」→ 勝敗・合計計算
+- ドーパミン系: 宣言更新の数字 slam / デルタ浮上、操作ボタン press、手番バー pulse、結果の count-up + confetti
 
 ## ローカルデモ UX（B6）
 

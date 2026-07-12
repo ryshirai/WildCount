@@ -16,6 +16,7 @@ import CoyoteCutIn from '@/components/game/CoyoteCutIn.vue'
 import RevealCardTile from '@/components/game/RevealCardTile.vue'
 import PlayerAvatar from '@/components/game/PlayerAvatar.vue'
 import MockBadge from '@/components/common/MockBadge.vue'
+import { allowLocalPlay, allowUiMock } from '@/config/runtime'
 import type { GameRoomMock, RevealedCard } from '@/types/game'
 
 const router = useRouter()
@@ -31,7 +32,8 @@ const {
   awaitingResultView: localAwaitingResult,
 } = storeToRefs(store)
 
-const useMock = computed(() => route.query.mock === '1')
+/** Fixed mock only in DEV builds */
+const useMock = computed(() => allowUiMock && route.query.mock === '1')
 /** Online multiplayer session (Worker / DO). */
 const isOnline = computed(
   () =>
@@ -304,6 +306,11 @@ onUnmounted(() => {
 })
 
 async function bootstrap() {
+  // Production: reject UI mock query
+  if (!allowUiMock && route.query.mock === '1') {
+    void router.replace({ name: 'home' })
+    return
+  }
   if (useMock.value) {
     draftBid.value = mockGameRoom.draftBid
     return
@@ -329,6 +336,11 @@ async function bootstrap() {
       return
     }
     if (gameView.value) draftBid.value = gameView.value.draftBid
+    return
+  }
+  // Production: no offline / local game surface
+  if (!allowLocalPlay) {
+    void router.replace({ name: 'home' })
     return
   }
   // Challenge already pending — stay here for cut-in / card reveal
@@ -518,13 +530,16 @@ async function onChallenge() {
         <div
           v-if="paceHint"
           class="flex shrink-0 items-center justify-center gap-2.5 border-b px-3 py-2.5 text-center text-sm font-medium backdrop-blur-md"
-          :class="
+          :class="[
             awaitingResultView
               ? 'border-teal-soft/35 bg-teal-deep/40 text-teal-soft'
               : botsRunning
                 ? 'border-gold-400/30 bg-night-800/90 text-gold-200'
-                : 'border-gold-400/20 bg-night-900/90 text-teal-soft'
-          "
+                : 'border-gold-400/20 bg-night-900/90 text-teal-soft',
+            gameView?.isSelfTurn && !awaitingResultView && !botsRunning
+              ? 'turn-arrive'
+              : '',
+          ]"
           role="status"
           aria-live="polite"
         >
@@ -723,13 +738,16 @@ async function onChallenge() {
         <div
           v-if="paceHint"
           class="flex shrink-0 items-center justify-center gap-2 border-b px-3 py-2 text-center text-xs font-medium backdrop-blur-md"
-          :class="
+          :class="[
             awaitingResultView
               ? 'border-teal-soft/35 bg-teal-deep/40 text-teal-soft'
               : botsRunning
                 ? 'border-gold-400/30 bg-night-800/90 text-gold-200'
-                : 'border-gold-400/20 bg-night-900/90 text-teal-soft'
-          "
+                : 'border-gold-400/20 bg-night-900/90 text-teal-soft',
+            gameView?.isSelfTurn && !awaitingResultView && !botsRunning
+              ? 'turn-arrive'
+              : '',
+          ]"
           role="status"
           aria-live="polite"
         >
@@ -872,7 +890,7 @@ async function onChallenge() {
               :class="mobileTab === 'chat' ? 'text-gold-200' : 'text-sand-dim'"
               @click="
                 mobileTab = 'chat';
-                showToast('チャットはMVP外です')
+                showToast('チャットは準備中です')
               "
             >
               <span class="text-base">💬</span>
@@ -954,8 +972,9 @@ async function onChallenge() {
     </Transition>
 
     <nav
+      v-if="allowUiMock"
       class="pointer-events-auto fixed bottom-3 right-3 z-30 hidden gap-1.5 lg:flex"
-      aria-label="画面リンク"
+      aria-label="開発用画面リンク"
     >
       <RouterLink to="/" class="btn-ghost !px-2 !py-1 text-[10px]">トップ</RouterLink>
       <RouterLink to="/lobby" class="btn-ghost !px-2 !py-1 text-[10px]">ロビー</RouterLink>

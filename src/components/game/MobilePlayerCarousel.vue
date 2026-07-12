@@ -83,7 +83,8 @@ defineProps<{
         />
         <div
           v-if="player.lives > 0 && player.bid != null"
-          class="bid-chip-sm"
+          :key="`mbid-${player.id}-${player.bid}`"
+          class="bid-chip-sm bid-chip--pop"
           :title="`宣言 ${player.bid}`"
         >
           {{ player.bid }}

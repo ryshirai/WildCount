@@ -10,9 +10,11 @@ import { mockResult } from '@/data/mockResult'
 import { useLocalGameStore } from '@/stores/localGame'
 import { useOnlineGameStore } from '@/stores/onlineGame'
 import AppLogo from '@/components/common/AppLogo.vue'
+import FxConfetti from '@/components/common/FxConfetti.vue'
 import MockBadge from '@/components/common/MockBadge.vue'
 import PlayerAvatar from '@/components/game/PlayerAvatar.vue'
 import RevealCardTile from '@/components/game/RevealCardTile.vue'
+import { allowLocalPlay, allowUiMock } from '@/config/runtime'
 import type { ResultMock } from '@/types/game'
 
 const router = useRouter()
@@ -21,7 +23,7 @@ const store = useLocalGameStore()
 const onlineGame = useOnlineGameStore()
 const { resultView, isGameOver } = storeToRefs(store)
 
-const useMock = computed(() => route.query.mock === '1')
+const useMock = computed(() => allowUiMock && route.query.mock === '1')
 const isOnline = computed(
   () =>
     onlineGame.isOnlineSession ||
@@ -68,28 +70,82 @@ const verdictDetail = computed(() => {
 /** Active calc step index (-1 = not started; steps.length = all done) */
 const activeStepIndex = ref(-1)
 const calcDone = ref(false)
+/** Animated final total (count-up when calc finishes) */
+const displayTotal = ref<number | null>(null)
+const showConfetti = ref(false)
+/** True after count-up finishes — triggers slam + confetti */
+const totalRevealDone = ref(false)
 
 let stepTimers: ReturnType<typeof setTimeout>[] = []
+let countRaf = 0
 
 const STEP_INTERVAL_MS = 480
 const STEP_START_MS = 220
+const COUNT_UP_MS = 620
 
 function clearStepTimers() {
   for (const t of stepTimers) clearTimeout(t)
   stepTimers = []
+  if (countRaf) {
+    cancelAnimationFrame(countRaf)
+    countRaf = 0
+  }
+}
+
+function animateTotalTo(target: number) {
+  if (countRaf) cancelAnimationFrame(countRaf)
+  totalRevealDone.value = false
+  const prefersReduce =
+    typeof window !== 'undefined' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  if (prefersReduce) {
+    displayTotal.value = target
+    totalRevealDone.value = true
+    showConfetti.value = true
+    return
+  }
+
+  const start = performance.now()
+  const from = 0
+  const span = target - from
+
+  function frame(now: number) {
+    const t = Math.min(1, (now - start) / COUNT_UP_MS)
+    const eased = 1 - (1 - t) ** 3
+    displayTotal.value = Math.round(from + span * eased)
+    if (t < 1) {
+      countRaf = requestAnimationFrame(frame)
+    } else {
+      displayTotal.value = target
+      totalRevealDone.value = true
+      showConfetti.value = true
+      countRaf = 0
+    }
+  }
+  countRaf = requestAnimationFrame(frame)
+}
+
+function onCalcDone() {
+  calcDone.value = true
+  const r = result.value
+  if (!r) return
+  animateTotalTo(r.finalTotal)
 }
 
 function runCalcSequence() {
   clearStepTimers()
   activeStepIndex.value = -1
   calcDone.value = false
+  showConfetti.value = false
+  totalRevealDone.value = false
+  displayTotal.value = null
 
   const r = result.value
   if (!r) return
 
   const steps = r.calcSteps
   if (steps.length === 0) {
-    calcDone.value = true
+    onCalcDone()
     return
   }
 
@@ -102,7 +158,7 @@ function runCalcSequence() {
 
   const doneT = setTimeout(() => {
     activeStepIndex.value = steps.length
-    calcDone.value = true
+    onCalcDone()
   }, STEP_START_MS + steps.length * STEP_INTERVAL_MS)
   stepTimers.push(doneT)
 }
@@ -118,9 +174,21 @@ function skipCalc() {
   clearStepTimers()
   if (result.value) {
     activeStepIndex.value = result.value.calcSteps.length
-    calcDone.value = true
+    onCalcDone()
   }
 }
+
+/** Self-perspective: did "あなた" survive / win the challenge? */
+const confettiPalette = computed(() => {
+  if (localMeta.value.isGameOver) return 'gold' as const
+  if (!result.value) return 'mixed' as const
+  // Challenge success → teal; bidder held → gold
+  return result.value.bidderWins ? ('gold' as const) : ('teal' as const)
+})
+
+const confettiDensity = computed(() =>
+  localMeta.value.isGameOver ? ('lg' as const) : ('md' as const),
+)
 
 watch(
   result,
@@ -135,6 +203,10 @@ onMounted(() => {
 })
 
 async function bootstrapResult() {
+  if (!allowUiMock && route.query.mock === '1') {
+    void router.replace({ name: 'home' })
+    return
+  }
   if (useMock.value) return
 
   if (isOnline.value || route.query.online === '1') {
@@ -150,6 +222,12 @@ async function bootstrapResult() {
         query: { online: '1', ...(code ? { code } : {}) },
       })
     }
+    return
+  }
+
+  // Production: local result only exists after a local game (DEV)
+  if (!allowLocalPlay) {
+    void router.replace({ name: 'home' })
     return
   }
 
@@ -249,10 +327,18 @@ function goHome() {
       v-if="result"
       class="relative z-10 mx-auto w-full max-w-3xl min-h-0 flex-1 overflow-y-auto px-4 py-6 safe-bottom sm:py-8"
     >
+      <!-- Confetti over the scroll area once calc resolves -->
+      <FxConfetti
+        v-if="showConfetti"
+        class="fixed inset-0 z-20"
+        :density="confettiDensity"
+        :palette="confettiPalette"
+      />
+
       <!-- Game over banner -->
       <section
         v-if="localMeta.isGameOver"
-        class="panel result-banner-in mb-4 overflow-hidden p-4 text-center ring-1 ring-gold-400/40 sm:p-5"
+        class="panel result-banner-in relative mb-4 overflow-hidden p-4 text-center ring-1 ring-gold-400/40 sm:p-5"
       >
         <p class="text-xs uppercase tracking-[0.2em] text-sand-dim">Winner</p>
         <h2 class="font-display text-2xl font-bold text-gold-100 sm:text-3xl">
@@ -265,8 +351,15 @@ function goHome() {
 
       <!-- Verdict banner (main “結果”) -->
       <section
-        class="panel result-banner-in mb-6 overflow-hidden p-5 text-center sm:p-6"
-        :class="result.bidderWins ? 'ring-1 ring-gold-400/35' : 'ring-1 ring-teal-soft/45'"
+        class="panel result-banner-in relative mb-6 overflow-hidden p-5 text-center sm:p-6"
+        :class="[
+          result.bidderWins ? 'ring-1 ring-gold-400/35' : 'ring-1 ring-teal-soft/45',
+          totalRevealDone
+            ? result.bidderWins
+              ? 'verdict-lose-glow'
+              : 'verdict-win-glow'
+            : '',
+        ]"
         style="animation-delay: 60ms"
       >
         <p class="mb-1 text-xs uppercase tracking-[0.18em] text-sand-dim">コヨーテ！ 結果</p>
@@ -320,17 +413,20 @@ function goHome() {
           >
             <span class="text-[10px] uppercase tracking-wider text-sand-dim">実際の合計</span>
             <span
-              class="font-display text-4xl font-bold tabular-nums text-gold-100 transition-opacity duration-500"
-              :class="calcDone ? 'opacity-100' : 'opacity-40'"
+              class="font-display text-4xl font-bold tabular-nums text-gold-100 transition-opacity duration-300"
+              :class="[
+                calcDone ? 'opacity-100' : 'opacity-40',
+                totalRevealDone ? 'total-slam' : '',
+              ]"
             >
-              {{ result.finalTotal }}
+              {{ displayTotal ?? '—' }}
             </span>
           </div>
         </div>
 
         <div
+          v-if="totalRevealDone"
           class="life-lost-pulse mt-5 inline-flex max-w-full items-center gap-2 rounded-2xl border border-red-400/35 bg-gradient-to-r from-red-950/70 to-night-900/80 px-4 py-2.5 text-sm text-red-100 shadow-[0_0_24px_rgba(248,113,113,0.12)]"
-          style="animation-delay: 400ms"
         >
           <PlayerAvatar
             :avatar="result.lifeLostAvatar"
@@ -346,7 +442,10 @@ function goHome() {
               <span class="font-normal text-red-200/90">がライフを 1 失った</span>
             </p>
           </div>
-          <span class="ml-1 text-lg leading-none text-rose-400" aria-hidden="true">♥</span>
+          <span
+            class="heart-crack ml-1 text-lg leading-none text-rose-400"
+            aria-hidden="true"
+          >♥</span>
         </div>
       </section>
 
@@ -354,11 +453,7 @@ function goHome() {
       <section class="panel mb-6 p-4 sm:p-5">
         <h3 class="mb-1 text-sm font-semibold text-gold-200">合計計算の過程</h3>
         <p class="mb-4 text-[11px] text-sand-dim">
-          {{
-            useMock
-              ? '仮置き表示（docs/game-rules.md の順序）。?mock=1'
-              : 'エンジン calculation 由来（docs/game-rules.md の順序）'
-          }}
+          特殊札の効果を順番に適用した結果です
         </p>
         <ol class="space-y-3">
           <li
@@ -386,17 +481,27 @@ function goHome() {
         </ol>
 
         <div
-          v-if="calcDone"
-          class="mt-4 flex items-center justify-center gap-2 rounded-xl border border-gold-400/25 bg-night-900/60 px-4 py-3"
+          v-if="totalRevealDone"
+          class="calc-done-pop mt-4 flex items-center justify-center gap-2 rounded-xl border border-gold-400/25 bg-night-900/60 px-4 py-3 shadow-[0_0_24px_rgba(201,168,76,0.12)]"
         >
           <span class="text-xs text-sand-dim">最終合計</span>
-          <span class="font-display text-2xl font-bold tabular-nums text-gold-100">{{
-            result.finalTotal
+          <span class="total-slam font-display text-2xl font-bold tabular-nums text-gold-100">{{
+            displayTotal ?? result.finalTotal
           }}</span>
           <span class="text-sand-dim">vs 宣言</span>
           <span class="font-display text-xl font-bold tabular-nums text-gold-300">{{
             result.bidValue
           }}</span>
+          <span
+            class="ml-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+            :class="
+              result.bidderWins
+                ? 'bg-gold-400/20 text-gold-200'
+                : 'bg-teal-deep/50 text-teal-soft'
+            "
+          >
+            {{ result.bidderWins ? '宣言成立' : 'チャレンジ成功' }}
+          </span>
         </div>
       </section>
 
@@ -456,7 +561,7 @@ function goHome() {
             class="btn-gold w-full sm:max-w-xs"
             @click="goNextRound"
           >
-            {{ useMock ? '次のラウンドへ（モック）' : '次のラウンドへ' }}
+            次のラウンドへ
           </button>
           <button type="button" class="btn-ghost w-full sm:w-auto" @click="goHome">
             トップへ

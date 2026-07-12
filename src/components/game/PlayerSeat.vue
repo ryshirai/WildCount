@@ -84,7 +84,8 @@ defineProps<{
     <!-- Bid chip (declared number), gold frame under hand -->
     <div
       v-if="player.lives > 0 && player.bid != null"
-      class="bid-chip"
+      :key="`bid-${player.id}-${player.bid}`"
+      class="bid-chip bid-chip--pop"
       :title="`宣言 ${player.bid}`"
     >
       {{ player.bid }}

@@ -54,7 +54,7 @@ const connectionLabel: Record<string, string> = {
     </div>
 
     <div class="flex items-center gap-2">
-      <button type="button" class="btn-ghost !p-2" title="チャット（MVP外）" aria-label="チャット">
+      <button type="button" class="btn-ghost !p-2" title="チャット（準備中）" aria-label="チャット">
         💬
       </button>
       <button type="button" class="btn-ghost !p-2" title="設定" aria-label="設定">

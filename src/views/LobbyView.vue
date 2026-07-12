@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import AppLogo from '@/components/common/AppLogo.vue'
 import MockBadge from '@/components/common/MockBadge.vue'
 import PlayerAvatar from '@/components/game/PlayerAvatar.vue'
+import { allowLocalPlay } from '@/config/runtime'
 import { mockLobby } from '@/data/mockLobby'
 import { AVATAR_ASSETS, avatarSrc } from '@/localGame/avatarCatalog'
 import { buildDemoLineup, DEFAULT_PROFILES } from '@/localGame/profiles'
@@ -171,6 +172,12 @@ async function bootstrapOnline() {
     route.query.online === '1' ||
     typeof route.query.code === 'string' ||
     onlineGame.isOnlineSession
+
+  // Production: offline lobby (fixed mock lineup) is not available
+  if (!wantsOnline && !allowLocalPlay) {
+    void router.replace({ name: 'home' })
+    return
+  }
   if (!wantsOnline) return
 
   // Already live
@@ -252,6 +259,11 @@ function startGame() {
     return
   }
 
+  if (!allowLocalPlay) {
+    showToast('オンラインルームでのみ開始できます')
+    void router.replace({ name: 'home' })
+    return
+  }
   if (!canStart.value) {
     showToast('ホストのみ開始できます（2人以上）')
     return
@@ -325,7 +337,7 @@ function leaveLobby() {
         v-if="isOnline && resumeFailed && !onlineGame.view"
         class="mb-4 rounded-2xl border border-gold-400/20 bg-night-900/60 px-4 py-3 text-center text-sm text-sand-dim"
       >
-        ルームに接続できませんでした。ホームからコードで再参加するか、Worker を確認してください。
+        ルームに接続できませんでした。ホームからコードで再参加するか、しばらくしてからお試しください。
         <button type="button" class="btn-ghost mt-2 text-xs" @click="leaveLobby">
           ホームへ
         </button>

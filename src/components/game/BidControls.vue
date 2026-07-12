@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { ref } from 'vue'
+
 const bid = defineModel<number>({ required: true })
 
 const props = defineProps<{
@@ -13,12 +15,37 @@ const emit = defineEmits<{
   challenge: []
 }>()
 
+const tickKey = ref(0)
+const declareFlash = ref(false)
+const challengeFlash = ref(false)
+
 function floor() {
   return props.minBid ?? 0
 }
 
 function adjust(delta: number) {
-  bid.value = Math.max(floor(), bid.value + delta)
+  const next = Math.max(floor(), bid.value + delta)
+  if (next === bid.value && delta < 0) return
+  bid.value = next
+  tickKey.value += 1
+}
+
+function onDeclare() {
+  if (props.canDeclare === false) return
+  declareFlash.value = true
+  window.setTimeout(() => {
+    declareFlash.value = false
+  }, 360)
+  emit('declare', bid.value)
+}
+
+function onChallenge() {
+  if (props.canChallenge === false) return
+  challengeFlash.value = true
+  window.setTimeout(() => {
+    challengeFlash.value = false
+  }, 360)
+  emit('challenge')
 }
 </script>
 
@@ -42,20 +69,21 @@ function adjust(delta: number) {
       >
         <button
           type="button"
-          class="btn-ghost !h-10 !w-10 !p-0 text-lg"
+          class="btn-ghost !h-10 !w-10 !p-0 text-lg active:scale-95"
           aria-label="1減らす"
           @click="adjust(-1)"
         >
           −
         </button>
         <span
-          class="min-w-[3rem] text-center font-display text-2xl font-bold text-gold-100"
+          :key="tickKey"
+          class="bid-step-tick min-w-[3rem] text-center font-display text-2xl font-bold text-gold-100 tabular-nums"
         >
           {{ bid }}
         </span>
         <button
           type="button"
-          class="btn-ghost !h-10 !w-10 !p-0 text-lg"
+          class="btn-ghost !h-10 !w-10 !p-0 text-lg active:scale-95"
           aria-label="1増やす"
           @click="adjust(1)"
         >
@@ -63,19 +91,31 @@ function adjust(delta: number) {
         </button>
       </div>
 
-      <button type="button" class="btn-ghost !px-3 !py-2.5 font-semibold" @click="adjust(1)">
+      <button
+        type="button"
+        class="btn-ghost !px-3 !py-2.5 font-semibold active:scale-95"
+        @click="adjust(1)"
+      >
         +1
       </button>
-      <button type="button" class="btn-ghost !px-3 !py-2.5 font-semibold" @click="adjust(5)">
+      <button
+        type="button"
+        class="btn-ghost !px-3 !py-2.5 font-semibold active:scale-95"
+        @click="adjust(5)"
+      >
         +5
       </button>
 
-      <div class="flex flex-1 flex-wrap gap-2" :class="mobile ? 'w-full basis-full' : 'min-w-[16rem] justify-end'">
+      <div
+        class="flex flex-1 flex-wrap gap-2"
+        :class="mobile ? 'w-full basis-full' : 'min-w-[16rem] justify-end'"
+      >
         <button
           type="button"
           class="btn-gold flex-1 sm:flex-none"
+          :class="declareFlash ? 'btn-fx-press' : ''"
           :disabled="canDeclare === false"
-          @click="emit('declare', bid)"
+          @click="onDeclare"
         >
           <template v-if="mobile">宣言する</template>
           <template v-else>{{ bid }}を宣言</template>
@@ -83,8 +123,9 @@ function adjust(delta: number) {
         <button
           type="button"
           class="btn-teal flex-1 sm:flex-none"
+          :class="challengeFlash ? 'btn-fx-press' : ''"
           :disabled="canChallenge === false"
-          @click="emit('challenge')"
+          @click="onChallenge"
         >
           <span aria-hidden="true">🐾</span>
           <template v-if="mobile">コヨーテ！（チャレンジ）</template>

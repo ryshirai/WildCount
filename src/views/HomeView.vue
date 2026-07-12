@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import AppLogo from '@/components/common/AppLogo.vue'
 import MockBadge from '@/components/common/MockBadge.vue'
+import { allowLocalPlay, allowUiMock, isDevBuild } from '@/config/runtime'
 import {
   buildDemoLineup,
   type DemoPlayerCount,
@@ -18,6 +19,10 @@ import { useOnlineGameStore } from '@/stores/onlineGame'
 const router = useRouter()
 const localGame = useLocalGameStore()
 const onlineGame = useOnlineGameStore()
+
+/** Dev-only surfaces (tree-shaken away from user-facing prod copy). */
+const showLocalDemo = allowLocalPlay
+const showDevMockNav = allowUiMock
 
 const roomCode = ref('')
 const playerName = ref(loadSavedDisplayName())
@@ -98,7 +103,7 @@ async function joinRoom() {
 }
 
 async function startLocalDemo() {
-  if (demoStarting.value) return
+  if (!allowLocalPlay || demoStarting.value) return
   demoStarting.value = true
   try {
     // Ensure online session does not interfere
@@ -217,18 +222,21 @@ onMounted(() => {
         </div>
       </section>
 
-      <!-- Local engine demo (primary for solo demo) -->
-      <section class="panel mb-4 p-5 ring-1 ring-gold-400/25 sm:p-6">
+      <!-- Local bot demo — DEV builds only (not in production) -->
+      <section
+        v-if="showLocalDemo"
+        class="panel mb-4 p-5 ring-1 ring-gold-400/25 sm:p-6"
+      >
         <div class="mb-1 flex items-center justify-center gap-2">
           <span class="chip !border-teal-soft/30 !bg-teal-deep/35 !text-teal-soft text-[10px]">
-            一人デモ
+            DEV · ローカル
           </span>
         </div>
         <h2 class="mb-1 text-center text-sm font-semibold text-gold-200">
           ローカル対戦
         </h2>
         <p class="mb-4 text-center text-xs text-sand-dim">
-          Worker なし・ボットとブラウザだけで宣言 → コヨーテ → 結果まで遊べます
+          開発用: Worker なし・ボットとブラウザだけで宣言 → コヨーテ → 結果
         </p>
 
         <label class="mb-3 block">
@@ -311,7 +319,7 @@ onMounted(() => {
           <span class="chip text-[10px]">オンライン</span>
         </div>
         <p class="mb-4 text-xs text-sand-dim">
-          ホストとしてルームを開き、6 文字コードを共有します（Worker 必要）
+          ホストとしてルームを開き、6 文字コードを友だちに共有します
         </p>
         <label class="mb-3 block">
           <span class="mb-1.5 block text-xs text-sand-dim">表示名（任意）</span>
@@ -332,7 +340,10 @@ onMounted(() => {
           {{ onlineBusy ? '接続中…' : 'ルームを作成する' }}
         </button>
         <p v-if="onlineBusy" class="mt-2 text-center text-[11px] text-sand-dim">
-          Worker（:8787）へ接続しています。進まないときは worker:dev を再起動してください
+          <template v-if="isDevBuild">
+            接続中…（進まないときは <code class="font-mono">npm run worker:dev</code> を確認）
+          </template>
+          <template v-else>サーバーに接続しています…</template>
         </p>
         <p
           v-else-if="onlineGame.lastError"
@@ -387,8 +398,9 @@ onMounted(() => {
         </p>
       </section>
 
-      <!-- Dev mock nav -->
+      <!-- Dev mock nav — production builds omit entirely -->
       <details
+        v-if="showDevMockNav"
         class="mt-6 rounded-2xl border border-gold-400/10 bg-night-900/40 p-4"
       >
         <summary
@@ -397,13 +409,14 @@ onMounted(() => {
           開発用 · UI モック導線
         </summary>
         <nav class="mt-3 flex flex-wrap items-center justify-center gap-2" aria-label="モック画面リンク">
-          <RouterLink to="/lobby" class="btn-ghost text-xs">待機ロビー（モック）</RouterLink>
-          <RouterLink to="/game" class="btn-ghost text-xs">ゲーム（エンジン）</RouterLink>
+          <RouterLink to="/lobby" class="btn-ghost text-xs">待機ロビー（オフライン）</RouterLink>
+          <RouterLink to="/game" class="btn-ghost text-xs">ゲーム（ローカル）</RouterLink>
           <RouterLink to="/game?mock=1" class="btn-ghost text-xs">ゲーム（固定モック）</RouterLink>
           <RouterLink to="/result?mock=1" class="btn-ghost text-xs">結果（固定モック）</RouterLink>
         </nav>
         <p class="mt-2 text-center text-[10px] text-sand-dim/80">
-          オンラインは上の作成/参加。Worker: <code class="font-mono">npm run worker:dev</code>
+          本番ビルドではこの導線とローカル対戦は非表示。Worker:
+          <code class="font-mono">npm run worker:dev</code>
         </p>
       </details>
     </div>

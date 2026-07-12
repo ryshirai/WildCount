@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { allowUiMock } from '@/config/runtime'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -27,12 +28,22 @@ const router = createRouter({
       component: () => import('@/views/ResultView.vue'),
       meta: { title: 'Wild Count — 結果' },
     },
-    // Back-compat for earlier mock entry
+    // Back-compat for earlier mock entry (DEV only; prod → home)
     {
       path: '/game-mock',
-      redirect: { name: 'game' },
+      redirect: () =>
+        allowUiMock ? { name: 'game', query: { mock: '1' } } : { name: 'home' },
     },
   ],
+})
+
+/** Strip ?mock=1 in production so deep links don't hit mock UI. */
+router.beforeEach((to) => {
+  if (allowUiMock) return true
+  if (to.query.mock == null) return true
+  const query = { ...to.query }
+  delete query.mock
+  return { path: to.path, query, hash: to.hash, replace: true }
 })
 
 router.afterEach((to) => {

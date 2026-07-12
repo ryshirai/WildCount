@@ -1309,6 +1309,83 @@
 
 ---
 
+## 2026-07-12 — backlog: ヘルプ差し込み・チャット未実装を明示
+
+- **UX-5** ヘルプ機能を `todo`（差し込み）で追加
+- **UX-6** チャットは UI シェルのみ・未実装を `idea` で明記
+- 直近着手順にヘルプを上位
+
+---
+
+## 2026-07-12 — 本番サーフェス整理（A: オンラインのみ）
+
+### 背景・目的
+
+- 本番リリース想定で mock / ローカル対戦 / 開発用コピーがユーザーに出ないようにする（方針 A + ローカルは本番非掲載）。
+
+### 実施内容
+
+1. `src/config/runtime.ts` — `allowLocalPlay` / `allowUiMock` = `import.meta.env.DEV`
+2. Home: ローカル対戦セクション・開発用 mock 導線を DEV のみ
+3. Game / Result / Lobby: 本番で offline local・`?mock=1` はホームへリダイレクト
+4. Router: 本番で `mock` クエリを strip；`/game-mock` は home
+5. MockBadge は DEV のみ表示；結果計算の docs パス文言を製品コピーに；MVP 外 → 準備中
+
+### 明示的にやっていないこと
+
+- localGame コードの prod バンドル完全除外（動的 import 化は未）
+- HOLD-5 本番 deploy
+
+### 確認結果
+
+- `npm run build` / `npm test` 成功
+
+---
+
+## 2026-07-12 — ドーパミン系マイクロ演出（bid / 結果 / 手番）
+
+### 背景・目的
+
+- 既存のコヨーテ・カットイン／カード公開に加え、宣言更新・結果確定・手番到来など「報酬感」のある瞬間に CSS 中心の演出を足す。
+
+### 実施内容
+
+1. **中央宣言** — 数値ポップ／グロー／`+N` 浮上（`CurrentBidDisplay`）
+2. **操作** — ステッパー tick、宣言・コヨーテボタンの press フラッシュ（`BidControls`）
+3. **席** — 宣言チップ pop-in（PC / モバイル）
+4. **手番** — 「あなたの手番」バーの turn-arrive パルス
+5. **結果** — 合計カウントアップ → スラム、紙吹雪（`FxConfetti`）、ライフ −1 の heart crack、計算完了バッジ
+6. **a11y** — `prefers-reduced-motion: reduce` で主要アニメ無効
+
+### 主なパス変更
+
+| パス | 内容 |
+|------|------|
+| `src/components/game/CurrentBidDisplay.vue` | 宣言数字 FX |
+| `src/components/common/FxConfetti.vue` | CSS 紙吹雪 |
+| `src/components/game/BidControls.vue` | ステッパー / ボタン FX |
+| `src/components/game/PlayerSeat.vue` / `MobilePlayerCarousel.vue` | bid-chip pop |
+| `src/views/ResultView.vue` / `GameView.vue` | 結果・手番演出接続 |
+| `src/styles/main.css` | keyframes / reduced-motion |
+| `docs/ui-mock.md` / `docs/backlog.md` | メモ |
+
+### 明示的にやっていないこと
+
+- 効果音 / 触覚（Web Audio・vibration）
+- canvas パーティクルや外部ライブラリ
+- カードめくり一枚ごとのキラキラ強化
+
+### 確認結果
+
+- `npm run build` 成功
+
+### 次に考えられる作業
+
+1. 任意: 効果音（宣言 / コヨーテ / 勝敗）トグル
+2. カード公開時の special 札ハイライト強化
+
+---
+
 ## ログの書き方
 
 **正規のルールは `AGENTS.md` を参照。** 変更のあったセッションでは、このファイルに日付見出しで **追記** する（過去エントリは消さない）。
