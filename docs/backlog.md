@@ -57,6 +57,7 @@
 | **UX-7** | **done** | スタンプリアクション | 固定 10 種。`reaction` + chat 履歴 + 浮遊オーバーレイ。メンション・未読なし |
 | UX-8 | done | 表示名入力（ホーム共通・ロビー変更） | 作成/参加で共有フィールド。ロビーで「名前を反映」 |
 | UX-9 | done | ロビー意図的退出で席削除 | `leave` メッセージ。切断ゴーストではなく一覧から消える |
+| **UX-10** | **done** | **ロビー山札カスタマイズ** | host `set_deck` + `PlayerView.deck`。`DeckSettingsPanel`。10〜120 枚。`start` で適用 |
 | TEST-1 | idea | Playwright E2E（2 ブラウザ） | design-overview §7。手動 2 タブが当面の受け入れ |
 | OPS-1 | idea | Worker ヘルス表示（ホームに「Worker 未接続」） | create タイムアウト文言は済 |
 
@@ -89,4 +90,4 @@
 2. 完了したら状態を `done` にし、数セッション後に表から落としてよい  
 3. Phase 1 スライスの ID（P1-x）は `phase1-multiplayer.md` §10 と揃える  
 
-最終更新: 2026-07-12（UX-3 途中抜け + 結果ゲート）
+最終更新: 2026-07-12（UX-10 ロビー山札カスタマイズ）

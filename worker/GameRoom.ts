@@ -18,6 +18,7 @@ import {
   appendStampReaction,
   applyDueDisconnectPolicies,
   applyResultDismiss,
+  applySetDeck,
   buildPlayerView,
   clearDisconnectDeadline,
   createEmptyRoom,
@@ -41,6 +42,7 @@ import {
   type ClientGameAction,
   type Env,
   type ServerMessage,
+  type WireDeckComposition,
 } from './types'
 
 const STORAGE_ROOM = 'room'
@@ -240,6 +242,9 @@ export class GameRoom {
         return
       case 'end_room':
         await this.handleEndRoom(ws, room)
+        return
+      case 'set_deck':
+        await this.handleSetDeck(ws, room, msg.deck)
         return
       default:
         this.send(ws, {
@@ -729,6 +734,55 @@ export class GameRoom {
     this.broadcastView(room)
   }
 
+  /**
+   * Host only, lobby only: update mountain deck composition for next start.
+   */
+  private async handleSetDeck(
+    ws: WebSocket,
+    room: RoomState,
+    deck: WireDeckComposition,
+  ): Promise<void> {
+    const playerId = this.playerIdOf(ws)
+    if (!playerId) {
+      this.send(ws, {
+        type: 'error',
+        code: 'BAD_REQUEST',
+        message: 'Join the room first',
+      })
+      return
+    }
+
+    if (playerId !== room.hostId) {
+      this.send(ws, {
+        type: 'error',
+        code: 'UNAUTHORIZED',
+        message: 'Only the host can change the deck',
+      })
+      return
+    }
+
+    if (room.status !== 'open') {
+      this.send(ws, {
+        type: 'error',
+        code: 'GAME_ALREADY_STARTED',
+        message: 'Cannot change deck after start',
+      })
+      return
+    }
+
+    applySetDeck(room, deck)
+    room.lastActivityAt = Date.now()
+    room.revision += 1
+    await this.saveRoom(room)
+    this.broadcast(room, {
+      type: 'event',
+      level: 'info',
+      message: '山札の構成を更新しました',
+      code: 'DECK_UPDATED',
+    })
+    this.broadcastView(room)
+  }
+
   private async handleStart(ws: WebSocket, room: RoomState): Promise<void> {
     const playerId = this.playerIdOf(ws)
     if (!playerId) {
@@ -779,7 +833,14 @@ export class GameRoom {
     try {
       const ids = room.players.map((p) => p.id)
       const seed = cryptoSeed()
-      const game = startGame({ playerIds: ids }, seedRandom(seed))
+      ensureLifecycleFields(room)
+      const game = startGame(
+        {
+          playerIds: ids,
+          config: { deck: room.deck },
+        },
+        seedRandom(seed),
+      )
       room.game = game
       room.status = 'playing'
       room.bidHistory = []

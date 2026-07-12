@@ -14,6 +14,7 @@ import type {
   PlayerView,
   ServerMessage,
   StampId,
+  WireDeckComposition,
 } from '@/online/protocol'
 import {
   formatHttpErrorBody,
@@ -380,7 +381,7 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
   /**
    * Room gone (host dissolve / idle purge). No reconnect; drop resume token.
    */
-  function applyRoomClosed(reason: string | null | undefined): void {
+  function applyRoomClosed(_reason: string | null | undefined): void {
     if (lastErrorCode.value === 'ROOM_CLOSED' && intentionalClose) {
       // Idempotent (room_closed message + close code 4001/4002)
       clearReconnectTimer()
@@ -874,6 +875,12 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     send({ type: 'start' })
   }
 
+  /** Host only, lobby: apply mountain deck composition for next game. */
+  function setDeck(deck: WireDeckComposition): void {
+    clearError()
+    send({ type: 'set_deck', deck })
+  }
+
   function sendAction(action: ClientGameAction): void {
     clearError()
     const actionId =
@@ -1065,6 +1072,7 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     reconnect,
     setReady,
     startGame,
+    setDeck,
     placeBid,
     challenge,
     clearPendingResult,

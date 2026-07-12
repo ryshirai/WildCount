@@ -32,11 +32,19 @@ export {
   cardLabel,
   countCards,
   validateDeckComposition,
+  validateRoomDeckComposition,
   resolveDeckComposition,
   defineDeckComposition,
+  cloneDeckComposition,
+  toEditorDeckComposition,
+  isStandardDeckComposition,
+  deckSummaryLabel,
   STANDARD_DECK,
   DECK_PRESETS,
   DECK_SIZE,
+  MAX_CUSTOM_DECK_CARDS,
+  MIN_CUSTOM_DECK_CARDS,
+  DECK_EDITOR_NUMBER_VALUES,
 } from './deck'
 export type { DeckPresetId } from './deck'
 

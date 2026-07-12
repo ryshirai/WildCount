@@ -12,6 +12,7 @@ import {
   applyDueDisconnectPolicies,
   applyDueHostTransfer,
   applyResultDismiss,
+  applySetDeck,
   buildPlayerView,
   canHostStart,
   clearDisconnectDeadline,
@@ -21,6 +22,7 @@ import {
   markPlayerDisconnected,
   nextAlarmAt,
   parseClientMessage,
+  parseWireDeck,
   pickNextHost,
   removePlayerFromRoom,
   resetRoomForRematch,
@@ -30,7 +32,12 @@ import {
   type RoomPlayer,
   type RoomState,
 } from './roomLogic'
-import { startGame, seedRandom } from '../src/domain/game'
+import {
+  countCards,
+  seedRandom,
+  STANDARD_DECK,
+  startGame,
+} from '../src/domain/game'
 import { CHAT_COOLDOWN_MS, MAX_CHAT_TEXT_LENGTH, STAMP_CATALOG } from './types'
 import type { PendingResultSnapshot } from './maskedView'
 
@@ -85,6 +92,63 @@ describe('roomLogic', () => {
     expect(parseClientMessage({ type: 'nope' })).toMatchObject({
       error: expect.stringContaining('Unknown'),
     })
+  })
+
+  it('parses set_deck and rejects invalid / too-small decks', () => {
+    const ok = parseClientMessage({
+      type: 'set_deck',
+      deck: {
+        id: 'standard',
+        label: 'スタンダード',
+        numbers: STANDARD_DECK.numbers.map((n) => ({
+          value: n.value,
+          count: n.count,
+        })),
+        specials: { ...STANDARD_DECK.specials },
+      },
+    })
+    expect(ok).toMatchObject({ type: 'set_deck' })
+    if ('type' in ok && ok.type === 'set_deck') {
+      expect(countCards(ok.deck)).toBe(36)
+    }
+
+    expect(
+      parseClientMessage({
+        type: 'set_deck',
+        deck: {
+          numbers: [{ value: 1, count: 2 }],
+          specials: { double: 0, max_to_zero: 0, redraw: 0, zero_mix: 0 },
+        },
+      }),
+    ).toMatchObject({ error: expect.stringMatching(/10|枚/) })
+
+    expect(parseClientMessage({ type: 'set_deck' })).toMatchObject({
+      error: expect.any(String),
+    })
+  })
+
+  it('createEmptyRoom defaults to standard deck; set_deck updates view', () => {
+    const room = createEmptyRoom('DECK01')
+    expect(room.deck.id).toBe('standard')
+    expect(countCards(room.deck)).toBe(36)
+    expect(buildPlayerView(room, null).deck.id).toBe('standard')
+
+    const custom = parseWireDeck({
+      id: 'custom',
+      label: 'カスタム',
+      numbers: [
+        { value: 5, count: 8 },
+        { value: 1, count: 4 },
+        { value: 0, count: 2 },
+      ],
+      specials: { double: 1, max_to_zero: 0, redraw: 0, zero_mix: 0 },
+    })
+    expect('deck' in custom).toBe(true)
+    if (!('deck' in custom)) return
+    applySetDeck(room, custom.deck)
+    expect(room.deck.id).toBe('custom')
+    expect(buildPlayerView(room, null).deck.label).toBe('カスタム')
+    expect(countCards(room.deck)).toBe(15)
   })
 
   it('removes lobby seat and reassigns host on intentional leave', () => {

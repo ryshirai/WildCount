@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { STANDARD_DECK } from '@/domain/game'
 import { onlineToGameView } from '@/mappers/onlineToGameView'
 import type { PlayerView } from '@/online/protocol'
 
@@ -12,6 +13,15 @@ function sampleView(): PlayerView {
     canStart: false,
     playerCount: 2,
     maxPlayers: 10,
+    deck: {
+      id: STANDARD_DECK.id,
+      label: STANDARD_DECK.label,
+      numbers: STANDARD_DECK.numbers.map((n) => ({
+        value: n.value,
+        count: n.count,
+      })),
+      specials: { ...STANDARD_DECK.specials },
+    },
     players: [
       {
         id: 'a',

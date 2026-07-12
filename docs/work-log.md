@@ -2251,6 +2251,85 @@
 
 ---
 
+## 2026-07-12 — ロビー山札カスタマイズ（UX-10）
+
+### 背景・目的
+- ルーム作成後、ホストが山札の枚数・構成を変えられるようにする（ドメインの `DeckComposition` をオンラインに接続）
+
+### 実施内容
+1. `RoomState.deck` + `PlayerView.deck`、WS `set_deck`（host / ロビーのみ）
+2. `start` 時に `config.deck: room.deck` を渡して配札
+3. ロビー UI `DeckSettingsPanel`（数字・特殊の ±、スタンダード復帰、適用）
+4. 10〜120 枚バリデーション、旧 DO スナップショットは standard へ migrate
+5. テスト（deck / roomLogic）と docs 更新
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/domain/game/deck.ts` | clone / editor / room validate / summary |
+| `worker/types.ts` · `roomLogic.ts` · `GameRoom.ts` | set_deck / deck 同期 / start 適用 |
+| `src/online/protocol.ts` · `src/stores/onlineGame.ts` | クライアント wire + `setDeck` |
+| `src/components/lobby/DeckSettingsPanel.vue` · `LobbyView.vue` | 山札 UI |
+| `docs/phase1-multiplayer.md` · `game-rules.md` · `backlog.md` | 仕様・UX-10 done |
+
+### 明示的にやっていないこと
+- 追加プリセット（54 枚 large 等）
+- ホーム作成時の事前デッキ選択
+- ローカル対戦ロビーからのカスタム山札 UI
+
+### 確認結果
+- `npm test` — 124 passed
+- `npm run typecheck` / `lint` / `build` — 成功
+
+### 次に考えられる作業
+1. large プリセット追加（card-design と整合）
+2. ゲーム画面に「この山札 N 枚」チップ表示
+
+---
+
+## 2026-07-12 — 山札サマリー（カスタマイズ前）UI 磨き
+
+### 背景・目的
+- カスタマイズ画面を開く前の折りたたみ表示がプレーンだったので、夜砂漠テーマに寄せて見栄えを上げる
+
+### 実施内容
+1. カード山のファンプレビュー、総枚数ヒーロー、数字/特殊の内訳バッジ
+2. 横スクロールの構成プレビュー（ミニタイル × 枚数）
+3. ホスト向け CTA「山札をカスタマイズ」、ゲストは詳細閲覧
+4. エディタ側も数字・特殊をミニカード面で表示
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/components/lobby/DeckSettingsPanel.vue` | 折りたたみサマリーのデザイン強化 |
+
+### 確認結果
+- lint / typecheck / build 成功
+
+---
+
+## 2026-07-12 — ゲーム中の山札構成確認
+
+### 背景・目的
+- プレイ中に「この山札何枚構成だっけ」を確認できるようにする（残り山札・捨て札は対象外。開始時構成の総数）
+
+### 実施内容
+1. `DeckInfoModal` … 総枚数 + 数字/特殊内訳 + 構成タイル
+2. `GameHeader` に「山」ボタン（desktop / mobile）
+3. オンラインは `PlayerView.deck`、ローカルは `state.config.deck`
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/components/game/DeckInfoModal.vue` | 新規 |
+| `src/components/game/GameHeader.vue` | deck emit |
+| `src/views/GameView.vue` | モーダル接続 |
+
+### 確認結果
+- lint / typecheck / test (124) / build 成功
+
+---
+
 ## ログの書き方
 
 **正規のルールは `AGENTS.md` を参照。** 変更のあったセッションでは、このファイルに日付見出しで **追記** する（過去エントリは消さない）。

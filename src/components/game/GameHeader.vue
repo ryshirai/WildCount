@@ -9,6 +9,7 @@ defineProps<{
 
 const emit = defineEmits<{
   help: []
+  deck: []
   chat: []
   stamp: []
   leave: []
@@ -72,6 +73,15 @@ const connectionLabel: Record<string, string> = {
       </button>
       <button
         type="button"
+        class="btn-ghost !p-2 font-display text-sm font-bold"
+        title="山札の構成"
+        aria-label="山札の構成"
+        @click="emit('deck')"
+      >
+        山
+      </button>
+      <button
+        type="button"
         class="btn-ghost !p-2"
         title="スタンプ"
         aria-label="スタンプ"
@@ -105,15 +115,26 @@ const connectionLabel: Record<string, string> = {
     v-else
     class="flex items-center justify-between border-b border-gold-400/15 bg-night-900/80 px-3 py-2.5 backdrop-blur-md"
   >
-    <button
-      type="button"
-      class="btn-ghost !p-2 text-base font-bold"
-      title="遊び方・ルール"
-      aria-label="遊び方・ルール"
-      @click="emit('help')"
-    >
-      ?
-    </button>
+    <div class="flex items-center gap-0.5">
+      <button
+        type="button"
+        class="btn-ghost !p-2 text-base font-bold"
+        title="遊び方・ルール"
+        aria-label="遊び方・ルール"
+        @click="emit('help')"
+      >
+        ?
+      </button>
+      <button
+        type="button"
+        class="btn-ghost !p-2 font-display text-sm font-bold"
+        title="山札の構成"
+        aria-label="山札の構成"
+        @click="emit('deck')"
+      >
+        山
+      </button>
+    </div>
     <div class="flex items-center gap-2">
       <div class="h-7 w-7 shrink-0 overflow-hidden rounded-full ring-1 ring-gold-400/35">
         <img

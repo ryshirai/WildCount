@@ -104,11 +104,25 @@ type ClientMessage =
   | { type: 'reaction'; stampId: StampId }      // UX-7 固定スタンプ（join 後）
   | { type: 'leave' }                           // 意図的退出（ロビー: 席削除 / 対戦中: 即脱落）
   | { type: 'end_room' }                        // host only: ルーム解散（全員 room_closed + storage 削除）
+  | { type: 'set_deck'; deck: WireDeckComposition } // host only / ロビーのみ: 山札構成
 
 /** domain GameAction のうちプレイヤー操作分（START_GAME は start メッセージ） */
 type ClientGameAction =
   | { type: 'PLACE_BID'; value: number }
   | { type: 'CHALLENGE' }
+
+/** 山札構成（domain DeckComposition と同形の JSON） */
+type WireDeckComposition = {
+  id?: string
+  label?: string
+  numbers: Array<{ value: number; count: number }>
+  specials: {
+    double: number
+    max_to_zero: number
+    redraw: number
+    zero_mix: number
+  }
+}
 ```
 
 ### 4.2 Server → Client
@@ -224,7 +238,8 @@ interface RoomPlayer {
 |------------|------------|------|
 | ルーム作成 | なし | meta のみ |
 | join（2 人目以降） | なし（lobby） / 観戦は非対応 MVP | ゲーム中 join は拒否 or 観戦（**MVP: 開始後の新規 join 拒否**） |
-| host `start` | `createInitialState` → `applyAction(..., START_GAME)` または `startGame` | 参加者 id 順で seat。rng は DO 内 `seedRandom` or crypto |
+| host `start` | `startGame({ playerIds, config: { deck: room.deck } })` | 参加者 id 順で seat。rng は DO 内 `seedRandom` or crypto。山札はロビー `set_deck` の結果 |
+| host `set_deck` | `room.deck` 更新 + view broadcast | ロビーのみ。10〜120 枚。`PlayerView.deck` で全員同期 |
 | 宣言 / コヨーテ | `applyAction(state, PLACE_BID \| CHALLENGE, rng)` | 事前に `getLegalMoves` / 手番検証 |
 | チャレンジ後 | `lastOutcome` + 直前 hands を `pendingResult` 化 | domain は既に次 R へ進んでいる点に注意（ローカルデモと同じ） |
 | 合法手表示 | `getLegalMoves(state)` | 手番者の view に載せる |

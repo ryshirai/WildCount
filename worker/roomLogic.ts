@@ -2,7 +2,15 @@
  * Pure room helpers (testable without Durable Object runtime).
  */
 
-import { forceEliminatePlayer, type GameState } from '../src/domain/game'
+import {
+  cloneDeckComposition,
+  forceEliminatePlayer,
+  GameError,
+  STANDARD_DECK,
+  validateRoomDeckComposition,
+  type DeckComposition,
+  type GameState,
+} from '../src/domain/game'
 import {
   buildMaskedGame,
   viewPhase,
@@ -26,6 +34,7 @@ import {
   type PlayerView,
   type PlayerViewMember,
   type StampId,
+  type WireDeckComposition,
 } from './types'
 
 export type RoomStatus = 'open' | 'playing' | 'closed'
@@ -68,6 +77,11 @@ export interface RoomState {
   chatLog: ChatMessage[]
   /** playerId → last successful chat epoch ms (rate limit) */
   chatLastAt: Record<string, number>
+  /**
+   * Mountain deck composition for the next startGame.
+   * Host edits via set_deck in lobby. Rematch keeps this value.
+   */
+  deck: DeckComposition
 }
 
 export interface WsAttachment {
@@ -92,6 +106,7 @@ export function createEmptyRoom(roomCode: string, now = Date.now()): RoomState {
     appliedActions: {},
     chatLog: [],
     chatLastAt: {},
+    deck: cloneDeckComposition(STANDARD_DECK),
   }
 }
 
@@ -320,6 +335,13 @@ export function parseClientMessage(raw: unknown): ClientMessage | { error: strin
       return { type: 'leave' }
     case 'end_room':
       return { type: 'end_room' }
+    case 'set_deck': {
+      const parsed = parseWireDeck(msg.deck)
+      if ('error' in parsed) {
+        return { error: parsed.error }
+      }
+      return { type: 'set_deck', deck: parsed.deck }
+    }
     case 'resume': {
       if (typeof msg.resumeToken !== 'string' || !msg.resumeToken) {
         return { error: 'resumeToken required' }
@@ -382,6 +404,8 @@ export function buildPlayerView(
 
   const phase = viewPhase(room.status, pendingResult, room.game)
 
+  const deck = room.deck ?? cloneDeckComposition(STANDARD_DECK)
+
   return {
     phase,
     roomCode: room.roomCode,
@@ -392,6 +416,7 @@ export function buildPlayerView(
     canStart: canHostStart(room, selfPlayerId),
     playerCount: room.players.length,
     maxPlayers: MAX_PLAYERS,
+    deck: toWireDeck(deck),
     game: room.game
       ? buildMaskedGame(
           room.game,
@@ -402,6 +427,136 @@ export function buildPlayerView(
         )
       : undefined,
     pendingResult: pendingResult ?? undefined,
+  }
+}
+
+/** Domain / room deck → wire payload (plain JSON). */
+export function toWireDeck(deck: DeckComposition): WireDeckComposition {
+  return {
+    id: deck.id,
+    label: deck.label,
+    numbers: deck.numbers.map((n) => ({ value: n.value, count: n.count })),
+    specials: { ...deck.specials },
+  }
+}
+
+/**
+ * Parse and validate a client set_deck payload.
+ * Returns a plain DeckComposition safe to store on RoomState.
+ */
+export function parseWireDeck(
+  raw: unknown,
+): { deck: WireDeckComposition } | { error: string } {
+  if (!raw || typeof raw !== 'object') {
+    return { error: '山札の構成データが不正です' }
+  }
+  const d = raw as Record<string, unknown>
+  if (!Array.isArray(d.numbers)) {
+    return { error: '山札の数字カード一覧が不正です' }
+  }
+  if (!d.specials || typeof d.specials !== 'object') {
+    return { error: '山札の特殊カード一覧が不正です' }
+  }
+  const specialsRaw = d.specials as Record<string, unknown>
+  const specials = {
+    double: specialsRaw.double,
+    max_to_zero: specialsRaw.max_to_zero,
+    redraw: specialsRaw.redraw,
+    zero_mix: specialsRaw.zero_mix,
+  }
+  for (const [k, v] of Object.entries(specials)) {
+    if (typeof v !== 'number' || !Number.isInteger(v) || v < 0 || v > 50) {
+      return { error: `特殊カード「${k}」の枚数は 0〜50 の整数です` }
+    }
+  }
+
+  const numbers: Array<{ value: number; count: number }> = []
+  if (d.numbers.length > 40) {
+    return { error: '数字カードの種類が多すぎます' }
+  }
+  for (const entry of d.numbers) {
+    if (!entry || typeof entry !== 'object') {
+      return { error: '山札の数字カード一覧が不正です' }
+    }
+    const e = entry as Record<string, unknown>
+    if (
+      typeof e.value !== 'number' ||
+      !Number.isInteger(e.value) ||
+      e.value < -100 ||
+      e.value > 100
+    ) {
+      return { error: 'カードの値は -100〜100 の整数です' }
+    }
+    if (
+      typeof e.count !== 'number' ||
+      !Number.isInteger(e.count) ||
+      e.count < 0 ||
+      e.count > 50
+    ) {
+      return { error: 'カード枚数は 0〜50 の整数です' }
+    }
+    if (e.count === 0) continue
+    numbers.push({ value: e.value, count: e.count })
+  }
+
+  const id =
+    typeof d.id === 'string' ? d.id.trim().slice(0, 32) || undefined : undefined
+  const label =
+    typeof d.label === 'string'
+      ? d.label.trim().slice(0, 40) || undefined
+      : undefined
+
+  const composition: DeckComposition = {
+    id,
+    label,
+    numbers,
+    specials: {
+      double: specials.double as number,
+      max_to_zero: specials.max_to_zero as number,
+      redraw: specials.redraw as number,
+      zero_mix: specials.zero_mix as number,
+    },
+  }
+
+  try {
+    validateRoomDeckComposition(composition)
+  } catch (err) {
+    if (err instanceof GameError) {
+      // Map engine English messages to short Japanese for UI
+      const m = err.message
+      if (m.includes('at least')) {
+        return { error: '山札は10枚以上必要です' }
+      }
+      if (m.includes('at most')) {
+        return { error: '山札は120枚以下にしてください' }
+      }
+      if (m.includes('at least 1')) {
+        return { error: '山札に1枚以上カードを入れてください' }
+      }
+      return { error: '山札の構成が不正です' }
+    }
+    return { error: '山札の構成が不正です' }
+  }
+
+  return {
+    deck: toWireDeck(composition),
+  }
+}
+
+/**
+ * Apply host deck change in lobby. Mutates room.deck.
+ * Caller bumps revision / lastActivity / save / broadcast.
+ */
+export function applySetDeck(
+  room: RoomState,
+  deck: WireDeckComposition,
+): void {
+  ensureLifecycleFields(room)
+  room.deck = {
+    id: deck.id,
+    label: deck.label,
+    numbers: deck.numbers.map((n) => ({ value: n.value, count: n.count })),
+    specials: { ...deck.specials },
   }
 }
 
@@ -445,6 +600,7 @@ export function ensureLifecycleFields(room: RoomState): void {
   if (!room.resultAcks) room.resultAcks = {}
   if (!room.chatLog) room.chatLog = []
   if (!room.chatLastAt) room.chatLastAt = {}
+  if (!room.deck) room.deck = cloneDeckComposition(STANDARD_DECK)
 }
 
 export function connectedPlayerCount(room: RoomState): number {

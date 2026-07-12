@@ -47,6 +47,26 @@ export type DeckPresetId = keyof typeof DECK_PRESETS
 /** Card count of the default preset (backward-compatible alias). */
 export const DECK_SIZE = countCards(STANDARD_DECK)
 
+/**
+ * Soft upper bound for room-custom decks (abuse / DO payload).
+ * Engine itself only requires total ≥ 1.
+ */
+export const MAX_CUSTOM_DECK_CARDS = 120
+
+/**
+ * Minimum cards so a full lobby (10) can be dealt one each.
+ * Host UI and set_deck enforce this.
+ */
+export const MIN_CUSTOM_DECK_CARDS = 10
+
+/**
+ * Number values shown in the lobby deck editor (standard set).
+ * Counts may be zero to omit a value.
+ */
+export const DECK_EDITOR_NUMBER_VALUES: readonly number[] = Object.freeze([
+  20, 15, 10, 5, 4, 3, 2, 1, 0, -5, -10,
+])
+
 // ---------------------------------------------------------------------------
 // Composition helpers
 // ---------------------------------------------------------------------------
@@ -58,6 +78,71 @@ export function countCards(composition: DeckComposition): number {
   return (
     numbers + s.double + s.max_to_zero + s.redraw + s.zero_mix
   )
+}
+
+/** Deep-clone a composition into a mutable plain object (for UI / room storage). */
+export function cloneDeckComposition(source: DeckComposition): DeckComposition {
+  return {
+    id: source.id,
+    label: source.label,
+    numbers: source.numbers.map((n) => ({ value: n.value, count: n.count })),
+    specials: { ...source.specials },
+  }
+}
+
+/**
+ * Build an editor-friendly composition: fixed number rows + specials.
+ * Missing values from DECK_EDITOR_NUMBER_VALUES get count 0.
+ */
+export function toEditorDeckComposition(
+  source: DeckComposition = STANDARD_DECK,
+): DeckComposition {
+  const byValue = new Map(source.numbers.map((n) => [n.value, n.count]))
+  return {
+    id: source.id,
+    label: source.label,
+    numbers: DECK_EDITOR_NUMBER_VALUES.map((value) => ({
+      value,
+      count: byValue.get(value) ?? 0,
+    })),
+    specials: { ...source.specials },
+  }
+}
+
+/** True when composition matches the standard preset counts (ignores id/label). */
+export function isStandardDeckComposition(composition: DeckComposition): boolean {
+  if (countCards(composition) !== countCards(STANDARD_DECK)) return false
+  const stdBy = new Map(STANDARD_DECK.numbers.map((n) => [n.value, n.count]))
+  for (const n of composition.numbers) {
+    if (n.count === 0) continue
+    if ((stdBy.get(n.value) ?? 0) !== n.count) return false
+  }
+  for (const [value, count] of stdBy) {
+    const found = composition.numbers.find((n) => n.value === value)
+    if ((found?.count ?? 0) !== count) return false
+  }
+  const s = composition.specials
+  const ss = STANDARD_DECK.specials
+  return (
+    s.double === ss.double &&
+    s.max_to_zero === ss.max_to_zero &&
+    s.redraw === ss.redraw &&
+    s.zero_mix === ss.zero_mix
+  )
+}
+
+/**
+ * Human-readable short label for lobby chips.
+ */
+export function deckSummaryLabel(composition: DeckComposition): string {
+  const total = countCards(composition)
+  if (composition.label?.trim()) {
+    return `${composition.label.trim()}（${total}枚）`
+  }
+  if (isStandardDeckComposition(composition)) {
+    return `スタンダード（${total}枚）`
+  }
+  return `カスタム（${total}枚）`
 }
 
 /**
@@ -97,6 +182,27 @@ export function validateDeckComposition(composition: DeckComposition): void {
   const total = countCards(composition)
   if (total < 1) {
     throw new GameError('Deck must contain at least 1 card', 'INVALID_DECK')
+  }
+}
+
+/**
+ * Stricter validation for room lobby customization (host set_deck).
+ * Ensures enough cards for a full lobby and caps size.
+ */
+export function validateRoomDeckComposition(composition: DeckComposition): void {
+  validateDeckComposition(composition)
+  const total = countCards(composition)
+  if (total < MIN_CUSTOM_DECK_CARDS) {
+    throw new GameError(
+      `Deck must have at least ${MIN_CUSTOM_DECK_CARDS} cards (got ${total})`,
+      'INVALID_DECK',
+    )
+  }
+  if (total > MAX_CUSTOM_DECK_CARDS) {
+    throw new GameError(
+      `Deck must have at most ${MAX_CUSTOM_DECK_CARDS} cards (got ${total})`,
+      'INVALID_DECK',
+    )
   }
 }
 

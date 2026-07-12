@@ -40,10 +40,25 @@ export type ClientMessage =
   | { type: 'leave' }
   /** Host only: dissolve room for everyone */
   | { type: 'end_room' }
+  /** Host only, lobby: set mountain deck composition */
+  | { type: 'set_deck'; deck: WireDeckComposition }
 
 export type ClientGameAction =
   | { type: 'PLACE_BID'; value: number }
   | { type: 'CHALLENGE' }
+
+/** Mirror of worker WireDeckComposition / domain DeckComposition. */
+export interface WireDeckComposition {
+  id?: string
+  label?: string
+  numbers: Array<{ value: number; count: number }>
+  specials: {
+    double: number
+    max_to_zero: number
+    redraw: number
+    zero_mix: number
+  }
+}
 
 export type ServerMessage =
   | {
@@ -157,6 +172,8 @@ export interface PlayerView {
   canStart: boolean
   playerCount: number
   maxPlayers: number
+  /** Mountain deck for next game (host can edit in lobby) */
+  deck: WireDeckComposition
   game?: MaskedGamePayload
   pendingResult?: PendingResultSnapshot
 }
