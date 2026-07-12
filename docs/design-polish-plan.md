@@ -24,7 +24,7 @@
 | UI ↔ エンジン（ローカル） | Phase 0.5 完了 |
 | アバター | **B0–B3 済**: フル 10 体 WebP + `PlayerAvatar` 画像表示（失敗時絵文字） |
 | ロゴ / favicon | **B2 済**: `favicon.svg` + `logo-mark.webp`（`AppLogo` / `GameHeader`）+ PWA 用 `icons/` |
-| 見た目 | **B4 済**: 手番リング / 宣言チップ / ステータスバー等をモック寄せ |
+| 見た目 | **B4–B5 済**: 席 UI モック寄せ + 結果公開アニメ / 特殊札 CSS |
 
 参照: `docs/ui-mock.md` / `docs/design-overview.md` / `docs/画面イメージ.png`
 
@@ -39,7 +39,7 @@
 | **B2** | ブランドアイコン | favicon / アプリアイコン / ヘッダーマーク | B0 |
 | **B3** | アバターを UI に接続 | `PlayerAvatar` 画像化、profiles 更新 | B1 |
 | **B4** | 席・ゲーム画面のブラッシュアップ | **済**: 手番リング、宣言チップ、モック寄せ | B3 |
-| **B5** | 結果・カード演出 | 公開アニメ、特殊札は CSS/SVG | B3 |
+| **B5** | 結果・カード演出 | **済**: 公開アニメ、特殊札 CSS/SVG、計算ステップ演出 | B3 |
 | **B6** | ローカルデモ UX | ボット賢さ、終了フロー、人数など | B3 推奨 |
 | **B7**（任意） | 背景・PWA 仕上げ | 砂漠背景強化、マニフェスト | B2 |
 
@@ -367,10 +367,23 @@ Small horizontal logo mark for Wild Count: circular badge with wolf howling at a
 - 特殊カード（×2 / MAX→0）は **AI 文字より CSS/SVG タイル**
 - 勝者バナー・ライフ減少の一文を見やすく
 
+### 実施内容（B5）
+
+| 項目 | 対応 |
+|------|------|
+| カード公開 | 席順スタッガー flip-in（`reveal-card-flip`、約 90ms 間隔） |
+| 特殊札 | `RevealCardTile` — ×2 / MAX→0 / ? / 捨札混を CSS+SVG（数字は金タイル） |
+| 計算過程 | steps を順に `calc-step--active` / `--done` でハイライト。最終合計バー |
+| スキップ | ヘッダー「スキップ」で即時全公開 |
+| バナー | 勝敗・ライフ −1 コールアウト（`life-lost-pulse`）を見やすく |
+
+主なパス: `ResultView.vue` / `RevealCardTile.vue` / `main.css`  
+データ: 引き続き `toResultView` → `lastOutcome.calculation`（domain 非変更）
+
 ### 完了条件
 
-- [ ] 結果画面が「仮置き」感から脱している
-- [ ] 合計過程は引き続き `lastOutcome.calculation` 由来
+- [x] 結果画面が「仮置き」感から脱している
+- [x] 合計過程は引き続き `lastOutcome.calculation` 由来
 
 ---
 
@@ -421,7 +434,8 @@ Small horizontal logo mark for Wild Count: circular badge with wolf howling at a
 3. ~~**B3** `PlayerAvatar` 接続~~ → `avatarSrc` + 絵文字フォールバック
 4. ~~**B2** favicon / ロゴ~~ → 完了
 5. ~~**B4** 席・ゲーム画面~~ → 完了
-6. 次は **B5** 結果・カード演出（**B6** ローカルデモ UX も可）
+6. ~~**B5** 結果・カード演出~~ → 完了
+7. 次は **B6** ローカルデモ UX（任意 **B7**）
 
 ---
 

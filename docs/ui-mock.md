@@ -18,7 +18,7 @@ npm run dev
 | 待機ロビー | ローカルデモ：自己 + ボット3体表示。開始でエンジン接続 |
 | ゲーム画面（PC） | **エンジン接続済み（ローカル）**：円形席 + 中央宣言 + 操作バー + イベントログ。**インディアンポーカー式**（自分の札は `?`、他は表向き） |
 | ゲーム画面（モバイル） | **エンジン接続済み（ローカル）**：同上のカード見え方 |
-| 結果・カード公開 | **エンジン接続済み（ローカル）**：`lastOutcome.calculation` 由来の過程表示 |
+| 結果・カード公開 | **エンジン接続済み + B5 演出**：スタッガー公開・特殊札 CSS/SVG・計算ステップ段階ハイライト（`lastOutcome.calculation`） |
 | データ | Pinia `localGame` + mapper。固定モックは `?mock=1` で参照可 |
 | ゲームエンジン | **ローカル接続済み**（Worker / WebSocket なし） |
 | チャット | UIのみ（MVP外・トースト表示） |
@@ -91,7 +91,9 @@ src/
 │       ├── CurrentBidDisplay.vue
 │       ├── BidControls.vue
 │       ├── EventLog.vue
-│       └── MobilePlayerCarousel.vue
+│       ├── MobilePlayerCarousel.vue
+│       ├── RevealCardTile.vue   # 結果画面の札（特殊 CSS/SVG）
+│       └── CoyoteCutIn.vue      # チャレンジ成立カットイン
 ├── stores/localGame.ts
 ├── mappers/
 ├── localGame/
@@ -110,6 +112,8 @@ src/
 - PC: `lg` 以上で円形レイアウト、未満はモバイル
 - 共通クラス: `.panel` / `.btn-gold` / `.btn-teal` / `.chip` / `.desert-bg` / `.seat-chip-*` / `.bid-chip`
 - 席 UI（B4）: 手番金リング、宣言済みチップ、手札下宣言チップ、ステータスバー色分け
+- 結果 UI（B5）: `RevealCardTile`、公開スタッガー、計算ステップハイライト
+- コヨーテ成立: `CoyoteCutIn` フルスクリーン衝撃演出 → 「結果を見る」
 
 ## 次の画面候補
 

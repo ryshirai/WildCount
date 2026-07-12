@@ -45,6 +45,9 @@ export default {
         desert:
           'radial-gradient(ellipse 80% 50% at 50% 100%, rgba(80,55,30,0.45) 0%, transparent 60%), radial-gradient(ellipse 60% 40% at 50% 0%, rgba(20,40,80,0.5) 0%, transparent 50%)',
       },
+      transitionDuration: {
+        400: '400ms',
+      },
     },
   },
   plugins: [],

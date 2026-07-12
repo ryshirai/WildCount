@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { mockResult } from '@/data/mockResult'
@@ -7,7 +7,8 @@ import { useLocalGameStore } from '@/stores/localGame'
 import AppLogo from '@/components/common/AppLogo.vue'
 import MockBadge from '@/components/common/MockBadge.vue'
 import PlayerAvatar from '@/components/game/PlayerAvatar.vue'
-import type { CardKind, ResultMock } from '@/types/game'
+import RevealCardTile from '@/components/game/RevealCardTile.vue'
+import type { ResultMock } from '@/types/game'
 
 const router = useRouter()
 const route = useRoute()
@@ -45,19 +46,99 @@ const verdictDetail = computed(() => {
   return `合計 ${result.value.finalTotal} < 宣言 ${result.value.bidValue} → 宣言者がライフを失う`
 })
 
-function cardTileClass(kind: CardKind) {
-  if (kind === 'double') return 'border-teal-soft/50 from-teal-deep/80 to-night-800 text-teal-soft'
-  if (kind === 'max_to_zero')
-    return 'border-amber-400/40 from-amber-900/40 to-night-800 text-amber-200'
-  if (kind === 'redraw') return 'border-gold-400/40 from-night-600 to-night-800 text-gold-200'
-  return 'border-gold-300/40 from-gold-50 to-gold-200 text-night-900'
+/** How many cards have finished their stagger reveal */
+const revealedCount = ref(0)
+/** Active calc step index (-1 = not started; steps.length = all done) */
+const activeStepIndex = ref(-1)
+/** Whether calc section has finished sequencing */
+const calcDone = ref(false)
+
+let cardTimers: ReturnType<typeof setTimeout>[] = []
+let stepTimers: ReturnType<typeof setTimeout>[] = []
+
+const CARD_STAGGER_MS = 90
+const CARD_START_MS = 180
+const STEP_INTERVAL_MS = 520
+const STEP_START_AFTER_CARDS_MS = 280
+
+function clearRevealTimers() {
+  for (const t of cardTimers) clearTimeout(t)
+  for (const t of stepTimers) clearTimeout(t)
+  cardTimers = []
+  stepTimers = []
 }
+
+function runRevealSequence() {
+  clearRevealTimers()
+  revealedCount.value = 0
+  activeStepIndex.value = -1
+  calcDone.value = false
+
+  const r = result.value
+  if (!r) return
+
+  const n = r.cards.length
+  for (let i = 0; i < n; i++) {
+    const t = setTimeout(() => {
+      revealedCount.value = i + 1
+    }, CARD_START_MS + i * CARD_STAGGER_MS)
+    cardTimers.push(t)
+  }
+
+  const steps = r.calcSteps
+  if (steps.length === 0) {
+    calcDone.value = true
+    return
+  }
+
+  const cardsDoneMs = CARD_START_MS + Math.max(0, n - 1) * CARD_STAGGER_MS + STEP_START_AFTER_CARDS_MS
+
+  for (let i = 0; i < steps.length; i++) {
+    const t = setTimeout(() => {
+      activeStepIndex.value = i
+    }, cardsDoneMs + i * STEP_INTERVAL_MS)
+    stepTimers.push(t)
+  }
+
+  const doneT = setTimeout(() => {
+    activeStepIndex.value = steps.length
+    calcDone.value = true
+  }, cardsDoneMs + steps.length * STEP_INTERVAL_MS)
+  stepTimers.push(doneT)
+}
+
+function stepClass(i: number) {
+  if (activeStepIndex.value < 0) return ''
+  if (i < activeStepIndex.value) return 'calc-step--done'
+  if (i === activeStepIndex.value) return 'calc-step--active'
+  return ''
+}
+
+function skipReveal() {
+  clearRevealTimers()
+  if (result.value) {
+    revealedCount.value = result.value.cards.length
+    activeStepIndex.value = result.value.calcSteps.length
+    calcDone.value = true
+  }
+}
+
+watch(
+  result,
+  () => {
+    runRevealSequence()
+  },
+  { immediate: true },
+)
 
 onMounted(() => {
   if (!useMock.value && !resultView.value) {
-    // No pending result — return to game (or start demo)
     void router.replace({ name: 'game' })
   }
+})
+
+onUnmounted(() => {
+  clearRevealTimers()
 })
 
 function goNextRound() {
@@ -67,7 +148,6 @@ function goNextRound() {
   }
   store.clearPendingResult()
   if (isGameOver.value) {
-    // Stay informative; user can replay from lobby/home
     void router.push({ name: 'game' })
     return
   }
@@ -93,6 +173,14 @@ function goHome() {
       <div v-if="result" class="flex items-center gap-2">
         <span class="chip font-mono">{{ result.roomCode }}</span>
         <span class="chip">Round {{ result.round }}</span>
+        <button
+          v-if="!calcDone"
+          type="button"
+          class="btn-ghost !px-2 !py-1 text-[11px]"
+          @click="skipReveal"
+        >
+          スキップ
+        </button>
       </div>
     </header>
 
@@ -103,9 +191,9 @@ function goHome() {
       <!-- Game over banner -->
       <section
         v-if="localMeta.isGameOver"
-        class="panel mb-4 overflow-hidden p-4 text-center ring-1 ring-gold-400/40 sm:p-5"
+        class="panel result-banner-in mb-4 overflow-hidden p-4 text-center ring-1 ring-gold-400/40 sm:p-5"
       >
-        <p class="text-xs uppercase tracking-wider text-sand-dim">Winner</p>
+        <p class="text-xs uppercase tracking-[0.2em] text-sand-dim">Winner</p>
         <h2 class="font-display text-2xl font-bold text-gold-100 sm:text-3xl">
           {{ localMeta.winnerName ?? '勝者' }} の勝利！
         </h2>
@@ -113,10 +201,11 @@ function goHome() {
 
       <!-- Verdict banner -->
       <section
-        class="panel mb-6 overflow-hidden p-5 text-center sm:p-6"
-        :class="result.bidderWins ? 'ring-1 ring-gold-400/30' : 'ring-1 ring-teal-soft/40'"
+        class="panel result-banner-in mb-6 overflow-hidden p-5 text-center sm:p-6"
+        :class="result.bidderWins ? 'ring-1 ring-gold-400/35' : 'ring-1 ring-teal-soft/45'"
+        style="animation-delay: 60ms"
       >
-        <p class="mb-1 text-xs uppercase tracking-wider text-sand-dim">コヨーテ！ 結果</p>
+        <p class="mb-1 text-xs uppercase tracking-[0.18em] text-sand-dim">コヨーテ！ 結果</p>
         <h2 class="font-display text-2xl font-bold text-gold-200 sm:text-3xl">
           {{ verdictTitle }}
         </h2>
@@ -124,7 +213,7 @@ function goHome() {
 
         <div class="mt-5 flex flex-wrap items-center justify-center gap-4 sm:gap-8">
           <div class="flex flex-col items-center gap-1">
-            <span class="text-[10px] text-sand-dim">宣言</span>
+            <span class="text-[10px] uppercase tracking-wider text-sand-dim">宣言</span>
             <div class="flex items-center gap-2">
               <PlayerAvatar
                 :avatar="result.bidderAvatar"
@@ -135,15 +224,20 @@ function goHome() {
               />
               <span class="text-sm font-semibold text-sand">{{ result.bidderName }}</span>
             </div>
-            <span class="font-display text-3xl font-bold text-gold-200">{{
+            <span class="font-display text-3xl font-bold tabular-nums text-gold-200">{{
               result.bidValue
             }}</span>
           </div>
 
-          <div class="text-sand-dim" aria-hidden="true">vs</div>
+          <div
+            class="flex h-10 w-10 items-center justify-center rounded-full border border-gold-400/20 bg-night-900/60 text-xs font-semibold text-sand-dim"
+            aria-hidden="true"
+          >
+            vs
+          </div>
 
           <div class="flex flex-col items-center gap-1">
-            <span class="text-[10px] text-sand-dim">チャレンジ</span>
+            <span class="text-[10px] uppercase tracking-wider text-sand-dim">チャレンジ</span>
             <div class="flex items-center gap-2">
               <PlayerAvatar
                 :avatar="result.challengerAvatar"
@@ -154,21 +248,26 @@ function goHome() {
               />
               <span class="text-sm font-semibold text-sand">{{ result.challengerName }}</span>
             </div>
-            <span class="text-xs text-sand-dim">コヨーテ！</span>
+            <span class="chip !border-teal-soft/35 !bg-teal-deep/40 !text-teal-soft">コヨーテ！</span>
           </div>
 
           <div
             class="flex flex-col items-center gap-1 border-l border-gold-400/15 pl-4 sm:pl-8"
           >
-            <span class="text-[10px] text-sand-dim">実際の合計</span>
-            <span class="font-display text-4xl font-bold text-gold-100">{{
-              result.finalTotal
-            }}</span>
+            <span class="text-[10px] uppercase tracking-wider text-sand-dim">実際の合計</span>
+            <span
+              class="font-display text-4xl font-bold tabular-nums text-gold-100 transition-opacity duration-500"
+              :class="calcDone ? 'opacity-100' : 'opacity-40'"
+            >
+              {{ result.finalTotal }}
+            </span>
           </div>
         </div>
 
-        <p
-          class="mt-4 inline-flex items-center gap-1.5 rounded-full border border-red-400/30 bg-red-950/40 px-3 py-1 text-xs text-red-200"
+        <!-- Life lost callout -->
+        <div
+          class="life-lost-pulse mt-5 inline-flex max-w-full items-center gap-2 rounded-2xl border border-red-400/35 bg-gradient-to-r from-red-950/70 to-night-900/80 px-4 py-2.5 text-sm text-red-100 shadow-[0_0_24px_rgba(248,113,113,0.12)]"
+          style="animation-delay: 400ms"
         >
           <PlayerAvatar
             :avatar="result.lifeLostAvatar"
@@ -177,19 +276,34 @@ function goHome() {
             size="sm"
             hide-name
           />
-          {{ result.lifeLostName }} がライフを 1 失った
-        </p>
+          <div class="min-w-0 text-left">
+            <p class="text-[10px] uppercase tracking-wider text-red-300/80">ライフ −1</p>
+            <p class="truncate font-semibold">
+              {{ result.lifeLostName }}
+              <span class="font-normal text-red-200/90">がライフを 1 失った</span>
+            </p>
+          </div>
+          <span class="ml-1 text-lg leading-none text-rose-400" aria-hidden="true">♥</span>
+        </div>
       </section>
 
-      <!-- Revealed cards -->
+      <!-- Revealed cards (staggered) -->
       <section class="panel mb-6 p-4 sm:p-5">
-        <h3 class="mb-4 text-sm font-semibold text-gold-200">カード公開</h3>
+        <div class="mb-4 flex items-baseline justify-between gap-2">
+          <h3 class="text-sm font-semibold text-gold-200">カード公開</h3>
+          <p class="text-[11px] text-sand-dim">
+            {{ revealedCount }} / {{ result.cards.length }}
+          </p>
+        </div>
         <ul class="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <li
-            v-for="card in result.cards"
+            v-for="(card, i) in result.cards"
             :key="card.playerId"
-            class="flex flex-col items-center rounded-xl border border-gold-400/10 bg-night-900/40 px-2 py-3"
-            :class="card.isSelf ? 'ring-1 ring-teal-soft/40' : ''"
+            class="flex flex-col items-center rounded-xl border border-gold-400/10 bg-night-900/40 px-2 py-3 transition-shadow duration-300"
+            :class="[
+              card.isSelf ? 'ring-1 ring-teal-soft/40' : '',
+              i < revealedCount ? 'shadow-md' : 'opacity-50',
+            ]"
           >
             <PlayerAvatar
               class="mb-1"
@@ -201,22 +315,23 @@ function goHome() {
               hide-name
             />
             <div
-              class="mb-1 truncate text-[11px] font-medium"
+              class="mb-2 max-w-full truncate text-[11px] font-medium"
               :class="card.isSelf ? 'text-teal-soft' : 'text-sand-dim'"
             >
               {{ card.playerName }}
             </div>
-            <div
-              class="flex h-12 w-11 items-center justify-center rounded-lg border bg-gradient-to-b font-display text-sm font-bold shadow-md"
-              :class="cardTileClass(card.kind)"
-            >
-              {{ card.label }}
-            </div>
+            <RevealCardTile
+              :kind="card.kind"
+              :label="card.label"
+              :value="card.value"
+              size="lg"
+              :revealed="i < revealedCount"
+            />
           </li>
         </ul>
       </section>
 
-      <!-- Calculation steps from engine -->
+      <!-- Calculation steps (progressive highlight) -->
       <section class="panel mb-6 p-4 sm:p-5">
         <h3 class="mb-1 text-sm font-semibold text-gold-200">合計計算の過程</h3>
         <p class="mb-4 text-[11px] text-sand-dim">
@@ -230,12 +345,12 @@ function goHome() {
           <li
             v-for="(step, i) in result.calcSteps"
             :key="step.id"
-            class="flex gap-3 rounded-xl border border-gold-400/10 bg-night-900/50 p-3"
+            class="calc-step"
+            :class="stepClass(i)"
           >
-            <span
-              class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-night-700 text-xs font-bold text-gold-300 ring-1 ring-gold-400/30"
-            >
-              {{ i + 1 }}
+            <span class="calc-step__badge">
+              <template v-if="i < activeStepIndex">✓</template>
+              <template v-else>{{ i + 1 }}</template>
             </span>
             <div class="min-w-0 flex-1">
               <div class="text-sm font-medium text-sand">{{ step.title }}</div>
@@ -243,12 +358,27 @@ function goHome() {
             </div>
             <div
               v-if="step.totalAfter != null"
-              class="shrink-0 self-center font-display text-lg font-bold text-gold-200"
+              class="shrink-0 self-center font-display text-lg font-bold tabular-nums text-gold-200"
+              :class="i <= activeStepIndex ? 'opacity-100' : 'opacity-30'"
             >
               {{ step.totalAfter }}
             </div>
           </li>
         </ol>
+
+        <div
+          v-if="calcDone"
+          class="mt-4 flex items-center justify-center gap-2 rounded-xl border border-gold-400/25 bg-night-900/60 px-4 py-3"
+        >
+          <span class="text-xs text-sand-dim">最終合計</span>
+          <span class="font-display text-2xl font-bold tabular-nums text-gold-100">{{
+            result.finalTotal
+          }}</span>
+          <span class="text-sand-dim">vs 宣言</span>
+          <span class="font-display text-xl font-bold tabular-nums text-gold-300">{{
+            result.bidValue
+          }}</span>
+        </div>
       </section>
 
       <!-- Actions -->

@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { mockGameRoom } from '@/data/mockGame'
+import { mockResult } from '@/data/mockResult'
 import { useLocalGameStore } from '@/stores/localGame'
 import GameHeader from '@/components/game/GameHeader.vue'
 import PlayerCircle from '@/components/game/PlayerCircle.vue'
@@ -10,6 +11,8 @@ import CurrentBidDisplay from '@/components/game/CurrentBidDisplay.vue'
 import EventLog from '@/components/game/EventLog.vue'
 import BidControls from '@/components/game/BidControls.vue'
 import MobilePlayerCarousel from '@/components/game/MobilePlayerCarousel.vue'
+import CoyoteCutIn from '@/components/game/CoyoteCutIn.vue'
+import PlayerAvatar from '@/components/game/PlayerAvatar.vue'
 import MockBadge from '@/components/common/MockBadge.vue'
 import type { GameRoomMock } from '@/types/game'
 
@@ -31,6 +34,31 @@ const toast = ref<string | null>(null)
 const mobileTab = ref<'chat' | 'players' | 'log'>('players')
 const draftBid = ref(0)
 const acting = ref(false)
+
+/** Full-screen コヨーテ！ cut-in (once per challenge) */
+const cutInVisible = ref(false)
+const cutInPlayed = ref(false)
+/** Mock-only cut-in preview (no pendingResult) */
+const mockCutIn = ref<{
+  challengerName: string
+  challengerAvatar: string
+  challengerAvatarSrc?: string
+  bidderName: string
+  bidValue: number
+} | null>(null)
+
+const cutInPayload = computed(() => {
+  if (mockCutIn.value) return mockCutIn.value
+  const r = pendingResult.value
+  if (!r || !cutInVisible.value) return null
+  return {
+    challengerName: r.challengerName,
+    challengerAvatar: r.challengerAvatar,
+    challengerAvatarSrc: r.challengerAvatarSrc,
+    bidderName: r.bidderName,
+    bidValue: r.bidValue,
+  }
+})
 
 const room = computed<GameRoomMock | null>(() => {
   if (useMock.value) return mockGameRoom
@@ -76,13 +104,40 @@ const paceHint = computed(() => {
 
 const coyoteBanner = computed(() => {
   if (useMock.value || !pendingResult.value) return null
+  // Hide banner under the cut-in so the impact lands first
+  if (cutInVisible.value) return null
   const r = pendingResult.value
   return {
-    challenger: `${r.challengerAvatar} ${r.challengerName}`,
-    bidder: `${r.bidderAvatar} ${r.bidderName}`,
+    challengerName: r.challengerName,
+    challengerAvatar: r.challengerAvatar,
+    challengerAvatarSrc: r.challengerAvatarSrc,
+    bidderName: r.bidderName,
+    bidderAvatar: r.bidderAvatar,
+    bidderAvatarSrc: r.bidderAvatarSrc,
     bid: r.bidValue,
   }
 })
+
+/** Fire cut-in once when a challenge result becomes pending */
+watch(
+  pendingResult,
+  (r) => {
+    if (r && !cutInPlayed.value) {
+      cutInVisible.value = true
+      cutInPlayed.value = true
+    }
+    if (!r) {
+      cutInVisible.value = false
+      cutInPlayed.value = false
+    }
+  },
+  { immediate: true },
+)
+
+function onCutInDone() {
+  cutInVisible.value = false
+  mockCutIn.value = null
+}
 
 watch(
   minBid,
@@ -157,8 +212,14 @@ async function onDeclare(value: number) {
 
 async function onChallenge() {
   if (useMock.value) {
-    showToast('（モック）コヨーテ！')
-    // Mock: still require a button — set via toast only; use link
+    // Preview cut-in with mockResult cast
+    mockCutIn.value = {
+      challengerName: mockResult.challengerName,
+      challengerAvatar: mockResult.challengerAvatar,
+      challengerAvatarSrc: mockResult.challengerAvatarSrc,
+      bidderName: mockResult.bidderName,
+      bidValue: mockResult.bidValue,
+    }
     return
   }
   if (isGameOver.value) {
@@ -212,7 +273,7 @@ async function onChallenge() {
         {{ paceHint }}
       </div>
 
-      <!-- Coyote: wait for player before result screen -->
+      <!-- Coyote: wait for player before result screen (after cut-in) -->
       <div
         v-if="coyoteBanner"
         class="relative z-20 border-b border-teal-soft/40 bg-gradient-to-b from-teal-deep/50 to-night-900/98 px-4 py-5 sm:py-6"
@@ -228,9 +289,27 @@ async function onChallenge() {
             コヨーテ！
           </p>
           <p class="max-w-sm text-sm leading-relaxed text-sand-dim">
-            <span class="font-medium text-sand">{{ coyoteBanner.challenger }}</span>
+            <span class="inline-flex items-center gap-1.5 font-medium text-sand">
+              <PlayerAvatar
+                :avatar="coyoteBanner.challengerAvatar"
+                :avatar-src="coyoteBanner.challengerAvatarSrc"
+                :name="coyoteBanner.challengerName"
+                size="sm"
+                hide-name
+              />
+              {{ coyoteBanner.challengerName }}
+            </span>
             が
-            <span class="font-medium text-sand">{{ coyoteBanner.bidder }}</span>
+            <span class="inline-flex items-center gap-1.5 font-medium text-sand">
+              <PlayerAvatar
+                :avatar="coyoteBanner.bidderAvatar"
+                :avatar-src="coyoteBanner.bidderAvatarSrc"
+                :name="coyoteBanner.bidderName"
+                size="sm"
+                hide-name
+              />
+              {{ coyoteBanner.bidderName }}
+            </span>
             の宣言
             <span class="mx-0.5 inline-flex items-center rounded-md border border-gold-400/40 bg-night-900/80 px-1.5 py-0.5 font-display text-base font-bold text-gold-200">
               {{ coyoteBanner.bid }}
@@ -389,6 +468,17 @@ async function onChallenge() {
     >
       セッションを準備中…
     </div>
+
+    <!-- Coyote cut-in overlay -->
+    <CoyoteCutIn
+      v-if="cutInPayload"
+      :challenger-name="cutInPayload.challengerName"
+      :challenger-avatar="cutInPayload.challengerAvatar"
+      :challenger-avatar-src="cutInPayload.challengerAvatarSrc"
+      :bidder-name="cutInPayload.bidderName"
+      :bid-value="cutInPayload.bidValue"
+      @done="onCutInDone"
+    />
 
     <Transition
       enter-active-class="transition duration-200 ease-out"
