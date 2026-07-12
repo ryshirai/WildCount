@@ -1386,6 +1386,48 @@
 
 ---
 
+## 2026-07-12 — UX-5 ヘルプ機能
+
+### 背景・目的
+
+- ルール・特殊札・操作をアプリ内で見られるようにする（リリース前の導線）。正本は `docs/game-rules.md` / `card-design.md`。
+
+### 実施内容
+
+1. `src/data/helpContent.ts` — タブ別コピー（遊び方 / 特殊札 / 合計計算 / 操作）
+2. `src/components/common/HelpModal.vue` — モーダル（タブ・Esc / 外側タップで閉じる）
+3. 導線: Home「遊び方・ルール」、Lobby / Game ヘッダ `?`
+4. GameHeader: 未使用の設定ボタンをヘルプ・チャット emit に整理
+5. backlog UX-5 → done、`ui-mock.md` 更新
+
+### 主なパス変更
+
+| パス | 内容 |
+|------|------|
+| `src/data/helpContent.ts` | ヘルプ本文 |
+| `src/components/common/HelpModal.vue` | モーダル UI |
+| `src/components/game/GameHeader.vue` | `help` / `chat` emit |
+| `src/views/HomeView.vue` 他 | オープン導線 |
+| `docs/backlog.md` | UX-5 done |
+
+### 明示的にやっていないこと
+
+- 専用ルート `/help`、Result 画面からの導線
+- ドキュメント全文の自動同期（UI は要約）
+- 初回訪問時の自動表示
+
+### 確認結果
+
+- `npm test` 98 件成功
+- `npm run build` 成功（HelpModal はチャンク分割）
+
+### 次に考えられる作業
+
+1. HOLD-5 本番 deploy（ユーザー確認後）
+2. 結果画面からのヘルプ（計算タブ直開き）など任意 UX
+
+---
+
 ## ログの書き方
 
 **正規のルールは `AGENTS.md` を参照。** 変更のあったセッションでは、このファイルに日付見出しで **追記** する（過去エントリは消さない）。

@@ -7,6 +7,12 @@ defineProps<{
   connectionStatus?: 'good' | 'reconnect' | 'offline'
 }>()
 
+const emit = defineEmits<{
+  help: []
+  /** Placeholder — chat not implemented (UX-6) */
+  chat: []
+}>()
+
 const connectionLabel: Record<string, string> = {
   good: '接続良好',
   reconnect: '再接続中',
@@ -54,11 +60,23 @@ const connectionLabel: Record<string, string> = {
     </div>
 
     <div class="flex items-center gap-2">
-      <button type="button" class="btn-ghost !p-2" title="チャット（準備中）" aria-label="チャット">
-        💬
+      <button
+        type="button"
+        class="btn-ghost !p-2"
+        title="遊び方・ルール"
+        aria-label="遊び方・ルール"
+        @click="emit('help')"
+      >
+        ?
       </button>
-      <button type="button" class="btn-ghost !p-2" title="設定" aria-label="設定">
-        ⚙️
+      <button
+        type="button"
+        class="btn-ghost !p-2"
+        title="チャット（準備中）"
+        aria-label="チャット"
+        @click="emit('chat')"
+      >
+        💬
       </button>
       <button type="button" class="btn-ghost !p-2" title="退出" aria-label="退出">
         ↗
@@ -71,7 +89,15 @@ const connectionLabel: Record<string, string> = {
     v-else
     class="flex items-center justify-between border-b border-gold-400/15 bg-night-900/80 px-3 py-2.5 backdrop-blur-md"
   >
-    <button type="button" class="btn-ghost !p-2 text-base" aria-label="メニュー">☰</button>
+    <button
+      type="button"
+      class="btn-ghost !p-2 text-base font-bold"
+      title="遊び方・ルール"
+      aria-label="遊び方・ルール"
+      @click="emit('help')"
+    >
+      ?
+    </button>
     <div class="flex items-center gap-2">
       <div class="h-7 w-7 shrink-0 overflow-hidden rounded-full ring-1 ring-gold-400/35">
         <img
@@ -85,7 +111,15 @@ const connectionLabel: Record<string, string> = {
       </div>
       <h1 class="font-display text-lg font-bold text-gold-200">Wild Count</h1>
     </div>
-    <button type="button" class="btn-ghost !p-2 text-base" aria-label="設定">⚙️</button>
+    <button
+      type="button"
+      class="btn-ghost !p-2 text-base"
+      title="チャット（準備中）"
+      aria-label="チャット"
+      @click="emit('chat')"
+    >
+      💬
+    </button>
   </header>
 
   <div

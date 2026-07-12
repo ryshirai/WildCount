@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppLogo from '@/components/common/AppLogo.vue'
+import HelpModal from '@/components/common/HelpModal.vue'
 import MockBadge from '@/components/common/MockBadge.vue'
 import PlayerAvatar from '@/components/game/PlayerAvatar.vue'
 import { allowLocalPlay } from '@/config/runtime'
@@ -18,6 +19,7 @@ const localGame = useLocalGameStore()
 const onlineGame = useOnlineGameStore()
 
 const toast = ref<string | null>(null)
+const helpOpen = ref(false)
 const copied = ref(false)
 const starting = ref(false)
 const resumeBusy = ref(false)
@@ -304,6 +306,15 @@ function leaveLobby() {
         >
           {{ connectionLabel }}
         </span>
+        <button
+          type="button"
+          class="btn-ghost !p-2 text-sm font-bold"
+          title="遊び方・ルール"
+          aria-label="遊び方・ルール"
+          @click="helpOpen = true"
+        >
+          ?
+        </button>
         <button type="button" class="btn-ghost text-xs" @click="leaveLobby">退出</button>
       </div>
     </header>
@@ -492,6 +503,8 @@ function leaveLobby() {
         {{ toast }}
       </div>
     </Transition>
+
+    <HelpModal :open="helpOpen" @close="helpOpen = false" />
 
     <MockBadge />
   </div>

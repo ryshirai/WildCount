@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import AppLogo from '@/components/common/AppLogo.vue'
+import HelpModal from '@/components/common/HelpModal.vue'
 import MockBadge from '@/components/common/MockBadge.vue'
 import { allowLocalPlay, allowUiMock, isDevBuild } from '@/config/runtime'
 import {
@@ -27,6 +28,7 @@ const showDevMockNav = allowUiMock
 const roomCode = ref('')
 const playerName = ref(loadSavedDisplayName())
 const toast = ref<string | null>(null)
+const helpOpen = ref(false)
 const onlineBusy = ref(false)
 /** Room code with a saved resumeToken (reload recovery). */
 const resumableCode = ref<string | null>(null)
@@ -184,6 +186,14 @@ onMounted(() => {
         <p class="mt-3 max-w-sm text-sm text-sand-dim sm:text-base">
           数字推理・ブラフのリアルタイム対戦
         </p>
+        <button
+          type="button"
+          class="btn-ghost mt-4 !px-4 !py-2 text-xs"
+          @click="helpOpen = true"
+        >
+          <span class="font-bold text-gold-200" aria-hidden="true">?</span>
+          遊び方・ルール
+        </button>
       </header>
 
       <!-- Resume previous online seat (P1-4) -->
@@ -436,6 +446,8 @@ onMounted(() => {
         {{ toast }}
       </div>
     </Transition>
+
+    <HelpModal :open="helpOpen" @close="helpOpen = false" />
 
     <MockBadge />
   </div>

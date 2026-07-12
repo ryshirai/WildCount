@@ -15,6 +15,7 @@ import MobilePlayerCarousel from '@/components/game/MobilePlayerCarousel.vue'
 import CoyoteCutIn from '@/components/game/CoyoteCutIn.vue'
 import RevealCardTile from '@/components/game/RevealCardTile.vue'
 import PlayerAvatar from '@/components/game/PlayerAvatar.vue'
+import HelpModal from '@/components/common/HelpModal.vue'
 import MockBadge from '@/components/common/MockBadge.vue'
 import { allowLocalPlay, allowUiMock } from '@/config/runtime'
 import type { GameRoomMock, RevealedCard } from '@/types/game'
@@ -67,9 +68,18 @@ const statusMessage = computed(() => {
 })
 
 const toast = ref<string | null>(null)
+const helpOpen = ref(false)
 const mobileTab = ref<'chat' | 'players' | 'log'>('players')
 const draftBid = ref(0)
 const acting = ref(false)
+
+function openHelp() {
+  helpOpen.value = true
+}
+
+function onHeaderChat() {
+  showToast('チャットは準備中です')
+}
 
 /**
  * Post-challenge beat:
@@ -523,6 +533,8 @@ async function onChallenge() {
             :room-code="room.roomCode"
             :player-count="room.playerCount"
             :round="room.round"
+            @help="openHelp"
+            @chat="onHeaderChat"
           />
         </div>
 
@@ -732,6 +744,8 @@ async function onChallenge() {
             :player-count="room.playerCount"
             :round="room.round"
             :connection-status="room.connectionStatus"
+            @help="openHelp"
+            @chat="onHeaderChat"
           />
         </div>
 
@@ -979,6 +993,8 @@ async function onChallenge() {
       <RouterLink to="/" class="btn-ghost !px-2 !py-1 text-[10px]">トップ</RouterLink>
       <RouterLink to="/lobby" class="btn-ghost !px-2 !py-1 text-[10px]">ロビー</RouterLink>
     </nav>
+
+    <HelpModal :open="helpOpen" @close="helpOpen = false" />
 
     <MockBadge />
   </div>

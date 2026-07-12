@@ -23,6 +23,7 @@ npm run dev
 | データ | Pinia `localGame` + mapper。固定モックは `?mock=1` で参照可 |
 | ゲームエンジン | **ローカル** + **オンライン P1-3**（ロビー〜宣言/コヨーテ/結果。再接続磨きは P1-4） |
 | チャット | UIのみ（MVP外・トースト表示） |
+| ヘルプ | **UX-5**: モーダル（遊び方 / 特殊札 / 合計計算 / 操作）。Home・Lobby・Game ヘッダ `?` |
 | 背景 | **B7**: `.desert-bg` 夜砂漠（月・砂丘・星・シルエット） |
 | PWA | **B7**: `vite-plugin-pwa` + `public/icons` マニフェスト（ホーム画面追加可） |
 
@@ -89,6 +90,7 @@ src/
 ├── components/
 │   ├── common/
 │   │   ├── AppLogo.vue
+│   │   ├── HelpModal.vue        # UX-5 遊び方・ルール
 │   │   ├── MockBadge.vue
 │   │   └── FxConfetti.vue       # 結果の CSS 紙吹雪
 │   └── game/
