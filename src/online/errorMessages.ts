@@ -10,6 +10,7 @@ export const ONLINE_ERROR_CODES = [
   'ROOM_NOT_FOUND',
   'GAME_ALREADY_STARTED',
   'NOT_ENOUGH_PLAYERS',
+  'PLAYERS_NOT_READY',
   'REVISION_MISMATCH',
   'ILLEGAL_ACTION',
   'INVALID_TOKEN',
@@ -32,6 +33,7 @@ const CODE_MESSAGES: Record<OnlineErrorCode, string> = {
     'ルームが見つかりません。コードを確認するか、新しいルームを作成してください',
   GAME_ALREADY_STARTED: 'ゲームがすでに始まっています。途中参加はできません',
   NOT_ENOUGH_PLAYERS: '開始には2人以上必要です',
+  PLAYERS_NOT_READY: '全員が準備完了してから開始できます',
   REVISION_MISMATCH:
     '状態が更新されました。もう一度操作してください',
   ILLEGAL_ACTION: 'その操作は今はできません',
@@ -69,6 +71,9 @@ function refineIllegalAction(serverMessage?: string): string {
   }
   if (m.includes('cannot challenge') || m.includes('no bid')) {
     return '今はチャレンジできません'
+  }
+  if (m.includes('not over') || m.includes('rematch only')) {
+    return 'ゲーム終了後にもう一度遊べます'
   }
   // Domain / engine Japanese or other already-friendly text
   if (/[\u3040-\u30ff\u4e00-\u9fff]/.test(serverMessage)) {

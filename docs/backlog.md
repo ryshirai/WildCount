@@ -36,10 +36,10 @@
 
 | ID | 状態 | 内容 | 背景 |
 |----|------|------|------|
-| **HOLD-1** | hold | **開始同期（全員 ready 必須）** | 現状は host のみ・2 人以上で即 start。ready トグルは UI 用で開始条件に使っていない。「そろえてから開始」は揃えたいが待機 |
-| **HOLD-2** | hold | **結果のサーバ側全員 ACK** | 次宣言でサーバ `pendingResult` が消える問題は、クライアント `heldPendingResult` で緩和済み。サーバが全員 dismiss まで保持する方式は未採択 |
-| **HOLD-3** | hold | **オンライン再戦（もう一度遊ぶ）** | 現状は leave → ホームから再作成。サーバ側 rematch / ロビー復帰は未実装 |
-| **HOLD-4** | hold | **wrangler 長時間稼働ハング調査** | workerd が LISTEN しつつ HTTP 無応答になる事例あり。再起動で復旧。再現条件の深掘りは後回し |
+| **HOLD-1** | done | **開始同期（全員 ready 必須）** | host start は全員 ready。`PLAYERS_NOT_READY` / `canStart` 連動 |
+| **HOLD-2** | done | **結果のサーバ側全員 ACK** | `dismiss_result` + `resultAcks`。接続中全員まで `pendingResult` 保持。次 bid では消さない |
+| **HOLD-3** | done | **オンライン再戦（もう一度遊ぶ）** | `rematch` → 同席のままロビー。ready をリセットして再スタート |
+| **HOLD-4** | done | **wrangler 長時間稼働ハング** | ローカル workerd 既知。8s タイムアウト + README 復旧手順。本番未再現のため深掘り打ち切り |
 | **HOLD-5** | hold | **本番 `wrangler deploy`** | ユーザー確認なしでは行わない（phase1 非交渉） |
 
 ---
@@ -71,9 +71,9 @@
 
 ## 直近のおすすめ着手順
 
-1. 必要になったら **HOLD-1**（開始同期）を設計してから実装  
+1. **HOLD-5**（本番 deploy）はユーザー確認後  
 2. UX-2（ホスト移譲カウントダウン表示）は任意  
-3. HOLD-5（本番 deploy）はユーザー確認後
+3. TEST-1 / OPS-1 は必要になったら
 
 ---
 
@@ -83,4 +83,4 @@
 2. 完了したら状態を `done` にし、数セッション後に表から落としてよい  
 3. Phase 1 スライスの ID（P1-x）は `phase1-multiplayer.md` §10 と揃える  
 
-最終更新: 2026-07-12（P1-6 done）
+最終更新: 2026-07-12（HOLD-1〜4 done、HOLD-5 は確認待ち）

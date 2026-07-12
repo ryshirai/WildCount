@@ -38,6 +38,10 @@ export type ClientMessage =
     }
   | { type: 'resume'; resumeToken: string }
   | { type: 'ping' }
+  /** Client finished viewing challenge result UI */
+  | { type: 'dismiss_result' }
+  /** After game_over: reset room to lobby (same seats) */
+  | { type: 'rematch' }
 
 export type ClientGameAction =
   | { type: 'PLACE_BID'; value: number }
@@ -110,6 +114,7 @@ export type ErrorCode =
   | 'ROOM_NOT_FOUND'
   | 'GAME_ALREADY_STARTED'
   | 'NOT_ENOUGH_PLAYERS'
+  | 'PLAYERS_NOT_READY'
   | 'REVISION_MISMATCH'
   | 'ILLEGAL_ACTION'
   | 'INVALID_TOKEN'

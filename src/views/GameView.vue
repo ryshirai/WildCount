@@ -353,6 +353,21 @@ watch(
   },
 )
 
+// Rematch resets status to open → all clients return to lobby
+watch(
+  () => onlineGame.view?.status,
+  (status) => {
+    if (!isOnline.value) return
+    if (status === 'open') {
+      const code = onlineGame.roomCode
+      void router.replace({
+        name: 'lobby',
+        query: { online: '1', ...(code ? { code } : {}) },
+      })
+    }
+  },
+)
+
 async function manualReconnect() {
   try {
     await onlineGame.reconnect()

@@ -5,8 +5,12 @@ import {
   IDLE_TTL_PLAYING_MS,
 } from './types'
 import {
+  allConnectedHaveResultAck,
+  allPlayersReady,
   applyDueHostTransfer,
+  applyResultDismiss,
   buildPlayerView,
+  canHostStart,
   clearDisconnectDeadline,
   connectedPlayerCount,
   createEmptyRoom,
@@ -15,10 +19,13 @@ import {
   nextAlarmAt,
   parseClientMessage,
   pickNextHost,
+  resetRoomForRematch,
   sanitizeDisplayName,
   shouldPurgeRoom,
   type RoomPlayer,
+  type RoomState,
 } from './roomLogic'
+import type { PendingResultSnapshot } from './maskedView'
 
 function player(
   partial: Partial<RoomPlayer> & Pick<RoomPlayer, 'id' | 'joinedAt'>,
@@ -57,7 +64,7 @@ describe('roomLogic', () => {
     })
   })
 
-  it('builds lobby view with host and canStart', () => {
+  it('builds lobby view with host and canStart only when all ready', () => {
     const room = createEmptyRoom('ABC234')
     room.hostId = 'p1'
     room.players = [
@@ -84,9 +91,13 @@ describe('roomLogic', () => {
 
     const hostView = buildPlayerView(room, 'p1')
     expect(hostView.phase).toBe('lobby')
-    expect(hostView.canStart).toBe(true)
+    // HOLD-1: guest not ready → canStart false
+    expect(hostView.canStart).toBe(false)
     expect(hostView.players[0]!.isHost).toBe(true)
     expect(hostView.players[1]!.isHost).toBe(false)
+
+    room.players[1]!.ready = true
+    expect(buildPlayerView(room, 'p1').canStart).toBe(true)
 
     const guestView = buildPlayerView(room, 'p2')
     expect(guestView.canStart).toBe(false)
@@ -108,6 +119,145 @@ describe('roomLogic', () => {
       },
     ]
     expect(buildPlayerView(room, 'p1').canStart).toBe(false)
+  })
+
+  it('allPlayersReady / canHostStart (HOLD-1)', () => {
+    const room = createEmptyRoom('ABC234')
+    room.hostId = 'p1'
+    room.players = [
+      player({ id: 'p1', joinedAt: 1, ready: true }),
+      player({ id: 'p2', joinedAt: 2, ready: true }),
+    ]
+    expect(allPlayersReady(room)).toBe(true)
+    expect(canHostStart(room, 'p1')).toBe(true)
+    expect(canHostStart(room, 'p2')).toBe(false)
+    room.players[0]!.ready = false
+    expect(allPlayersReady(room)).toBe(false)
+    expect(canHostStart(room, 'p1')).toBe(false)
+  })
+
+  it('parses dismiss_result and rematch', () => {
+    expect(parseClientMessage({ type: 'dismiss_result' })).toEqual({
+      type: 'dismiss_result',
+    })
+    expect(parseClientMessage({ type: 'rematch' })).toEqual({ type: 'rematch' })
+  })
+
+  it('result dismiss ACK keeps pending for others (HOLD-2)', () => {
+    const room = createEmptyRoom('ABC234')
+    room.status = 'playing'
+    room.hostId = 'p1'
+    room.players = [
+      player({ id: 'p1', joinedAt: 1 }),
+      player({ id: 'p2', joinedAt: 2 }),
+    ]
+    const snap = {
+      round: 1,
+      outcome: {
+        bid: 5,
+        actualTotal: 3,
+        calculation: {
+          steps: [],
+          finalTotal: 3,
+          adjustedCards: [],
+          doubleCount: 0,
+          maxToZeroApplied: false,
+          rawNumberSum: 3,
+        },
+        bidderWins: false,
+        loserRole: 'bidder' as const,
+        loserId: 'p1',
+        bidderId: 'p1',
+        challengerId: 'p2',
+      },
+      hands: {},
+      winnerId: null,
+      bidderId: 'p1',
+      challengerId: 'p2',
+      loserId: 'p1',
+    } satisfies PendingResultSnapshot
+    room.pendingResult = snap
+
+    const d1 = applyResultDismiss(room, 'p1')
+    expect(d1.changed).toBe(true)
+    expect(d1.cleared).toBe(false)
+    expect(room.pendingResult).not.toBeNull()
+    // p1 no longer sees result; p2 still does
+    expect(buildPlayerView(room, 'p1').pendingResult).toBeUndefined()
+    expect(buildPlayerView(room, 'p1').phase).toBe('playing')
+    expect(buildPlayerView(room, 'p2').pendingResult).toEqual(snap)
+    expect(buildPlayerView(room, 'p2').phase).toBe('result')
+
+    const d2 = applyResultDismiss(room, 'p2')
+    expect(d2.cleared).toBe(true)
+    expect(room.pendingResult).toBeNull()
+    // Acks map is reset when the snapshot is fully cleared
+    expect(room.resultAcks).toEqual({})
+  })
+
+  it('disconnected player does not block result clear (HOLD-2)', () => {
+    const room = createEmptyRoom('ABC234')
+    room.status = 'playing'
+    room.players = [
+      player({ id: 'p1', joinedAt: 1, connected: true }),
+      player({ id: 'p2', joinedAt: 2, connected: false }),
+    ]
+    room.pendingResult = {
+      round: 1,
+      outcome: {
+        bid: 1,
+        actualTotal: 1,
+        calculation: {
+          steps: [],
+          finalTotal: 1,
+          adjustedCards: [],
+          doubleCount: 0,
+          maxToZeroApplied: false,
+          rawNumberSum: 1,
+        },
+        bidderWins: true,
+        loserRole: 'challenger',
+        loserId: 'p2',
+        bidderId: 'p1',
+        challengerId: 'p2',
+      },
+      hands: {},
+      winnerId: null,
+      bidderId: 'p1',
+      challengerId: 'p2',
+      loserId: 'p2',
+    }
+    const d = applyResultDismiss(room, 'p1')
+    expect(d.cleared).toBe(true)
+    expect(room.pendingResult).toBeNull()
+  })
+
+  it('resetRoomForRematch returns to open lobby (HOLD-3)', () => {
+    const room = createEmptyRoom('ABC234') as RoomState
+    room.status = 'playing'
+    room.hostId = 'p1'
+    room.players = [
+      player({ id: 'p1', joinedAt: 1, ready: true }),
+      player({ id: 'p2', joinedAt: 2, ready: true }),
+    ]
+    room.game = { phase: 'game_over' } as RoomState['game']
+    room.pendingResult = { round: 9 } as PendingResultSnapshot
+    room.resultAcks = { p1: true }
+    room.bidHistory = [{ playerId: 'p1', value: 3, round: 1 }]
+    room.appliedActions = { a1: 1 }
+
+    resetRoomForRematch(room)
+    expect(room.status).toBe('open')
+    expect(room.game).toBeNull()
+    expect(room.pendingResult).toBeNull()
+    expect(room.resultAcks).toEqual({})
+    expect(room.bidHistory).toEqual([])
+    expect(room.appliedActions).toEqual({})
+    expect(room.players.every((p) => !p.ready)).toBe(true)
+    expect(room.hostId).toBe('p1')
+    expect(room.players).toHaveLength(2)
+    expect(buildPlayerView(room, 'p1').phase).toBe('lobby')
+    expect(buildPlayerView(room, 'p1').canStart).toBe(false) // ready cleared
   })
 
   it('finds player by resume token', () => {

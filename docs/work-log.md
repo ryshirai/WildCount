@@ -1266,6 +1266,49 @@
 
 ---
 
+## 2026-07-12 — HOLD-1〜4 解消（HOLD-5 は確認待ち）
+
+### 背景・目的
+
+- backlog の HOLD-1〜5 を片付ける。HOLD-5（本番 deploy）は phase1 非交渉どおりユーザー確認が必要。
+
+### 実施内容
+
+1. **HOLD-1 開始同期** — host `start` は全員 `ready` 必須。`canStart` / `PLAYERS_NOT_READY`。ロビー UI に準備人数表示。
+2. **HOLD-2 結果 ACK** — `dismiss_result` + `resultAcks`。接続中全員が閉じるまでサーバが `pendingResult` を保持。view は個人ごとに ACK 済みなら隠す。次 `PLACE_BID` では消さない。切断席は待たない。
+3. **HOLD-3 rematch** — game_over 後 `rematch` で同席のままロビー復帰（ready クリア）。Result「もう一度遊ぶ」から送信。Game/Result は `status===open` でロビーへ遷移。
+4. **HOLD-4 wrangler ハング** — ローカル workerd 既知問題として README に復旧手順を記載。クライアント 8s タイムアウトは既存。深掘りは打ち切り。
+5. テスト追加（roomLogic ready / dismiss / rematch）・errorMessages に `PLAYERS_NOT_READY`。
+
+### 主なパス変更
+
+| パス | 内容 |
+|------|------|
+| `worker/types.ts` / `roomLogic.ts` / `GameRoom.ts` | ready 開始・dismiss・rematch |
+| `src/online/protocol.ts` / `errorMessages.ts` | ワイヤ型・日本語 code |
+| `src/stores/onlineGame.ts` | dismiss 送信・requestRematch |
+| `src/views/LobbyView.vue` / `ResultView.vue` / `GameView.vue` | UI 連動 |
+| `worker/roomLogic.test.ts` | HOLD 系単体 |
+| `docs/*` / `README.md` | 仕様・backlog・復旧手順 |
+
+### 明示的にやっていないこと
+
+- **HOLD-5 本番 `wrangler deploy`**（要ユーザー確認・Cloudflare 認証）
+- Playwright E2E / UX-2 カウントダウン
+- workerd ハングの上流修正（ローカル再起動で十分と判断）
+
+### 確認結果
+
+- `npm test` 98 件成功
+- `npm run build` 成功
+
+### 次に考えられる作業
+
+1. ユーザー確認後に HOLD-5（`npm run deploy`）
+2. UX-2 / TEST-1 など idea 枠
+
+---
+
 ## ログの書き方
 
 **正規のルールは `AGENTS.md` を参照。** 変更のあったセッションでは、このファイルに日付見出しで **追記** する（過去エントリは消さない）。

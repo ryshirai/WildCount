@@ -232,7 +232,15 @@ function toggleReady() {
 function startGame() {
   if (isOnline.value) {
     if (!canStart.value) {
-      showToast('ホストのみ・2人以上で開始できます')
+      if (!isHost.value) {
+        showToast('ホストのみ開始できます')
+      } else if (players.value.length < 2) {
+        showToast('開始には2人以上必要です')
+      } else if (readyCount.value < players.value.length) {
+        showToast('全員が準備完了してから開始できます')
+      } else {
+        showToast('まだ開始できません')
+      }
       return
     }
     starting.value = true
@@ -406,7 +414,13 @@ function leaveLobby() {
 
         <p class="mt-4 text-center text-xs text-sand-dim">
           準備完了 {{ readyCount }} / {{ players.length }}
-          <span v-if="!isHost"> · ホストの開始を待っています</span>
+          <template v-if="isOnline">
+            <span v-if="isHost && readyCount < players.length">
+              · 全員の準備完了後に開始できます
+            </span>
+            <span v-else-if="!isHost"> · ホストの開始を待っています</span>
+          </template>
+          <span v-else-if="!isHost"> · ホストの開始を待っています</span>
         </p>
       </section>
 
@@ -427,13 +441,23 @@ function leaveLobby() {
           :disabled="!canStart || starting"
           @click="startGame"
         >
-          {{ starting ? '開始中…' : 'ゲームを開始' }}
+          {{
+            starting
+              ? '開始中…'
+              : isOnline && readyCount < players.length
+                ? `開始（準備 ${readyCount}/${players.length}）`
+                : 'ゲームを開始'
+          }}
         </button>
         <div
           v-else
           class="w-full rounded-xl border border-gold-400/20 bg-night-800/60 px-5 py-3 text-center text-sm text-sand-dim sm:max-w-xs"
         >
-          ホストの開始待ち…
+          {{
+            isOnline && readyCount < players.length
+              ? '全員の準備完了待ち…'
+              : 'ホストの開始待ち…'
+          }}
         </div>
         <button type="button" class="btn-ghost w-full sm:w-auto" @click="leaveLobby">
           ロビーを退出

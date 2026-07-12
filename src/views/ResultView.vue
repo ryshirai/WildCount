@@ -162,6 +162,21 @@ onUnmounted(() => {
   clearStepTimers()
 })
 
+// Online rematch / leave-to-lobby: when status returns to open, go to lobby
+watch(
+  () => onlineGame.view?.status,
+  (status) => {
+    if (!isOnline.value) return
+    if (status === 'open') {
+      const code = onlineGame.roomCode
+      void router.replace({
+        name: 'lobby',
+        query: { online: '1', ...(code ? { code } : {}) },
+      })
+    }
+  },
+)
+
 function goNextRound() {
   if (useMock.value) {
     void router.push({ name: 'game', query: { mock: '1' } })
@@ -186,9 +201,8 @@ async function playAgain() {
     return
   }
   if (isOnline.value) {
-    // Online: leave and recreate from home (no server rematch yet)
-    onlineGame.leave()
-    void router.push({ name: 'home' })
+    // Server rematch → lobby (same seats); navigation via status watch
+    onlineGame.requestRematch()
     return
   }
   await store.restartLastGame()

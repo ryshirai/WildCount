@@ -15,6 +15,8 @@ export type ClientMessage =
     }
   | { type: 'resume'; resumeToken: string }
   | { type: 'ping' }
+  | { type: 'dismiss_result' }
+  | { type: 'rematch' }
 
 export type ClientGameAction =
   | { type: 'PLACE_BID'; value: number }

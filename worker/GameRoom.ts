@@ -11,7 +11,10 @@ import {
   type BidHistoryEntry,
 } from './maskedView'
 import {
+  allConnectedHaveResultAck,
+  allPlayersReady,
   applyDueHostTransfer,
+  applyResultDismiss,
   buildPlayerView,
   clearDisconnectDeadline,
   createEmptyRoom,
@@ -22,6 +25,7 @@ import {
   nextAvatarIndex,
   parseClientMessage,
   rememberAction,
+  resetRoomForRematch,
   shouldPurgeRoom,
   type RoomState,
   type WsAttachment,
@@ -212,6 +216,12 @@ export class GameRoom {
       case 'start':
         await this.handleStart(ws, room)
         return
+      case 'dismiss_result':
+        await this.handleDismissResult(ws, room)
+        return
+      case 'rematch':
+        await this.handleRematch(ws, room)
+        return
       case 'action':
         await this.handleAction(
           ws,
@@ -253,6 +263,11 @@ export class GameRoom {
 
     const now = Date.now()
     markPlayerDisconnected(room, att.playerId, now)
+    // Disconnected seats no longer block result ACK completion
+    if (room.pendingResult && allConnectedHaveResultAck(room)) {
+      room.pendingResult = null
+      room.resultAcks = {}
+    }
     room.lastActivityAt = now
     room.revision += 1
     await this.saveRoom(room)
@@ -501,6 +516,15 @@ export class GameRoom {
       return
     }
 
+    if (!allPlayersReady(room)) {
+      this.send(ws, {
+        type: 'error',
+        code: 'PLAYERS_NOT_READY',
+        message: 'All players must be ready before start',
+      })
+      return
+    }
+
     try {
       const ids = room.players.map((p) => p.id)
       const seed = cryptoSeed()
@@ -509,6 +533,7 @@ export class GameRoom {
       room.status = 'playing'
       room.bidHistory = []
       room.pendingResult = null
+      room.resultAcks = {}
       room.appliedActions = room.appliedActions ?? {}
       room.lastActivityAt = Date.now()
       room.revision += 1
@@ -600,10 +625,7 @@ export class GameRoom {
       return
     }
 
-    // New bid clears prior challenge result UI payload
-    if (action.type === 'PLACE_BID' && room.pendingResult) {
-      room.pendingResult = null
-    }
+    // pendingResult is cleared only via dismiss_result ACKs (HOLD-2), not on next bid
 
     try {
       if (action.type === 'PLACE_BID') {
@@ -665,6 +687,7 @@ export class GameRoom {
         round: challengedRound,
         winnerId: room.game.winnerId,
       })
+      room.resultAcks = {}
 
       // Keep only bids for the new (current) round after auto-advance
       room.bidHistory = room.bidHistory.filter(
@@ -703,6 +726,89 @@ export class GameRoom {
       })
       this.sendView(ws, room, playerId)
     }
+  }
+
+  private async handleDismissResult(
+    ws: WebSocket,
+    room: RoomState,
+  ): Promise<void> {
+    this.ensureRoomDefaults(room)
+    const playerId = this.playerIdOf(ws)
+    if (!playerId) {
+      this.send(ws, {
+        type: 'error',
+        code: 'BAD_REQUEST',
+        message: 'Join the room first',
+      })
+      return
+    }
+
+    const { changed } = applyResultDismiss(room, playerId)
+    if (!changed) {
+      // Idempotent: already acked or nothing pending — resend personal view
+      this.sendView(ws, room, playerId)
+      return
+    }
+
+    room.lastActivityAt = Date.now()
+    room.revision += 1
+    await this.saveRoom(room)
+    // Broadcast so each client gets per-player pendingResult visibility
+    this.broadcastView(room)
+  }
+
+  private async handleRematch(ws: WebSocket, room: RoomState): Promise<void> {
+    this.ensureRoomDefaults(room)
+    const playerId = this.playerIdOf(ws)
+    if (!playerId) {
+      this.send(ws, {
+        type: 'error',
+        code: 'BAD_REQUEST',
+        message: 'Join the room first',
+      })
+      return
+    }
+
+    if (!room.players.some((p) => p.id === playerId)) {
+      this.send(ws, {
+        type: 'error',
+        code: 'BAD_REQUEST',
+        message: 'Player not found',
+      })
+      return
+    }
+
+    if (room.status !== 'playing' || !room.game) {
+      this.send(ws, {
+        type: 'error',
+        code: 'ILLEGAL_ACTION',
+        message: 'Rematch only after a finished game',
+      })
+      return
+    }
+
+    if (room.game.phase !== 'game_over') {
+      this.send(ws, {
+        type: 'error',
+        code: 'ILLEGAL_ACTION',
+        message: 'Game is not over yet',
+      })
+      return
+    }
+
+    resetRoomForRematch(room)
+    room.lastActivityAt = Date.now()
+    room.revision += 1
+    await this.saveRoom(room)
+    await this.scheduleNextAlarm(room)
+
+    this.broadcast(room, {
+      type: 'event',
+      level: 'info',
+      message: 'ロビーに戻りました。準備完了してから開始できます',
+      code: 'REMATCH',
+    })
+    this.broadcastView(room)
   }
 
   // ---------------------------------------------------------------------------

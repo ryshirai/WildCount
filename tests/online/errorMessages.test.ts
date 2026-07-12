@@ -16,6 +16,7 @@ describe('formatServerError', () => {
       'ROOM_NOT_FOUND',
       'GAME_ALREADY_STARTED',
       'NOT_ENOUGH_PLAYERS',
+      'PLAYERS_NOT_READY',
       'REVISION_MISMATCH',
       'ILLEGAL_ACTION',
       'INVALID_TOKEN',

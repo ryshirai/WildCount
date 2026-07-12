@@ -583,10 +583,24 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     sendAction({ type: 'CHALLENGE' })
   }
 
-  /** Local dismiss so GameView can return to bidding UI for next round. */
+  /**
+   * Dismiss challenge result UI. Notifies server (HOLD-2) so slow clients keep
+   * pendingResult until they also dismiss; local hold is cleared immediately.
+   */
   function clearPendingResult(): void {
     resultDismissed.value = true
     heldPendingResult.value = null
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      send({ type: 'dismiss_result' })
+    }
+  }
+
+  /** After game_over: ask server to reset room to lobby (same seats). */
+  function requestRematch(): void {
+    clearError()
+    resultDismissed.value = true
+    heldPendingResult.value = null
+    send({ type: 'rematch' })
   }
 
   function leave(): void {
@@ -661,6 +675,7 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     placeBid,
     challenge,
     clearPendingResult,
+    requestRematch,
     leave,
     send,
   }

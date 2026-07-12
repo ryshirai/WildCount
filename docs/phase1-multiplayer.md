@@ -82,8 +82,8 @@ JSON テキストフレーム。未知 `type` は `error`（`UNKNOWN_TYPE`）。
 ```ts
 type ClientMessage =
   | { type: 'join'; displayName: string; resumeToken?: string }
-  | { type: 'ready'; ready: boolean }           // 任意（UI 用。開始条件には使わない）
-  | { type: 'start' }                           // host only。人数 ≥ 2
+  | { type: 'ready'; ready: boolean }           // ロビー。開始条件に使用（全員 ready 必須）
+  | { type: 'start' }                           // host only。人数 ≥ 2 かつ全員 ready
   | {
       type: 'action'
       actionId: string                          // クライアント生成 UUID
@@ -92,6 +92,8 @@ type ClientMessage =
     }
   | { type: 'resume'; resumeToken: string }     // join の代替導線でも可
   | { type: 'ping' }                            // アプリ層。Hibernation auto-response と併用可
+  | { type: 'dismiss_result' }                  // 結果 UI を閉じた ACK（サーバが全員まで保持）
+  | { type: 'rematch' }                         // game_over 後: 同席のままロビーへ
 
 /** domain GameAction のうちプレイヤー操作分（START_GAME は start メッセージ） */
 type ClientGameAction =
@@ -169,8 +171,10 @@ interface RoomState {
   disconnectDeadlines: Record<string, number> // playerId → epoch ms
   /** null = ロビー。開始後は domain GameState */
   game: GameState | null
-  /** チャレンジ直後、次 R 表示前に UI へ載せるスナップショット */
+  /** チャレンジ直後の結果スナップショット。接続中全員が dismiss するまで保持 */
   pendingResult: PendingResultSnapshot | null
+  /** playerId → true（現在の pendingResult を閉じた） */
+  resultAcks: Record<string, boolean>
   status: 'open' | 'playing' | 'closed'
 }
 
@@ -222,9 +226,24 @@ interface RoomPlayer {
 
 ### 7.3 開始
 
-- host のみ。`players.length >= 2`  
+- host のみ。`players.length >= 2` かつ **全員 `ready === true`**  
+- 未 ready がいると `error`（`PLAYERS_NOT_READY`）。`canStart` も同じ条件  
 - `status = playing`、domain `startGame`  
 - 以降 `action` のみで進行
+
+### 7.3.1 結果 dismiss（ACK）
+
+1. チャレンジ成功後、サーバは `pendingResult` をセットし `resultAcks` を空にする  
+2. クライアントが結果 UI を閉じたら `dismiss_result`  
+3. 当該プレイヤーの view からは `pendingResult` を隠す（他プレイヤーはまだ見える）  
+4. **接続中**の全員が ACK した時点で `pendingResult` をクリア（切断席は待たない）  
+5. 次の `PLACE_BID` では消さない（HOLD-2）
+
+### 7.3.2 再戦（rematch）
+
+1. `game.phase === 'game_over'` のとき、参加者が `rematch`  
+2. サーバは `status = open`、game / pendingResult / bidHistory をクリア、全員 `ready = false`  
+3. 席・host・resumeToken は維持 → 全員ロビーへ（再 ready → host start）
 
 ### 7.4 再接続
 
@@ -304,6 +323,7 @@ interface RoomPlayer {
 | `ROOM_NOT_FOUND` | 未初期化コード |
 | `GAME_ALREADY_STARTED` | 開始後の新規 join |
 | `NOT_ENOUGH_PLAYERS` | 開始時 < 2 |
+| `PLAYERS_NOT_READY` | 開始時に未 ready の参加者がいる |
 | `REVISION_MISMATCH` | expectedRevision 不一致 |
 | `ILLEGAL_ACTION` | domain / 手番違反 |
 | `INVALID_TOKEN` | resume 失敗（開始後） |
@@ -350,3 +370,4 @@ interface RoomPlayer {
 | 2026-07-12 | スライス状態列を追加。残タスク正本を `docs/backlog.md` に分離 |
 | 2026-07-12 | **P1-5 完了** — host 切断 60s 移譲（alarm）・idle TTL で storage 削除（open 10m / playing 30m） |
 | 2026-07-12 | **P1-6 完了** — error code→日本語 UI（`errorMessages.ts`）・テスト・docs 締め |
+| 2026-07-12 | **HOLD-1〜4** — 全員 ready 開始 / result ACK / rematch / wrangler ハング文書化。HOLD-5（deploy）はユーザー確認待ち |

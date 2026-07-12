@@ -39,9 +39,19 @@ npm install
 # Frontend（Vite）
 npm run dev
 
-# Backend（Wrangler）
+# Backend（Wrangler）— 別ターミナル
 npm run worker:dev
 ```
+
+### wrangler dev が応答しなくなったとき
+
+長時間稼働や Dev Container 上で、**ポート 8787 は LISTEN しているのに HTTP が返らない**ことがあります（workerd ハング）。
+
+1. ホームの「ルームを作成」は約 8 秒でタイムアウトし、再起動を促す文言を出します  
+2. 復旧: `worker:dev` を止めて再起動（プロセスが残っていれば PID を kill）  
+3. 確認: `curl -s http://127.0.0.1:8787/api/health` → `{"ok":true,...}`
+
+本番 Cloudflare 上では同じ症状は未確認。ローカル `wrangler dev` 固有の既知問題として扱います。
 
 ## 主なスクリプト
 
