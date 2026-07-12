@@ -1,0 +1,133 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #app {
+    @apply h-full min-h-full;
+  }
+
+  body {
+    @apply bg-night-950 text-sand font-sans antialiased;
+    margin: 0;
+  }
+
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@layer components {
+  .panel {
+    @apply rounded-2xl border border-gold-400/20 bg-night-800/80 shadow-panel backdrop-blur-md;
+  }
+
+  .btn-gold {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl
+      bg-gradient-to-b from-gold-200 to-gold-400 px-5 py-3
+      font-semibold text-night-900 shadow-gold
+      transition hover:brightness-110 active:scale-[0.98]
+      disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-teal {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl
+      bg-gradient-to-b from-teal-soft to-teal-deep px-5 py-3
+      font-semibold text-gold-100 shadow-panel
+      ring-1 ring-teal-soft/40
+      transition hover:brightness-110 active:scale-[0.98]
+      disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center rounded-lg
+      border border-gold-400/25 bg-night-800/60 px-3 py-2
+      text-sm text-sand transition hover:border-gold-400/50 hover:bg-night-700;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full
+      border border-gold-400/25 bg-night-800/70 px-3 py-1
+      text-xs font-medium text-gold-200;
+  }
+
+  .card-tile {
+    @apply flex h-12 w-10 items-center justify-center rounded-lg
+      border border-gold-300/40 bg-gradient-to-b from-gold-50 to-gold-200
+      font-display text-lg font-bold text-night-900 shadow-md
+      sm:h-14 sm:w-11 sm:text-xl;
+  }
+
+  .card-tile-mystery {
+    @apply flex h-14 w-11 items-center justify-center rounded-lg
+      border-2 border-gold-400 bg-gradient-to-b from-night-700 to-night-900
+      font-display text-2xl font-bold text-gold-300 shadow-gold-glow;
+  }
+}
+
+/* Desert night backdrop decorations */
+.desert-bg {
+  background-color: #0b1220;
+  background-image:
+    radial-gradient(ellipse 90% 55% at 50% 110%, rgba(90, 60, 30, 0.55) 0%, transparent 55%),
+    radial-gradient(ellipse 50% 35% at 50% -5%, rgba(30, 50, 90, 0.45) 0%, transparent 55%),
+    radial-gradient(1px 1px at 12% 18%, rgba(255, 255, 255, 0.55), transparent),
+    radial-gradient(1px 1px at 28% 42%, rgba(255, 255, 255, 0.35), transparent),
+    radial-gradient(1.5px 1.5px at 55% 12%, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(1px 1px at 72% 28%, rgba(255, 255, 255, 0.4), transparent),
+    radial-gradient(1px 1px at 88% 15%, rgba(255, 255, 255, 0.45), transparent),
+    radial-gradient(1px 1px at 40% 8%, rgba(255, 255, 255, 0.3), transparent),
+    radial-gradient(1px 1px at 65% 45%, rgba(255, 255, 255, 0.25), transparent),
+    radial-gradient(1.5px 1.5px at 18% 55%, rgba(255, 255, 255, 0.3), transparent);
+}
+
+/* Soft cactus silhouettes via CSS */
+.desert-bg::before,
+.desert-bg::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  pointer-events: none;
+  opacity: 0.35;
+  background: #0a1525;
+}
+
+.desert-bg::before {
+  left: 6%;
+  width: 48px;
+  height: 120px;
+  border-radius: 24px 24px 0 0;
+  box-shadow:
+    18px -40px 0 -8px #0a1525,
+    -14px -28px 0 -12px #0a1525;
+}
+
+.desert-bg::after {
+  right: 10%;
+  width: 40px;
+  height: 100px;
+  border-radius: 20px 20px 0 0;
+  box-shadow:
+    -16px -32px 0 -10px #0a1525,
+    14px -22px 0 -14px #0a1525;
+}
+
+/* Circular seat positioning helpers (desktop) */
+.seat-circle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+}
+
+.seat-circle > * {
+  transform: translate(-50%, -50%);
+}
+
+/* Mobile safe area */
+.safe-bottom {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
