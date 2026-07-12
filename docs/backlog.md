@@ -40,7 +40,7 @@
 | **HOLD-2** | done | **結果のサーバ側全員 ACK** | `dismiss_result` + `resultAcks`。接続中全員まで `pendingResult` 保持。次 bid では消さない |
 | **HOLD-3** | done | **オンライン再戦（もう一度遊ぶ）** | `rematch` → 同席のままロビー。ready をリセットして再スタート |
 | **HOLD-4** | done | **wrangler ローカルハング（IPv4/IPv6）** | Node が `[::1]`、workerd が `127.0.0.1` で不一致 → CPU 100%。`worker:dev` に `NODE_OPTIONS=--dns-result-order=ipv4first`（#12910） |
-| **HOLD-5** | hold | **本番 `wrangler deploy`** | ユーザー確認なしでは行わない（phase1 非交渉） |
+| **HOLD-5** | hold | **本番デプロイ（Worker + Pages）** | 公開 URL: `https://wildcount.rysh.dev`。手順: `docs/deploy.md`。ユーザー確認なしでは行わない |
 
 ---
 
@@ -78,7 +78,7 @@
 
 ## 直近のおすすめ着手順
 
-1. **HOLD-5**（本番 deploy）はユーザー確認後  
+1. **HOLD-5** — `https://wildcount.rysh.dev`（Pages + Worker `/api/*`）。手順は `docs/deploy.md`。実行はユーザー確認後  
 2. UX-2（ホスト移譲カウントダウン）・TEST-1 / OPS-1 は任意
 
 ---
@@ -89,4 +89,4 @@
 2. 完了したら状態を `done` にし、数セッション後に表から落としてよい  
 3. Phase 1 スライスの ID（P1-x）は `phase1-multiplayer.md` §10 と揃える  
 
-最終更新: 2026-07-12（UX-7 スタンプリアクション done）
+最終更新: 2026-07-12（本番 URL `wildcount.rysh.dev` を deploy.md に反映）

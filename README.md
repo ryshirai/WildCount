@@ -64,12 +64,14 @@ Dev Container / Linux 上で、**ポート 8787 は LISTEN しているのに HT
 
 ```bash
 npm run dev          # Vite開発サーバー
-npm run build        # 本番ビルド
+npm run build        # 本番ビルド（フロント dist/）
 npm run worker:dev   # Wrangler開発サーバー
-npm run deploy       # Cloudflareへのデプロイ
+npm run deploy       # Cloudflare Worker のみデプロイ（API / DO）
 npm run lint         # ESLint
 npm run format       # Prettier
 ```
+
+本番の載せ方（**Worker + Pages**、公開 URL: **`https://wildcount.rysh.dev`**）は [`docs/deploy.md`](docs/deploy.md) を参照。
 
 ## プロジェクト構造
 
@@ -101,6 +103,7 @@ wild-count/
 | パス | 内容 |
 |------|------|
 | [`docs/backlog.md`](docs/backlog.md) | **残タスク・hold・改善案の一覧** |
+| [`docs/deploy.md`](docs/deploy.md) | **本番デプロイ手順（Worker + Pages）** |
 | [`docs/phase1-multiplayer.md`](docs/phase1-multiplayer.md) | マルチプレイ設計（Worker / DO / WS） |
 | [`docs/work-log.md`](docs/work-log.md) | セッションごとの作業ログ |
 | [`docs/game-rules.md`](docs/game-rules.md) | ゲームルール |

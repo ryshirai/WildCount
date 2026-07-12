@@ -1754,6 +1754,27 @@
 
 ---
 
+## 2026-07-12 — 本番デプロイ手順ドキュメント
+
+### 背景・目的
+- リリース前に「Worker と Pages のどちらに何を載せるか」と手順を文書化する
+
+### 実施内容
+1. `docs/deploy.md` を追加（Worker = API/DO、Pages = SPA）
+2. 本番 URL を **`https://wildcount.rysh.dev`** に決定し、同一オリジン（Pages + Worker `/api/*`）を本線に記載
+3. README / backlog（HOLD-5）からリンク
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `docs/deploy.md` | デプロイ手順・本番 URL |
+| `README.md` / `docs/backlog.md` | 参照更新 |
+
+### 明示的にやっていないこと
+- 実際の `wrangler deploy` / Pages 公開 / DNS 設定（HOLD-5・要確認）
+
+---
+
 ## ログの書き方
 
 **正規のルールは `AGENTS.md` を参照。** 変更のあったセッションでは、このファイルに日付見出しで **追記** する（過去エントリは消さない）。

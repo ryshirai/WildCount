@@ -10,7 +10,8 @@ interface ImportMetaEnv {
   /**
    * Absolute Worker origin when not same-origin (optional).
    * Dev default: use Vite proxy to wrangler (`/api/...`).
-   * Example: `https://wild-count.example.workers.dev`
+   * Same-origin prod (wildcount.rysh.dev) leaves this unset.
+   * Example for split host: `https://wild-count.example.workers.dev`
    */
   readonly VITE_WORKER_URL?: string
 }
