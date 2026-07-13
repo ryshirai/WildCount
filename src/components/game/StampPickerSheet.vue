@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { AvatarAssetId } from '@/localGame/avatarCatalog'
 import type { StampId } from '@/online/stamps'
 import { STAMP_CATALOG, characterStampSrc } from '@/online/stamps'
@@ -7,12 +8,12 @@ const props = withDefaults(
   defineProps<{
     open: boolean
     disabled?: boolean
-    /** Self avatar for character-skinned picker previews */
+    /** Self avatar for character-skinned picker previews (defaults to bear) */
     selfAvatarId?: AvatarAssetId | null
   }>(),
   {
     disabled: false,
-    selfAvatarId: null,
+    selfAvatarId: 'self',
   },
 )
 
@@ -27,9 +28,19 @@ function onPick(id: StampId) {
   emit('close')
 }
 
-function previewSrc(id: StampId): string | null {
-  return characterStampSrc(props.selfAvatarId, id)
-}
+/** Prefer prop; never leave emotion stamps as bare emoji when art exists. */
+const previewAvatarId = computed(
+  (): AvatarAssetId => props.selfAvatarId ?? 'self',
+)
+
+const stampItems = computed(() =>
+  STAMP_CATALOG.map((s) => ({
+    id: s.id as StampId,
+    label: s.label,
+    emoji: s.emoji,
+    src: characterStampSrc(previewAvatarId.value, s.id),
+  })),
+)
 </script>
 
 <template>
@@ -80,7 +91,7 @@ function previewSrc(id: StampId): string | null {
           </p>
           <div class="grid grid-cols-5 gap-2">
             <button
-              v-for="s in STAMP_CATALOG"
+              v-for="s in stampItems"
               :key="s.id"
               type="button"
               class="flex flex-col items-center rounded-2xl border border-gold-400/15 bg-night-950/70 px-1 py-2.5 transition active:scale-95 enabled:hover:border-gold-400/40 enabled:hover:bg-teal-deep/35 disabled:opacity-40"
@@ -90,8 +101,8 @@ function previewSrc(id: StampId): string | null {
               @click="onPick(s.id)"
             >
               <img
-                v-if="previewSrc(s.id)"
-                :src="previewSrc(s.id)!"
+                v-if="s.src"
+                :src="s.src"
                 alt=""
                 class="h-10 w-10 rounded-full object-cover ring-1 ring-gold-400/25"
                 draggable="false"

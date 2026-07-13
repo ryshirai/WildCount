@@ -2754,6 +2754,42 @@
 
 ---
 
+## 2026-07-13 — 対戦画面スタンプ一覧が絵文字のままになる問題
+
+### 背景・目的
+- 対戦画面のスタンプピッカーが、キャラ別 WebP ではなく絵文字グリッドになっていた（スクショ確認）
+- 待機部屋と同様、自分の動物スキンで 9 感情を表示したい（ブランド `coyote` のみ絵文字）
+
+### 実施内容
+1. **StampPickerSheet / ChatPanel** — `selfAvatarId` 既定を `'self'` に。prop 欠落時も感情スタンプは動物絵になる
+2. **GameView** — `selfStampAvatarId` を game seats → lobby players → クライアント `avatarIndex` の順で解決
+3. **chatAvatarForPlayer / floating** — 対局中は `game.seats` からも avatarIndex を取る
+4. **PlayerSeat.avatarId** — mapper / profiles で asset id を載せ、履歴スタンプ解決を安定化
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/components/game/StampPickerSheet.vue` | 既定アバター + computed プレビュー |
+| `src/components/game/ChatPanel.vue` | ピッカー既定 `'self'` |
+| `src/views/GameView.vue` | selfStampAvatarId / chatAvatar 強化 |
+| `src/stores/onlineGame.ts` | 浮遊スタンプの seat 解決 |
+| `src/mappers/onlineToGameView.ts` / `toGameView.ts` | avatarId |
+| `src/types/game.ts` / `src/localGame/profiles.ts` | avatarId フィールド |
+
+### 明示的にやっていないこと
+- 本番デプロイ（origin 未 push の UX-12 込み）
+- ブランド `coyote` スタンプの動物差分
+
+### 確認結果
+- `tests/online/stamps.test.ts` / mappers パス
+- `npm run typecheck` パス
+
+### 次に考えられる作業
+1. 実機で対戦中ピッカーが自分の動物になることを確認
+2. 本番へ UX-12 + 本修正をデプロイ
+
+---
+
 ## ログの書き方
 
 **正規のルールは `AGENTS.md` を参照。** 変更のあったセッションでは、このファイルに日付見出しで **追記** する（過去エントリは消さない）。

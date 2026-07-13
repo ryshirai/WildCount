@@ -172,15 +172,38 @@ function chatAvatarForPlayer(playerId: string) {
       avatarId: meta.id,
     }
   }
+  // Masked game seats carry avatarIndex during play (lobby players[] may lag)
+  const fromSeat = onlineGame.view?.game?.seats.find((s) => s.id === playerId)
+  if (fromSeat) {
+    const meta = avatarByIndex(fromSeat.avatarIndex)
+    return {
+      avatar: meta.emoji,
+      avatarSrc: avatarSrc(meta.id),
+      avatarId: meta.id,
+    }
+  }
   const fromGame = room.value?.players.find((p) => p.id === playerId)
   if (fromGame) {
-    return { avatar: fromGame.avatar, avatarSrc: fromGame.avatarSrc }
+    return {
+      avatar: fromGame.avatar,
+      avatarSrc: fromGame.avatarSrc,
+      avatarId: fromGame.avatarId,
+    }
   }
   return { avatar: '👤' }
 }
 
+/**
+ * Own character for stamp picker previews (same idea as lobby avatarDraft).
+ * Prefer live game seat → lobby member → persisted client preference.
+ */
 const selfStampAvatarId = computed(() => {
-  const me = onlineGame.view?.players.find((p) => p.id === onlineGame.playerId)
+  const pid = onlineGame.playerId ?? onlineGame.view?.selfPlayerId
+  const gameSelf =
+    onlineGame.view?.game?.seats.find((s) => s.isSelf) ??
+    onlineGame.view?.game?.seats.find((s) => s.id === pid)
+  if (gameSelf) return avatarByIndex(gameSelf.avatarIndex).id
+  const me = onlineGame.view?.players.find((p) => p.id === pid)
   if (me) return avatarByIndex(me.avatarIndex).id
   return avatarByIndex(onlineGame.avatarIndex).id
 })

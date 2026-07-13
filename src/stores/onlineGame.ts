@@ -849,8 +849,11 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     if (!body) return
     let stampSrc: string | null = null
     if (isStamp && m.stampId) {
-      const seat = view.value?.players.find((p) => p.id === m.playerId)
-      const assetId = avatarByIndex(seat?.avatarIndex).id
+      const lobbyP = view.value?.players.find((p) => p.id === m.playerId)
+      const gameP = view.value?.game?.seats.find((s) => s.id === m.playerId)
+      const assetId = avatarByIndex(
+        gameP?.avatarIndex ?? lobbyP?.avatarIndex,
+      ).id
       stampSrc = characterStampSrc(assetId, m.stampId)
     }
     const item: FloatingReaction = {

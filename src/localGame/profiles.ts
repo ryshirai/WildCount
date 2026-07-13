@@ -21,6 +21,8 @@ export interface PlayerProfile {
   avatar: string
   /** Public URL to portrait WebP, if available */
   avatarSrc?: string
+  /** Catalog asset id (character stamps / seat art) */
+  avatarId?: AvatarAssetId
 }
 
 export interface BuildDemoLineupOptions {
@@ -54,6 +56,7 @@ function profileFromAsset(
     name,
     avatar: meta.emoji,
     avatarSrc: avatarSrc(assetId),
+    avatarId: assetId,
   }
 }
 
@@ -105,6 +108,7 @@ export function getProfile(
       name: id,
       avatar: meta.emoji,
       avatarSrc: avatarSrc(assetId),
+      avatarId: assetId,
     }
   }
 

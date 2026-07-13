@@ -28,7 +28,8 @@ const props = withDefaults(
   }>(),
   {
     selfPlayerId: null,
-    selfAvatarId: null,
+    /** Bear when parent omits id — emotion stamps still get character art */
+    selfAvatarId: 'self',
     disabled: false,
     disabledHint: 'オンライン対戦のときだけ使えます',
     compact: false,
@@ -77,7 +78,7 @@ function stampArtSrc(m: ChatMessage): string | null {
 }
 
 function pickerStampSrc(stampId: StampId): string | null {
-  return characterStampSrc(props.selfAvatarId, stampId)
+  return characterStampSrc(props.selfAvatarId ?? 'self', stampId)
 }
 
 function onSubmit() {

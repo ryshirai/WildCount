@@ -1,3 +1,5 @@
+import type { AvatarAssetId } from '@/localGame/avatarCatalog'
+
 /** UI mock types — will align with domain engine later */
 
 export type PlayerId = string
@@ -10,6 +12,8 @@ export interface PlayerSeat {
   avatar: string
   /** Portrait image URL when available */
   avatarSrc?: string
+  /** Catalog asset id (for character-skinned stamps) */
+  avatarId?: AvatarAssetId
   /** Declared bid this round; null if not yet declared */
   bid: number | null
   /** Whether this seat has already declared */

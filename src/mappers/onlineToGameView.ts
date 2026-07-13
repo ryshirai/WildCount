@@ -72,6 +72,7 @@ function seatsToUi(game: MaskedGamePayload): PlayerSeat[] {
       name: s.displayName,
       avatar: meta.emoji,
       avatarSrc: avatarSrc(meta.id),
+      avatarId: meta.id,
       bid: s.alive ? s.bid : null,
       hasDeclared: s.hasDeclared,
       isSelf: s.isSelf,

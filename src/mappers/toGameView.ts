@@ -92,6 +92,7 @@ export function toGameView(input: ToGameViewInput): GameViewModel {
         name: profile.name,
         avatar: profile.avatar,
         avatarSrc: profile.avatarSrc,
+        avatarId: profile.avatarId,
         bid: p.alive ? bid : null,
         hasDeclared: p.alive && bid != null,
         isSelf,
