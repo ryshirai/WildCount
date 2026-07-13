@@ -84,6 +84,8 @@ const displayTotal = ref<number | null>(null)
 const showConfetti = ref(false)
 /** True after count-up finishes — triggers slam + confetti */
 const totalRevealDone = ref(false)
+/** Full-screen vignette flash on verdict */
+const showVignette = ref(false)
 
 let stepTimers: ReturnType<typeof setTimeout>[] = []
 let countRaf = 0
@@ -111,6 +113,7 @@ function animateTotalTo(target: number) {
     displayTotal.value = target
     totalRevealDone.value = true
     showConfetti.value = true
+    showVignette.value = true
     return
   }
 
@@ -128,6 +131,7 @@ function animateTotalTo(target: number) {
       displayTotal.value = target
       totalRevealDone.value = true
       showConfetti.value = true
+      showVignette.value = true
       countRaf = 0
     }
   }
@@ -146,6 +150,7 @@ function runCalcSequence() {
   activeStepIndex.value = -1
   calcDone.value = false
   showConfetti.value = false
+  showVignette.value = false
   totalRevealDone.value = false
   displayTotal.value = null
 
@@ -198,6 +203,13 @@ const confettiPalette = computed(() => {
 const confettiDensity = computed(() =>
   localMeta.value.isGameOver ? ('lg' as const) : ('md' as const),
 )
+
+const vignetteTone = computed(() => {
+  if (localMeta.value.isGameOver) return 'gameover' as const
+  if (!result.value) return 'win' as const
+  // Coyote success (challenger correct) → teal win feel; bidder held → gold
+  return result.value.bidderWins ? ('lose' as const) : ('win' as const)
+})
 
 // Restart calc only when the challenge identity changes (not peer view noise)
 watch(
@@ -347,12 +359,18 @@ async function playAgain() {
       v-if="result"
       class="relative z-10 mx-auto w-full max-w-3xl min-h-0 flex-1 overflow-y-auto scrollbar-none px-4 py-5 safe-bottom sm:py-6 lg:py-5"
     >
-      <!-- Confetti over the scroll area once calc resolves -->
+      <!-- Confetti + vignette once calc resolves -->
       <FxConfetti
         v-if="showConfetti"
         class="fixed inset-0 z-20"
         :density="confettiDensity"
         :palette="confettiPalette"
+      />
+      <div
+        v-if="showVignette"
+        class="verdict-vignette"
+        :class="`verdict-vignette--${vignetteTone}`"
+        aria-hidden="true"
       />
 
       <!-- Game over banner -->
@@ -361,7 +379,10 @@ async function playAgain() {
         class="panel result-banner-in relative mb-4 overflow-hidden p-4 text-center ring-1 ring-gold-400/40 sm:p-5"
       >
         <p class="text-xs uppercase tracking-[0.2em] text-sand-dim">Winner</p>
-        <h2 class="font-display text-2xl font-bold text-gold-100 sm:text-3xl">
+        <h2
+          class="font-display text-2xl font-bold text-gold-100 sm:text-3xl"
+          :class="totalRevealDone || showConfetti ? 'total-slam' : ''"
+        >
           {{ localMeta.winnerName ?? '勝者' }} の勝利！
         </h2>
         <p class="mt-2 text-xs text-sand-dim">
@@ -446,31 +467,57 @@ async function playAgain() {
 
         <div
           v-if="totalRevealDone"
-          class="life-lost-pulse mt-5 inline-flex max-w-full items-center gap-2 rounded-2xl border border-red-400/35 bg-gradient-to-r from-red-950/70 to-night-900/80 px-4 py-2.5 text-sm text-red-100 shadow-[0_0_24px_rgba(248,113,113,0.12)]"
+          class="life-lost-panel life-lost-pulse mt-6 w-full max-w-md mx-auto rounded-2xl border border-red-400/40 bg-gradient-to-b from-red-950/80 via-night-900/90 to-night-950/95 px-5 py-5 text-center shadow-[0_0_36px_rgba(248,113,113,0.18)] sm:px-8 sm:py-6"
+          role="status"
         >
-          <PlayerAvatar
-            :avatar="result.lifeLostAvatar"
-            :avatar-src="result.lifeLostAvatarSrc"
-            :name="result.lifeLostName"
-            size="sm"
-            hide-name
-          />
-          <div class="min-w-0 text-left">
-            <p class="text-[10px] uppercase tracking-wider text-red-300/80">
-              ライフ −{{ lifeLossAmount
-              }}<span v-if="lifeLossAmount > 1" class="ml-1 normal-case tracking-normal text-amber-200/90">ダブル</span>
-            </p>
-            <p class="truncate font-semibold">
-              {{ result.lifeLostName }}
-              <span class="font-normal text-red-200/90">
-                がライフを {{ lifeLossAmount }} 失いました
-              </span>
-            </p>
+          <p
+            class="life-lost-label mb-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-red-300/90"
+          >
+            ライフ −{{ lifeLossAmount
+            }}<span
+              v-if="lifeLossAmount > 1"
+              class="ml-1.5 rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold normal-case tracking-normal text-amber-200"
+              >ダブル</span
+            >
+          </p>
+
+          <div class="life-lost-avatar-wrap mx-auto mb-2 inline-flex">
+            <PlayerAvatar
+              :avatar="result.lifeLostAvatar"
+              :avatar-src="result.lifeLostAvatarSrc"
+              :name="result.lifeLostName"
+              size="lg"
+              hide-name
+            />
           </div>
-          <span
-            class="heart-crack ml-1 text-lg leading-none text-rose-400"
-            aria-hidden="true"
-          >{{ lifeLossAmount > 1 ? '♥♥' : '♥' }}</span>
+
+          <p
+            class="life-lost-name font-display text-xl font-bold text-red-50 sm:text-2xl"
+          >
+            {{ result.lifeLostName }}
+          </p>
+
+          <div
+            class="life-lost-hearts mt-3 flex items-center justify-center gap-2 sm:gap-3"
+            :aria-label="`ライフ ${lifeLossAmount} 失った`"
+          >
+            <span
+              v-for="i in lifeLossAmount"
+              :key="`lost-h-${i}`"
+              class="heart-crack life-lost-heart text-4xl leading-none text-rose-400 sm:text-5xl"
+              :style="{ animationDelay: `${(i - 1) * 0.12}s` }"
+              aria-hidden="true"
+              >♥</span
+            >
+          </div>
+
+          <p class="mt-3 text-sm text-red-200/90 sm:text-base">
+            ライフを
+            <span class="font-display text-lg font-bold tabular-nums text-rose-300">{{
+              lifeLossAmount
+            }}</span>
+            失いました
+          </p>
         </div>
       </section>
 

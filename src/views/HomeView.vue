@@ -30,6 +30,17 @@ const playerName = ref(loadSavedDisplayName())
 const toast = ref<string | null>(null)
 const helpOpen = ref(false)
 const onlineBusy = ref(false)
+/** Brief press flash on primary CTAs */
+const ctaFlash = ref<'create' | 'join' | 'demo' | 'resume' | null>(null)
+let ctaFlashTimer: ReturnType<typeof setTimeout> | null = null
+
+function flashCta(kind: 'create' | 'join' | 'demo' | 'resume') {
+  ctaFlash.value = kind
+  if (ctaFlashTimer) clearTimeout(ctaFlashTimer)
+  ctaFlashTimer = setTimeout(() => {
+    if (ctaFlash.value === kind) ctaFlash.value = null
+  }, 350)
+}
 /** Room code with a saved resumeToken (reload recovery). */
 const resumableCode = ref<string | null>(null)
 const resumeBusy = ref(false)
@@ -67,6 +78,7 @@ function onCodeInput(e: Event) {
 
 async function createRoom() {
   if (onlineBusy.value) return
+  flashCta('create')
   onlineBusy.value = true
   try {
     // Leave any previous online session
@@ -88,6 +100,7 @@ async function joinRoom() {
     showToast('ルームコードを入力してください')
     return
   }
+  flashCta('join')
   onlineBusy.value = true
   try {
     if (onlineGame.isOnlineSession) onlineGame.leave()
@@ -106,6 +119,7 @@ async function joinRoom() {
 
 async function startLocalDemo() {
   if (!allowLocalPlay || demoStarting.value) return
+  flashCta('demo')
   demoStarting.value = true
   try {
     // Ensure online session does not interfere
@@ -132,6 +146,7 @@ function refreshResumable() {
 async function resumeLastRoom() {
   const code = resumableCode.value
   if (!code || resumeBusy.value) return
+  flashCta('resume')
   resumeBusy.value = true
   try {
     if (onlineGame.isOnlineSession && onlineGame.roomCode !== code) {
@@ -237,6 +252,7 @@ watch(
           <button
             type="button"
             class="btn-teal flex-1"
+            :class="ctaFlash === 'resume' ? 'btn-fx-press' : ''"
             :disabled="resumeBusy"
             @click="resumeLastRoom"
           >
@@ -336,6 +352,7 @@ watch(
         <button
           type="button"
           class="btn-gold w-full"
+          :class="ctaFlash === 'demo' ? 'btn-fx-press' : ''"
           :disabled="demoStarting"
           @click="startLocalDemo"
         >
@@ -373,6 +390,7 @@ watch(
         <button
           type="button"
           class="btn-gold w-full"
+          :class="ctaFlash === 'create' ? 'btn-fx-press' : ''"
           :disabled="onlineBusy"
           @click="createRoom"
         >
@@ -419,6 +437,7 @@ watch(
         <button
           type="button"
           class="btn-teal w-full"
+          :class="ctaFlash === 'join' ? 'btn-fx-press' : ''"
           :disabled="onlineBusy"
           @click="joinRoom"
         >

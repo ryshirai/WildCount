@@ -2553,6 +2553,58 @@
 
 ---
 
+## 2026-07-13 — ドーパミン演出 第2波（ビジュアルのみ）
+
+### 背景・目的
+- 第1波（宣言ポップ / 手番バー / confetti / カットイン）の薄い箇所を埋め、各所に「報酬感」のある CSS 演出を足す。
+- スコープ: **ビジュアルのみ**（効果音・触覚は対象外）。
+
+### 実施内容
+1. **ROUND スラム** — `RoundStartBanner`（round 増分 / 入場時）
+2. **手番エッジグロウ** — 自分の手番中 `turn-edge-glow`
+3. **特殊札キラキラ** — `RevealCardTile` + `FxSparkleBurst` / ring flash
+4. **ライフ♥** — `LifeHearts`（割れ + 残り pulse）を席・モバイルカルーセルに接続
+5. **結果** — 勝敗 vignette / Winner title slam
+6. **スタンプ** — 放射バースト + 強い pop
+7. **ロビー** — ready pop / join-in / copy sparkle
+8. **ホーム** — 主 CTA の `btn-fx-press`
+9. **a11y** — 新規クラスを `prefers-reduced-motion` で無効化
+10. **ライフ喪失パネル強化** — 結果のアイコン(lg)・名前・大♥を中央配置。割れ graysale 終了で「失った感」
+11. **宣言演出** — 中央: リング ripple / 数字エコー / キラキラ / 「宣言！」バッジ。操作バー: 宣言ボタンから数字が飛ぶ（のちサイズ拡大: 本体〜8xl / バッジ・launch 大きめ）
+12. **宣言枠レイアウト固定** — フォントサイズ固定・バッジ absolute でチカチカ解消
+13. ~~SP 宣言パネル absolute 重ね~~ → ユーザー指摘で**元の中央配置に戻した**
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/components/common/FxSparkleBurst.vue` | 局所キラキラ |
+| `src/components/game/RoundStartBanner.vue` | ROUND N バナー |
+| `src/components/game/LifeHearts.vue` | ライフ FX |
+| `src/styles/main.css` | wave-2 + life-lost panel keyframes |
+| `src/views/GameView.vue` | round + turn edge |
+| `src/components/game/RevealCardTile.vue` | 特殊札 sparkle |
+| `src/views/ResultView.vue` | vignette / slam / **life-lost 大型パネル** |
+| `src/components/game/CurrentBidDisplay.vue` | 宣言バースト（ripple / echo / バッジ） |
+| `src/components/game/BidControls.vue` | 宣言ボタンから数字 launch |
+| `src/components/game/ReactionOverlay.vue` | stamp burst |
+| `src/views/LobbyView.vue` / `HomeView.vue` | 周辺 UI |
+| `docs/ui-mock.md` / `docs/backlog.md` | メモ |
+
+### 明示的にやっていないこと
+- 効果音 / Web Audio / vibration
+- canvas パーティクル・外部ライブラリ
+- エンジン / Worker / プロトコル変更
+- 残りライフ数の before/after 数値表示（喪失枚数の大♥のみ）
+
+### 確認結果
+- `npm run build` 成功
+
+### 次に考えられる作業
+1. 任意: 効果音トグル（宣言 / コヨーテ / 勝敗）
+2. HOLD-5 本番デプロイ
+
+---
+
 ## ログの書き方
 
 **正規のルールは `AGENTS.md` を参照。** 変更のあったセッションでは、このファイルに日付見出しで **追記** する（過去エントリは消さない）。

@@ -17,6 +17,7 @@ import BidControls from '@/components/game/BidControls.vue'
 import type { StampId } from '@/online/stamps'
 import MobilePlayerCarousel from '@/components/game/MobilePlayerCarousel.vue'
 import CoyoteCutIn from '@/components/game/CoyoteCutIn.vue'
+import RoundStartBanner from '@/components/game/RoundStartBanner.vue'
 import ExtraActionCutIn, {
   type ExtraFxKind,
 } from '@/components/game/ExtraActionCutIn.vue'
@@ -83,6 +84,10 @@ const statusMessage = computed(() => {
 const toast = ref<string | null>(null)
 const helpOpen = ref(false)
 const deckInfoOpen = ref(false)
+/** Wave-2: ROUND N slam when round number increases */
+const roundBannerVisible = ref(false)
+const roundBannerNum = ref(1)
+let prevRoundForBanner: number | null = null
 /** Mobile overlay: null = play table (no drawer) */
 const mobileTab = ref<'chat' | 'log' | null>(null)
 /** Mobile quick stamp sheet (no full chat) */
@@ -596,6 +601,47 @@ watch(
       bidValue: fx.bidValue ?? null,
     })
   },
+)
+
+/** Round-start slam: fire when round increases (skip mid-challenge / coyote UI) */
+watch(
+  () => room.value?.round,
+  (round) => {
+    if (round == null || !Number.isFinite(round)) return
+    // Don't stack over coyote cut-in / card reveal
+    if (pendingResult.value || cutInVisible.value || coyoteBanner.value) {
+      prevRoundForBanner = round
+      return
+    }
+    if (prevRoundForBanner == null) {
+      prevRoundForBanner = round
+      // Opening splash for the current round once table is live
+      if (!awaitingResultView.value) {
+        roundBannerNum.value = round
+        roundBannerVisible.value = true
+      }
+      return
+    }
+    if (round > prevRoundForBanner) {
+      roundBannerNum.value = round
+      roundBannerVisible.value = true
+    }
+    prevRoundForBanner = round
+  },
+)
+
+function onRoundBannerDone() {
+  roundBannerVisible.value = false
+}
+
+const showTurnEdge = computed(
+  () =>
+    !!gameView.value?.isSelfTurn &&
+    !awaitingResultView.value &&
+    !botsRunning.value &&
+    !cutInVisible.value &&
+    !coyoteBanner.value &&
+    !roundBannerVisible.value,
 )
 
 // Only the player who pressed rematch auto-navigates (peers use banner)
@@ -1363,7 +1409,7 @@ async function onChallenge() {
             </div>
 
             <main
-              class="flex min-h-0 flex-1 flex-col items-center overflow-hidden px-3"
+              class="flex min-h-0 flex-1 flex-col items-center overflow-x-hidden overflow-y-visible px-3"
               :class="
                 mobileTab === 'chat' || mobileTab === 'log'
                   ? 'justify-start pt-2 pb-1'
@@ -1371,7 +1417,7 @@ async function onChallenge() {
               "
             >
               <div
-                class="panel w-full max-w-[12rem] px-4 py-2.5 shadow-panel transition-transform duration-300"
+                class="panel relative z-[6] w-full max-w-[13rem] overflow-visible px-4 py-3 shadow-panel transition-transform duration-300"
                 :class="
                   mobileTab === 'chat' || mobileTab === 'log'
                     ? 'scale-90 opacity-90'
@@ -1617,6 +1663,21 @@ async function onChallenge() {
     >
       セッションを準備中…
     </div>
+
+    <!-- Your-turn edge glow (wave-2 dopamine) -->
+    <div
+      v-if="showTurnEdge"
+      class="turn-edge-glow"
+      aria-hidden="true"
+    />
+
+    <!-- Round start slam -->
+    <RoundStartBanner
+      v-if="roundBannerVisible"
+      :key="`round-${roundBannerNum}`"
+      :round="roundBannerNum"
+      @done="onRoundBannerDone"
+    />
 
     <!-- Coyote cut-in overlay -->
     <CoyoteCutIn

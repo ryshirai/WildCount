@@ -47,6 +47,10 @@ const emit = defineEmits<{
 const tickKey = ref(0)
 const declareFlash = ref(false)
 const challengeFlash = ref(false)
+/** Flying number from declare button */
+const launchFx = ref<{ key: number; value: number } | null>(null)
+let launchSeq = 0
+let launchTimer: ReturnType<typeof setTimeout> | null = null
 const extraChoice = ref<BidExtraChoice>('none')
 const targetId = ref<string>('')
 
@@ -196,6 +200,13 @@ function onDeclare() {
   window.setTimeout(() => {
     declareFlash.value = false
   }, 360)
+  // Launch number toward the board (pairs with CurrentBidDisplay burst)
+  if (launchTimer) clearTimeout(launchTimer)
+  launchFx.value = { key: ++launchSeq, value: bid.value }
+  launchTimer = setTimeout(() => {
+    launchFx.value = null
+    launchTimer = null
+  }, 780)
   emit('declare', bid.value, buildExtra())
   // Reset skill after fire so next turn starts clean if same component stays
   extraChoice.value = 'none'
@@ -404,12 +415,26 @@ function onChange() {
       </button>
 
       <div
-        class="flex flex-1 flex-wrap gap-1.5"
+        class="relative flex flex-1 flex-wrap gap-1.5"
         :class="mobile ? 'w-full basis-full' : 'min-w-[14rem] justify-end'"
       >
+        <!-- Declare number launch (from button toward board) -->
+        <span
+          v-if="launchFx"
+          :key="`launch-${launchFx.key}`"
+          class="bid-declare-launch absolute left-1/4 top-0 z-10 -translate-x-1/2 font-display text-4xl font-bold tabular-nums text-gold-100 sm:left-[30%] sm:text-5xl"
+          style="
+            text-shadow:
+              0 0 16px rgba(201, 168, 76, 0.8),
+              0 0 32px rgba(201, 168, 76, 0.45);
+          "
+          aria-hidden="true"
+        >
+          {{ launchFx.value }}
+        </span>
         <button
           type="button"
-          class="btn-gold flex-1 sm:flex-none"
+          class="btn-gold relative flex-1 sm:flex-none"
           :class="[
             declareFlash ? 'btn-fx-press' : '',
             mobile ? '!py-2 text-sm' : '',

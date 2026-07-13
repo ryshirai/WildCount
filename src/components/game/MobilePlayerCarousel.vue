@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { PlayerSeat } from '@/types/game'
 import BidCard from './BidCard.vue'
+import LifeHearts from './LifeHearts.vue'
 import PlayerAvatar from './PlayerAvatar.vue'
 
 defineProps<{
@@ -49,18 +50,7 @@ defineProps<{
           hide-name
         />
         <!-- Lives under avatar -->
-        <div
-          v-if="player.lives > 0"
-          class="flex items-center gap-px"
-          :aria-label="`ライフ ${player.lives}`"
-        >
-          <span
-            v-for="i in Math.min(player.lives, 3)"
-            :key="i"
-            class="text-[9px] leading-none text-rose-400"
-            aria-hidden="true"
-          >♥</span>
-        </div>
+        <LifeHearts :lives="player.lives" :max-visible="3" size-class="text-[9px]" />
 
         <!-- Hand: others face-up, self ? -->
         <BidCard

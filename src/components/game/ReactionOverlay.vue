@@ -15,12 +15,14 @@ defineProps<{
       v-for="r in reactions"
       :key="r.key"
       class="reaction-float absolute bottom-[28%] flex flex-col items-center sm:bottom-[18%]"
+      :class="r.kind === 'stamp' ? 'reaction-float--stamp' : ''"
       :style="{ left: `${r.x}%`, transform: 'translateX(-50%)' }"
     >
-      <!-- Stamp: large emoji -->
+      <!-- Stamp: large emoji + radial burst -->
       <template v-if="r.kind === 'stamp'">
+        <span class="reaction-burst" aria-hidden="true" />
         <span
-          class="select-none text-6xl drop-shadow-[0_4px_16px_rgba(0,0,0,0.55)] md:text-7xl"
+          class="relative select-none text-6xl drop-shadow-[0_4px_16px_rgba(0,0,0,0.55)] md:text-7xl"
           >{{ r.body }}</span
         >
         <span
@@ -52,7 +54,8 @@ defineProps<{
 </template>
 
 <style scoped>
-.reaction-float {
+/* Text chat bubble float; stamps use global .reaction-float--stamp */
+.reaction-float:not(.reaction-float--stamp) {
   animation: reaction-rise 3.2s ease-out forwards;
 }
 

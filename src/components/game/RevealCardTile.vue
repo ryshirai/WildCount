@@ -2,10 +2,13 @@
 /**
  * Result-screen card face.
  * Numbers: gold tile. Specials (×2 / MAX→0 / ? / 0mix): CSS/SVG — not AI art.
+ * Wave-2: special sparkle / number light pop on reveal.
  */
+import { computed } from 'vue'
 import type { CardKind } from '@/types/game'
+import FxSparkleBurst from '@/components/common/FxSparkleBurst.vue'
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     kind: CardKind
     /** Display label e.g. "+5", "×2", "M→0" (aria / title) */
@@ -27,6 +30,15 @@ const sizeClass: Record<'md' | 'lg', string> = {
   md: 'h-14 w-11',
   lg: 'h-16 w-12 sm:h-[4.5rem] sm:w-14',
 }
+
+const isSpecial = computed(
+  () =>
+    props.kind === 'double' ||
+    props.kind === 'max_to_zero' ||
+    props.kind === 'redraw' ||
+    props.kind === 'zero_mix' ||
+    props.kind === 'half',
+)
 </script>
 
 <template>
@@ -34,7 +46,11 @@ const sizeClass: Record<'md' | 'lg', string> = {
     class="reveal-card"
     :class="[
       sizeClass[size],
-      revealed ? 'reveal-card--in' : 'reveal-card--hidden',
+      revealed
+        ? isSpecial
+          ? 'reveal-card--sparkle-ring'
+          : 'reveal-card--in'
+        : 'reveal-card--hidden',
       kind === 'double' ? 'reveal-card--double' : '',
       kind === 'max_to_zero' ? 'reveal-card--max0' : '',
       kind === 'redraw' ? 'reveal-card--redraw' : '',
@@ -45,6 +61,16 @@ const sizeClass: Record<'md' | 'lg', string> = {
     role="img"
     :aria-label="label"
   >
+    <span
+      v-if="revealed && isSpecial"
+      class="reveal-sparkle"
+      aria-hidden="true"
+    />
+    <FxSparkleBurst
+      v-if="revealed && isSpecial"
+      density="sm"
+      :palette="kind === 'double' ? 'mixed' : 'gold'"
+    />
     <!-- DOUBLE ×2 -->
     <template v-if="kind === 'double'">
       <svg class="reveal-card__glyph" viewBox="0 0 40 40" fill="none" aria-hidden="true">

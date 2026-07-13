@@ -599,10 +599,15 @@
   .bid-num--down,
   .bid-num--slam,
   .bid-num--fade,
+  .bid-num--declare,
   .bid-glow--up,
   .bid-glow--down,
   .bid-delta,
   .bid-chip--pop,
+  .bid-declare-ripple,
+  .bid-declare-echo,
+  .bid-declare-badge,
+  .bid-declare-launch,
   .bid-step-tick,
   .btn-fx-press,
   .turn-arrive,
@@ -614,14 +619,40 @@
   .calc-done-pop,
   .result-banner-in,
   .life-lost-pulse,
-  .avatar-turn-ring {
+  .life-lost-panel,
+  .life-lost-avatar-wrap,
+  .life-lost-name,
+  .life-lost-label,
+  .avatar-turn-ring,
+  .round-slam,
+  .round-slam-banner,
+  .turn-edge-glow,
+  .reveal-sparkle,
+  .reveal-card--sparkle-ring,
+  .life-heart-break,
+  .life-heart-remain-pulse,
+  .verdict-vignette,
+  .reaction-burst,
+  .reaction-float--stamp,
+  .lobby-ready-pop,
+  .lobby-join-in,
+  .copy-flash,
+  .fx-sparkle__dot {
     animation: none !important;
   }
 
   .bid-glow--up,
   .bid-glow--down,
   .bid-delta,
-  .fx-confetti {
+  .fx-confetti,
+  .turn-edge-glow,
+  .verdict-vignette,
+  .fx-sparkle,
+  .reaction-burst,
+  .bid-declare-ripple,
+  .bid-declare-echo,
+  .bid-declare-badge,
+  .bid-declare-launch {
     display: none !important;
   }
 
@@ -666,10 +697,14 @@
 @keyframes life-lost-pulse {
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgba(248, 113, 113, 0.25);
+    box-shadow:
+      0 0 0 0 rgba(248, 113, 113, 0.3),
+      0 0 28px rgba(127, 29, 29, 0.25);
   }
   50% {
-    box-shadow: 0 0 0 6px rgba(248, 113, 113, 0);
+    box-shadow:
+      0 0 0 8px rgba(248, 113, 113, 0),
+      0 0 40px rgba(248, 113, 113, 0.2);
   }
 }
 
@@ -679,6 +714,97 @@
 
 .life-lost-pulse {
   animation: life-lost-pulse 1.6s ease-in-out 2;
+}
+
+/* Life-lost impact panel (result) */
+@keyframes life-lost-panel-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.88) translateY(14px);
+    filter: brightness(1.3);
+  }
+  55% {
+    opacity: 1;
+    transform: scale(1.03) translateY(-2px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    filter: brightness(1);
+  }
+}
+
+@keyframes life-lost-avatar-shake {
+  0% {
+    transform: scale(0.7);
+    filter: grayscale(0.2) brightness(1.2);
+  }
+  20% {
+    transform: scale(1.12) rotate(-6deg);
+  }
+  40% {
+    transform: scale(1.05) rotate(5deg);
+  }
+  60% {
+    transform: scale(1.08) rotate(-3deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    filter: grayscale(0.15) brightness(0.95);
+  }
+}
+
+@keyframes life-lost-name-slam {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.9);
+    letter-spacing: 0.12em;
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(-2px) scale(1.04);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    letter-spacing: 0.02em;
+  }
+}
+
+@keyframes life-lost-label-in {
+  0% {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.life-lost-panel {
+  animation: life-lost-panel-in 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.life-lost-avatar-wrap {
+  animation: life-lost-avatar-shake 0.75s cubic-bezier(0.22, 1, 0.36, 1) both;
+  border-radius: 9999px;
+  box-shadow:
+    0 0 0 3px rgba(248, 113, 113, 0.45),
+    0 0 28px rgba(248, 113, 113, 0.35);
+}
+
+.life-lost-name {
+  animation: life-lost-name-slam 0.55s 0.08s cubic-bezier(0.22, 1, 0.36, 1) both;
+  text-shadow: 0 0 18px rgba(248, 113, 113, 0.35);
+}
+
+.life-lost-label {
+  animation: life-lost-label-in 0.4s ease-out both;
+}
+
+.life-lost-heart {
+  filter: drop-shadow(0 0 10px rgba(251, 113, 133, 0.55));
 }
 
 /* Current-turn avatar pulse */
@@ -774,6 +900,137 @@
 
 .bid-num--fade {
   animation: bid-num-fade 0.3s ease-out both;
+}
+
+/*
+ * Declare pulse: transform/filter only (layout-fixed parent).
+ * Peak scale gives the “big” feel without swapping font-size.
+ */
+@keyframes bid-num-declare {
+  0% {
+    transform: scale(0.88);
+    filter: brightness(1.55);
+    text-shadow:
+      0 0 12px rgba(201, 168, 76, 0.85),
+      0 0 32px rgba(201, 168, 76, 0.5);
+  }
+  40% {
+    transform: scale(1.42);
+    filter: brightness(1.4);
+    text-shadow:
+      0 0 22px rgba(245, 230, 184, 0.95),
+      0 0 52px rgba(201, 168, 76, 0.6);
+  }
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+    text-shadow:
+      0 0 32px rgba(201, 168, 76, 0.4),
+      0 0 12px rgba(201, 168, 76, 0.25);
+  }
+}
+
+.bid-num--declare {
+  animation: bid-num-declare 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  /* Keep layout box stable while visually scaling */
+  transform-origin: center center;
+  will-change: transform, filter;
+}
+
+/* Override pop class when declare also fires — declare is the hero */
+.bid-num.bid-num--up.bid-num--declare,
+.bid-num.bid-num--slam.bid-num--declare {
+  animation: bid-num-declare 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes bid-declare-ripple {
+  0% {
+    opacity: 0.9;
+    transform: translate(-50%, -50%) scale(0.4);
+    border-color: rgba(245, 230, 184, 0.8);
+    box-shadow: 0 0 0 0 rgba(201, 168, 76, 0.45);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(2.15);
+    border-color: rgba(201, 168, 76, 0);
+    box-shadow: 0 0 36px 6px rgba(201, 168, 76, 0);
+  }
+}
+
+.bid-declare-ripple {
+  border: 3px solid rgba(201, 168, 76, 0.7);
+  animation: bid-declare-ripple 0.85s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.bid-declare-ripple--delay {
+  animation-delay: 0.14s;
+  border-width: 2px;
+  border-color: rgba(94, 207, 207, 0.5);
+}
+
+/* Echo starts at same size as number, scales out only */
+@keyframes bid-declare-echo {
+  0% {
+    opacity: 0.8;
+    transform: translate(-50%, -50%) scale(1.15);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(2.6);
+  }
+}
+
+.bid-declare-echo {
+  animation: bid-declare-echo 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  pointer-events: none;
+  text-shadow: 0 0 28px rgba(201, 168, 76, 0.55);
+  will-change: transform, opacity;
+}
+
+/* Badge sits outside the frame (top: 100%); animate translateX(-50%) only */
+@keyframes bid-declare-badge-in {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 6px) scale(0.72);
+  }
+  35% {
+    opacity: 1;
+    transform: translate(-50%, -2px) scale(1.1);
+  }
+  75% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -8px) scale(0.96);
+  }
+}
+
+.bid-declare-badge {
+  animation: bid-declare-badge-in 1.05s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* BidControls: number flies up from declare button */
+@keyframes bid-declare-launch {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 0) scale(0.55);
+  }
+  18% {
+    opacity: 1;
+    transform: translate(-50%, -12px) scale(1.25);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -72px) scale(1.1);
+  }
+}
+
+.bid-declare-launch {
+  animation: bid-declare-launch 0.85s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  pointer-events: none;
 }
 
 @keyframes bid-glow-pulse {
@@ -999,29 +1256,38 @@
   animation: total-slam 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-/* Life-lost heart crack */
+/* Life-lost heart crack — ends cracked / dim for “lost” feel */
 @keyframes heart-crack {
   0% {
-    transform: scale(1) rotate(0deg);
+    transform: scale(0.55);
+    opacity: 0;
+    filter: brightness(1.6);
+  }
+  18% {
+    transform: scale(1.45) rotate(-14deg);
     opacity: 1;
+    filter: brightness(1.4);
   }
-  25% {
-    transform: scale(1.35) rotate(-12deg);
+  38% {
+    transform: scale(1.15) rotate(12deg);
   }
-  50% {
-    transform: scale(1.1) rotate(10deg);
+  55% {
+    transform: scale(1.3) rotate(-8deg);
+    filter: brightness(1.2);
   }
-  70% {
-    transform: scale(1.25) rotate(-6deg);
-    filter: brightness(1.3);
+  78% {
+    transform: scale(1.05) rotate(4deg);
+    opacity: 0.95;
   }
   100% {
-    transform: scale(1) rotate(0deg);
+    transform: scale(0.92) rotate(-4deg);
+    opacity: 0.55;
+    filter: grayscale(0.45) brightness(0.75);
   }
 }
 
 .heart-crack {
-  animation: heart-crack 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: heart-crack 0.95s cubic-bezier(0.22, 1, 0.36, 1) both;
   display: inline-block;
 }
 
@@ -1076,6 +1342,375 @@
 
 .calc-done-pop {
   animation: calc-done-pop 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ========== Dopamine wave 2 (round / turn edge / sparkle / life / lobby) ========== */
+
+@keyframes round-slam {
+  0% {
+    opacity: 0;
+    transform: scale(0.55) translateY(18px);
+    filter: brightness(1.6);
+  }
+  45% {
+    opacity: 1;
+    transform: scale(1.08) translateY(-4px);
+    filter: brightness(1.2);
+  }
+  72% {
+    transform: scale(0.98) translateY(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    filter: brightness(1);
+  }
+}
+
+@keyframes round-slam-fade {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.04);
+  }
+}
+
+.round-slam {
+  animation: round-slam 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.round-slam-banner {
+  animation: round-slam 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.round-slam-banner--out {
+  animation: round-slam-fade 0.28s ease-in forwards;
+}
+
+@keyframes turn-edge-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.turn-edge-glow {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 25;
+  border-radius: inherit;
+  box-shadow:
+    inset 0 0 0 2px rgba(45, 212, 191, 0.22),
+    inset 0 0 48px 4px rgba(42, 138, 138, 0.12);
+  animation: turn-edge-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes reveal-sparkle-spin {
+  0% {
+    opacity: 0;
+    transform: scale(0.4) rotate(0deg);
+  }
+  25% {
+    opacity: 1;
+    transform: scale(1.15) rotate(40deg);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.35) rotate(120deg);
+  }
+}
+
+.reveal-sparkle {
+  position: absolute;
+  inset: -6px;
+  border-radius: 0.85rem;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 20% 25%, rgba(245, 230, 184, 0.85) 0 2px, transparent 3px),
+    radial-gradient(circle at 78% 30%, rgba(94, 207, 207, 0.9) 0 1.5px, transparent 2.5px),
+    radial-gradient(circle at 50% 78%, rgba(201, 168, 76, 0.8) 0 2px, transparent 3px),
+    radial-gradient(circle at 30% 70%, rgba(255, 255, 255, 0.7) 0 1px, transparent 2px);
+  animation: reveal-sparkle-spin 0.75s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes reveal-ring-flash {
+  0% {
+    box-shadow:
+      0 0 0 0 rgba(201, 168, 76, 0.55),
+      0 0 0 0 rgba(94, 207, 207, 0.25);
+  }
+  40% {
+    box-shadow:
+      0 0 18px 2px rgba(201, 168, 76, 0.45),
+      0 0 28px 4px rgba(94, 207, 207, 0.2);
+  }
+  100% {
+    box-shadow:
+      0 0 0 0 rgba(201, 168, 76, 0),
+      0 0 0 0 rgba(94, 207, 207, 0);
+  }
+}
+
+.reveal-card--sparkle-ring {
+  animation:
+    reveal-card-flip 0.45s cubic-bezier(0.22, 1, 0.36, 1) both,
+    reveal-ring-flash 0.7s ease-out both;
+}
+
+@keyframes life-heart-break {
+  0% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+    filter: brightness(1);
+  }
+  35% {
+    opacity: 1;
+    transform: scale(1.45) rotate(-18deg);
+    filter: brightness(1.4);
+    color: #fda4af;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.4) translateY(10px) rotate(22deg);
+    filter: brightness(0.8);
+  }
+}
+
+.life-heart-break {
+  animation: life-heart-break 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  display: inline-block;
+}
+
+@keyframes life-heart-remain-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.22);
+    filter: brightness(1.25);
+  }
+}
+
+.life-heart-remain-pulse {
+  animation: life-heart-remain-pulse 0.7s ease-out 2;
+  display: inline-block;
+}
+
+@keyframes verdict-vignette-in {
+  0% {
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 0.85;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.verdict-vignette {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 15;
+  animation: verdict-vignette-in 1.25s ease-out forwards;
+}
+
+.verdict-vignette--win {
+  background: radial-gradient(
+    ellipse 70% 55% at 50% 40%,
+    transparent 30%,
+    rgba(201, 168, 76, 0.14) 70%,
+    rgba(201, 168, 76, 0.22) 100%
+  );
+}
+
+.verdict-vignette--lose {
+  background: radial-gradient(
+    ellipse 70% 55% at 50% 40%,
+    transparent 30%,
+    rgba(248, 113, 113, 0.1) 70%,
+    rgba(127, 29, 29, 0.28) 100%
+  );
+}
+
+.verdict-vignette--gameover {
+  background: radial-gradient(
+    ellipse 75% 60% at 50% 35%,
+    rgba(245, 230, 184, 0.08) 0%,
+    transparent 45%,
+    rgba(201, 168, 76, 0.2) 100%
+  );
+}
+
+@keyframes reaction-burst-ring {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.35);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.85);
+  }
+}
+
+.reaction-burst {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  width: 5.5rem;
+  height: 5.5rem;
+  margin: -2.75rem 0 0 -2.75rem;
+  border-radius: 9999px;
+  border: 2px solid rgba(201, 168, 76, 0.55);
+  box-shadow: 0 0 18px rgba(94, 207, 207, 0.35);
+  animation: reaction-burst-ring 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes reaction-stamp-pop {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(28px) scale(0.35);
+  }
+  12% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(-4px) scale(1.18);
+  }
+  28% {
+    transform: translateX(-50%) translateY(-18px) scale(1);
+  }
+  72% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-150px) scale(0.9);
+  }
+}
+
+.reaction-float--stamp {
+  animation: reaction-stamp-pop 3.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes lobby-ready-pop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.5;
+  }
+  55% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.lobby-ready-pop {
+  animation: lobby-ready-pop 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes lobby-join-in {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.92);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.lobby-join-in {
+  animation: lobby-join-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes copy-flash {
+  0% {
+    box-shadow: 0 0 0 0 rgba(201, 168, 76, 0.5);
+    filter: brightness(1.2);
+  }
+  100% {
+    box-shadow: 0 0 0 12px rgba(201, 168, 76, 0);
+    filter: brightness(1);
+  }
+}
+
+.copy-flash {
+  animation: copy-flash 0.45s ease-out both;
+}
+
+/* Local sparkle burst (FxSparkleBurst) */
+@keyframes fx-sparkle-pop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.3) rotate(0deg);
+  }
+  30% {
+    opacity: 1;
+    transform: translate(
+        calc(-50% + var(--sx, 0px)),
+        calc(-50% + var(--sy, 0px))
+      )
+      scale(1.1) rotate(40deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(
+        calc(-50% + var(--sx, 0px) * 1.6),
+        calc(-50% + var(--sy, 0px) * 1.6)
+      )
+      scale(0.4) rotate(90deg);
+  }
+}
+
+.fx-sparkle {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.fx-sparkle__dot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  border-radius: 1px;
+  background: linear-gradient(135deg, #f5e6b8, #c9a84c);
+  animation: fx-sparkle-pop 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  box-shadow: 0 0 6px rgba(201, 168, 76, 0.55);
+}
+
+.fx-sparkle--teal .fx-sparkle__dot:nth-child(odd) {
+  background: linear-gradient(135deg, #7ee8e8, #2a8a8a);
+  box-shadow: 0 0 6px rgba(94, 207, 207, 0.5);
+}
+
+.fx-sparkle--mixed .fx-sparkle__dot:nth-child(3n) {
+  background: linear-gradient(135deg, #f5e6b8, #c9a84c);
+}
+
+.fx-sparkle--mixed .fx-sparkle__dot:nth-child(3n + 1) {
+  background: linear-gradient(135deg, #7ee8e8, #2a8a8a);
+  box-shadow: 0 0 6px rgba(94, 207, 207, 0.45);
+}
+
+.fx-sparkle--mixed .fx-sparkle__dot:nth-child(3n + 2) {
+  background: linear-gradient(135deg, #fda4af, #e11d48);
+  box-shadow: 0 0 6px rgba(251, 113, 133, 0.4);
 }
 
 /*

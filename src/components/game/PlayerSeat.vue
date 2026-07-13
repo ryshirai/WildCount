@@ -2,6 +2,7 @@
 import type { PlayerSeat } from '@/types/game'
 import PlayerAvatar from './PlayerAvatar.vue'
 import BidCard from './BidCard.vue'
+import LifeHearts from './LifeHearts.vue'
 
 defineProps<{
   player: PlayerSeat
@@ -27,21 +28,8 @@ defineProps<{
     >
       <template #status>
         <!-- Lives only under avatar; status chips sit under the hand card -->
-        <div
-          v-if="player.lives > 0"
-          class="mt-0.5 flex items-center justify-center gap-px"
-          :aria-label="`ライフ ${player.lives}`"
-        >
-          <span
-            v-for="i in Math.min(player.lives, 5)"
-            :key="i"
-            class="text-[10px] leading-none text-rose-400 drop-shadow-[0_0_4px_rgba(251,113,133,0.45)]"
-            aria-hidden="true"
-          >♥</span>
-          <span
-            v-if="player.lives > 5"
-            class="ml-0.5 text-[9px] font-semibold text-rose-300/90"
-          >×{{ player.lives }}</span>
+        <div class="mt-0.5">
+          <LifeHearts :lives="player.lives" :max-visible="5" size-class="text-[10px]" />
         </div>
       </template>
     </PlayerAvatar>

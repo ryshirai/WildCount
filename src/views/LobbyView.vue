@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppLogo from '@/components/common/AppLogo.vue'
+import FxSparkleBurst from '@/components/common/FxSparkleBurst.vue'
 import HelpModal from '@/components/common/HelpModal.vue'
 import MockBadge from '@/components/common/MockBadge.vue'
 import ChatPanel from '@/components/game/ChatPanel.vue'
@@ -485,7 +486,13 @@ watch(
             {{ roomCode }}
           </span>
         </div>
-        <button type="button" class="btn-ghost text-xs" @click="copyCode">
+        <button
+          type="button"
+          class="btn-ghost relative text-xs"
+          :class="copied ? 'copy-flash' : ''"
+          @click="copyCode"
+        >
+          <FxSparkleBurst v-if="copied" density="sm" palette="gold" />
           {{ copied ? 'コピー済み' : 'コードをコピー' }}
         </button>
         <p class="mt-3 text-xs text-sand-dim">
@@ -555,7 +562,7 @@ watch(
           <li
             v-for="p in players"
             :key="p.id"
-            class="flex flex-col items-center rounded-xl border border-gold-400/15 bg-night-900/50 px-3 py-4"
+            class="lobby-join-in flex flex-col items-center rounded-xl border border-gold-400/15 bg-night-900/50 px-3 py-4"
             :class="[
               p.isSelf ? 'ring-1 ring-teal-soft/50' : '',
               isOnline && 'connected' in p && !p.connected ? 'opacity-50' : '',
@@ -583,10 +590,15 @@ watch(
                     切断
                   </span>
                   <span
+                    :key="`${p.id}-ready-${p.isReady}`"
                     class="rounded px-1.5 py-0.5 text-[10px]"
-                    :class="p.isReady ? 'bg-teal-deep/50 text-teal-soft' : 'bg-night-700 text-sand-dim'"
+                    :class="[
+                      p.isReady
+                        ? 'lobby-ready-pop bg-teal-deep/50 text-teal-soft'
+                        : 'bg-night-700 text-sand-dim',
+                    ]"
                   >
-                    {{ p.isReady ? '準備OK' : '待機中' }}
+                    {{ p.isReady ? '✓ 準備OK' : '待機中' }}
                   </span>
                 </div>
               </template>
