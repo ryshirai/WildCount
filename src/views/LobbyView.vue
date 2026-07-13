@@ -336,9 +336,28 @@ watch(
 
 function lobbyChatAvatar(playerId: string) {
   const p = players.value.find((x) => x.id === playerId)
-  if (p) return { avatar: p.avatar, avatarSrc: p.avatarSrc }
+  const fromView = onlineGame.view?.players.find((x) => x.id === playerId)
+  const meta = fromView ? avatarByIndex(fromView.avatarIndex) : null
+  if (p) {
+    return {
+      avatar: p.avatar,
+      avatarSrc: p.avatarSrc,
+      avatarId: meta?.id,
+    }
+  }
+  if (meta) {
+    return {
+      avatar: meta.emoji,
+      avatarSrc: avatarSrc(meta.id),
+      avatarId: meta.id,
+    }
+  }
   return { avatar: '👤' }
 }
+
+const selfStampAvatarId = computed(
+  () => avatarByIndex(avatarDraft.value).id,
+)
 
 function onSendChat(text: string) {
   if (!isOnline.value) return
@@ -717,6 +736,7 @@ watch(
           :messages="onlineGame.chatMessages"
           :self-player-id="onlineGame.playerId"
           :avatar-for-player="lobbyChatAvatar"
+          :self-avatar-id="selfStampAvatarId"
           :disabled="onlineGame.connection !== 'open'"
           @send="onSendChat"
           @reaction="onSendReaction"
@@ -839,6 +859,7 @@ watch(
     <StampPickerSheet
       :open="stampSheetOpen"
       :disabled="!isOnline || onlineGame.connection !== 'open'"
+      :self-avatar-id="selfStampAvatarId"
       @close="stampSheetOpen = false"
       @pick="onSendReaction"
     />

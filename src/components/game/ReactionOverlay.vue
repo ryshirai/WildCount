@@ -18,10 +18,18 @@ defineProps<{
       :class="r.kind === 'stamp' ? 'reaction-float--stamp' : ''"
       :style="{ left: `${r.x}%`, transform: 'translateX(-50%)' }"
     >
-      <!-- Stamp: large emoji + radial burst -->
+      <!-- Stamp: character art or large emoji + radial burst -->
       <template v-if="r.kind === 'stamp'">
         <span class="reaction-burst" aria-hidden="true" />
+        <img
+          v-if="r.stampSrc"
+          :src="r.stampSrc"
+          alt=""
+          class="relative h-20 w-20 select-none rounded-full object-cover shadow-[0_4px_16px_rgba(0,0,0,0.55)] ring-2 ring-gold-400/40 md:h-24 md:w-24"
+          draggable="false"
+        />
         <span
+          v-else
           class="relative select-none text-6xl drop-shadow-[0_4px_16px_rgba(0,0,0,0.55)] md:text-7xl"
           >{{ r.body }}</span
         >

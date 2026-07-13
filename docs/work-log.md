@@ -2645,6 +2645,46 @@
 
 ---
 
+## 2026-07-13 — キャラ別スタンプ素材（UX-12）
+
+### 背景・目的
+- チャットスタンプを「送信者の動物アバター」でスキンすると遊び心が増える（いいね → その人のフクロウ版 など）。
+- まず素材フルセットを生成し、表示配線まで入れて体感できる状態にする。
+
+### 実施内容
+1. **素材生成** — 既存 `public/avatars/{id}.webp` を参照に image_edit で感情差分。10 動物 × 9 感情 = **90** 枚
+2. **配置** — `public/stamps/{avatarId}/{stampId}.webp`（256×256 WebP）+ `README.md`
+3. **解決 API** — `characterStampSrc` / `CHARACTER_STAMP_IDS`（`src/online/stamps.ts`）。ワイヤの `stampId` は不変
+4. **UI** — ピッカーは自分の動物でプレビュー、浮遊・履歴は送信者の動物。ブランド `coyote` スタンプは絵文字のまま
+5. **docs** — backlog UX-12 done、単体テスト追加
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `public/stamps/**` | 90 WebP + README |
+| `src/online/stamps.ts` | characterStampSrc |
+| `src/stores/onlineGame.ts` | FloatingReaction.stampSrc |
+| `src/components/game/ReactionOverlay.vue` | 画像スタンプ |
+| `src/components/game/ChatPanel.vue` / `StampPickerSheet.vue` | プレビュー・履歴 |
+| `src/views/LobbyView.vue` / `GameView.vue` | avatarId 受け渡し |
+| `tests/online/stamps.test.ts` | 解決テスト |
+| `docs/backlog.md` | UX-12 |
+
+### 明示的にやっていないこと
+- ブランド `coyote` スタンプの動物差分
+- Worker プロトコル変更（text は従来どおり絵文字）
+- 効果音・アニメ差し替え
+
+### 確認結果
+- `tests/online/stamps.test.ts` パス
+- 90 ファイル欠落なし
+
+### 次に考えられる作業
+1. ヘルプに「スタンプは自分のキャラ姿になる」一文
+2. ブランド coyote スタンプも動物差分にするか検討
+
+---
+
 ## ログの書き方
 
 **正規のルールは `AGENTS.md` を参照。** 変更のあったセッションでは、このファイルに日付見出しで **追記** する（過去エントリは消さない）。

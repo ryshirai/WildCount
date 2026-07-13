@@ -1,14 +1,18 @@
 <script setup lang="ts">
+import type { AvatarAssetId } from '@/localGame/avatarCatalog'
 import type { StampId } from '@/online/stamps'
-import { STAMP_CATALOG } from '@/online/stamps'
+import { STAMP_CATALOG, characterStampSrc } from '@/online/stamps'
 
 const props = withDefaults(
   defineProps<{
     open: boolean
     disabled?: boolean
+    /** Self avatar for character-skinned picker previews */
+    selfAvatarId?: AvatarAssetId | null
   }>(),
   {
     disabled: false,
+    selfAvatarId: null,
   },
 )
 
@@ -21,6 +25,10 @@ function onPick(id: StampId) {
   if (props.disabled) return
   emit('pick', id)
   emit('close')
+}
+
+function previewSrc(id: StampId): string | null {
+  return characterStampSrc(props.selfAvatarId, id)
 }
 </script>
 
@@ -81,7 +89,14 @@ function onPick(id: StampId) {
               :aria-label="s.label"
               @click="onPick(s.id)"
             >
-              <span class="text-3xl leading-none">{{ s.emoji }}</span>
+              <img
+                v-if="previewSrc(s.id)"
+                :src="previewSrc(s.id)!"
+                alt=""
+                class="h-10 w-10 rounded-full object-cover ring-1 ring-gold-400/25"
+                draggable="false"
+              />
+              <span v-else class="text-3xl leading-none">{{ s.emoji }}</span>
               <span class="mt-1 max-w-full truncate text-[10px] text-sand-dim">{{
                 s.label
               }}</span>

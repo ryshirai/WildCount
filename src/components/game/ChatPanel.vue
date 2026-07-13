@@ -1,19 +1,23 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
+import type { AvatarAssetId } from '@/localGame/avatarCatalog'
 import type { ChatMessage } from '@/online/protocol'
 import type { StampId } from '@/online/stamps'
-import { STAMP_CATALOG } from '@/online/stamps'
+import { STAMP_CATALOG, characterStampSrc } from '@/online/stamps'
 import PlayerAvatar from './PlayerAvatar.vue'
 
 const props = withDefaults(
   defineProps<{
     messages: ChatMessage[]
     selfPlayerId?: string | null
-    /** Resolve avatar emoji / src from playerId when available */
+    /** Resolve avatar emoji / src / asset id from playerId when available */
     avatarForPlayer?: (playerId: string) => {
       avatar: string
       avatarSrc?: string
+      avatarId?: AvatarAssetId
     }
+    /** Self avatar asset id for stamp picker previews */
+    selfAvatarId?: AvatarAssetId | null
     disabled?: boolean
     disabledHint?: string
     compact?: boolean
@@ -24,6 +28,7 @@ const props = withDefaults(
   }>(),
   {
     selfPlayerId: null,
+    selfAvatarId: null,
     disabled: false,
     disabledHint: 'オンライン対戦のときだけ使えます',
     compact: false,
@@ -58,11 +63,21 @@ function formatTime(ts: number): string {
 
 function avatarOf(playerId: string) {
   if (props.avatarForPlayer) return props.avatarForPlayer(playerId)
-  return { avatar: '👤' as const, avatarSrc: undefined }
+  return { avatar: '👤' as const, avatarSrc: undefined, avatarId: undefined }
 }
 
 function isStamp(m: ChatMessage): boolean {
   return m.kind === 'stamp'
+}
+
+function stampArtSrc(m: ChatMessage): string | null {
+  if (!isStamp(m) || !m.stampId) return null
+  const av = avatarOf(m.playerId)
+  return characterStampSrc(av.avatarId, m.stampId)
+}
+
+function pickerStampSrc(stampId: StampId): string | null {
+  return characterStampSrc(props.selfAvatarId, stampId)
 }
 
 function onSubmit() {
@@ -170,14 +185,25 @@ watch(
               formatTime(m.ts)
             }}</span>
           </div>
-          <p
+          <div
             v-if="isStamp(m)"
             class="mt-0.5 select-none leading-none"
-            :class="compact ? 'text-2xl' : 'text-3xl'"
             :title="m.stampId ?? m.text"
           >
-            {{ m.text }}
-          </p>
+            <img
+              v-if="stampArtSrc(m)"
+              :src="stampArtSrc(m)!"
+              alt=""
+              class="rounded-full object-cover ring-1 ring-gold-400/30"
+              :class="compact ? 'h-9 w-9' : 'h-11 w-11'"
+              draggable="false"
+            />
+            <span
+              v-else
+              :class="compact ? 'text-2xl' : 'text-3xl'"
+              >{{ m.text }}</span
+            >
+          </div>
           <p
             v-else
             class="mt-0.5 break-words leading-snug text-sand"
@@ -207,7 +233,14 @@ watch(
           :aria-label="s.label"
           @click="onPickStamp(s.id)"
         >
-          <span class="text-lg leading-none">{{ s.emoji }}</span>
+          <img
+            v-if="pickerStampSrc(s.id)"
+            :src="pickerStampSrc(s.id)!"
+            alt=""
+            class="h-7 w-7 rounded-full object-cover"
+            draggable="false"
+          />
+          <span v-else class="text-lg leading-none">{{ s.emoji }}</span>
           <span class="mt-0.5 max-w-full truncate text-[8px] text-sand-dim">{{
             s.label
           }}</span>

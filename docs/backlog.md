@@ -76,6 +76,7 @@
 | UX-4 | idea | 観戦モード（開始後 join） | MVP は開始後 join 拒否 |
 | **UX-6** | **done** | ルーム内チャット | WS `chat` / `chat_history`。履歴 50・120 字・800ms クールダウン。ロビー＋ゲーム UI |
 | **UX-7** | **done** | スタンプリアクション | 固定 10 種。`reaction` + chat 履歴 + 浮遊オーバーレイ。メンション・未読なし |
+| **UX-12** | **done** | **キャラ別スタンプ素材** | 10 動物 × 9 感情 WebP。`public/stamps/{avatarId}/{stampId}.webp`。表示は送信者アバターでスキン。ブランド `coyote` は絵文字のみ |
 | UX-8 | done | 表示名入力（ホーム共通・ロビー変更） | 作成/参加で共有フィールド。ロビーで「名前を反映」 |
 | **UX-11** | **done** | **アバター選択・変更 + インデックス検証** | カタログ 10 種。Home/Lobby ピッカー。`join.avatarIndex` 厳密検証。localStorage 永続 |
 | UX-9 | done | ロビー意図的退出で席削除 | `leave` メッセージ。切断ゴーストではなく一覧から消える |

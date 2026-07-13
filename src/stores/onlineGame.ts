@@ -24,7 +24,11 @@ import {
   isKnownErrorCode,
   isSoftActionError,
 } from '@/online/errorMessages'
-import { sanitizeAvatarIndex } from '@/localGame/avatarCatalog'
+import {
+  avatarByIndex,
+  sanitizeAvatarIndex,
+} from '@/localGame/avatarCatalog'
+import { characterStampSrc } from '@/online/stamps'
 import {
   clearResumeToken,
   loadLastRoomCode,
@@ -50,6 +54,8 @@ export interface FloatingReaction {
   kind: 'stamp' | 'text'
   /** Stamp emoji, or chat body text */
   body: string
+  /** Character-skinned stamp image URL when available */
+  stampSrc?: string | null
   displayName: string
   /** Horizontal position 0–100 (%) */
   x: number
@@ -841,10 +847,17 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     const isStamp = m.kind === 'stamp'
     const body = (m.text || '').trim()
     if (!body) return
+    let stampSrc: string | null = null
+    if (isStamp && m.stampId) {
+      const seat = view.value?.players.find((p) => p.id === m.playerId)
+      const assetId = avatarByIndex(seat?.avatarIndex).id
+      stampSrc = characterStampSrc(assetId, m.stampId)
+    }
     const item: FloatingReaction = {
       key,
       kind: isStamp ? 'stamp' : 'text',
       body: isStamp ? body : body.slice(0, 80),
+      stampSrc,
       displayName: m.displayName || '?',
       x: 12 + Math.random() * 76,
     }

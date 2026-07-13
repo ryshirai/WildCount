@@ -163,17 +163,27 @@ function openStampSheet() {
 }
 
 function chatAvatarForPlayer(playerId: string) {
+  const fromView = onlineGame.view?.players.find((p) => p.id === playerId)
+  if (fromView) {
+    const meta = avatarByIndex(fromView.avatarIndex)
+    return {
+      avatar: meta.emoji,
+      avatarSrc: avatarSrc(meta.id),
+      avatarId: meta.id,
+    }
+  }
   const fromGame = room.value?.players.find((p) => p.id === playerId)
   if (fromGame) {
     return { avatar: fromGame.avatar, avatarSrc: fromGame.avatarSrc }
   }
-  const fromView = onlineGame.view?.players.find((p) => p.id === playerId)
-  if (fromView) {
-    const meta = avatarByIndex(fromView.avatarIndex)
-    return { avatar: meta.emoji, avatarSrc: avatarSrc(meta.id) }
-  }
   return { avatar: '👤' }
 }
+
+const selfStampAvatarId = computed(() => {
+  const me = onlineGame.view?.players.find((p) => p.id === onlineGame.playerId)
+  if (me) return avatarByIndex(me.avatarIndex).id
+  return avatarByIndex(onlineGame.avatarIndex).id
+})
 
 /**
  * Post-challenge beat:
@@ -1234,6 +1244,7 @@ async function onChallenge() {
               :messages="isOnline ? onlineGame.chatMessages : []"
               :self-player-id="onlineGame.playerId"
               :avatar-for-player="chatAvatarForPlayer"
+              :self-avatar-id="selfStampAvatarId"
               :disabled="!isOnline || onlineGame.connection !== 'open'"
               @send="onSendChat"
               @reaction="onSendReaction"
@@ -1568,6 +1579,7 @@ async function onChallenge() {
                   :messages="isOnline ? onlineGame.chatMessages : []"
                   :self-player-id="onlineGame.playerId"
                   :avatar-for-player="chatAvatarForPlayer"
+                  :self-avatar-id="selfStampAvatarId"
                   :disabled="!isOnline || onlineGame.connection !== 'open'"
                   @send="onSendChat"
                   @reaction="onSendReaction"
@@ -1809,6 +1821,7 @@ async function onChallenge() {
     <StampPickerSheet
       :open="stampSheetOpen"
       :disabled="!isOnline || onlineGame.connection !== 'open'"
+      :self-avatar-id="selfStampAvatarId"
       @close="stampSheetOpen = false"
       @pick="onSendReaction"
     />
