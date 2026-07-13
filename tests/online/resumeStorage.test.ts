@@ -4,8 +4,10 @@ import {
   hasResumableSession,
   loadLastRoomCode,
   loadResumeToken,
-  saveDisplayName,
+  loadSavedAvatarIndex,
   loadSavedDisplayName,
+  saveAvatarIndex,
+  saveDisplayName,
   saveResumeToken,
 } from '@/online/resumeStorage'
 
@@ -69,5 +71,15 @@ describe('resumeStorage', () => {
   it('persists display name', () => {
     saveDisplayName('  狐  ')
     expect(loadSavedDisplayName()).toBe('狐')
+  })
+
+  it('persists avatar index and sanitizes junk', () => {
+    expect(loadSavedAvatarIndex()).toBe(0)
+    saveAvatarIndex(7)
+    expect(loadSavedAvatarIndex()).toBe(7)
+    saveAvatarIndex(99)
+    expect(loadSavedAvatarIndex()).toBe(9)
+    localStorage.setItem('wc:avatarIndex', 'nope')
+    expect(loadSavedAvatarIndex()).toBe(0)
   })
 })

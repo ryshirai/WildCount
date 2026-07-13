@@ -2605,6 +2605,46 @@
 
 ---
 
+## 2026-07-13 — アバター選択・変更 + バリデーション（UX-11）
+
+### 背景・目的
+- オンライン席のアバターは `nextAvatarIndex` の自動割当のみで、表示名と違い変更できなかった。
+- クライアント任意の `avatarIndex` を受け付けるなら、範囲外・非整数の厳密な拒否が必要。
+
+### 実施内容
+1. **カタログ** — `AVATAR_COUNT` / `isValidAvatarIndex` / `sanitizeAvatarIndex`（UI は clamp）/ `avatarByIndex`
+2. **Worker** — `join.avatarIndex` を任意受付。`parseOptionalAvatarIndex` は不正値を **捨てる**（silent clamp しない）。ロビー再 join と resume で変更可。未指定時は従来どおり round-robin
+3. **クライアント** — `wc:avatarIndex` 永続、`updateAvatarIndex`、join に付与
+4. **UI** — `AvatarPicker`（10 種グリッド）。Home オンライン欄 + Lobby（タップ即反映）。ローカルデモは同じ選択を self に反映可
+5. **テスト** — catalog / resumeStorage / roomLogic parse
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/localGame/avatarCatalog.ts` | 検証・sanitize・byIndex |
+| `src/components/common/AvatarPicker.vue` | 新規ピッカー |
+| `src/online/resumeStorage.ts` / `protocol.ts` | 永続 + join 型 |
+| `src/stores/onlineGame.ts` | avatarIndex 状態・送信 |
+| `src/views/HomeView.vue` / `LobbyView.vue` | 選択 UI |
+| `worker/types.ts` / `roomLogic.ts` / `GameRoom.ts` | wire + handleJoin |
+| `tests/**` | 単体テスト |
+| `docs/backlog.md` | UX-11 done |
+
+### 明示的にやっていないこと
+- ゲーム中のアバター変更（ロビー / 入室時のみ）
+- アバター重複禁止
+- アップロード自前画像
+
+### 確認結果
+- `npm test` 155 件パス
+- `npm run build` 成功
+
+### 次に考えられる作業
+1. 任意: ヘルプにアイコン変更の一文
+2. HOLD-5 本番デプロイ
+
+---
+
 ## ログの書き方
 
 **正規のルールは `AGENTS.md` を参照。** 変更のあったセッションでは、このファイルに日付見出しで **追記** する（過去エントリは消さない）。

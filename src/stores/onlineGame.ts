@@ -24,11 +24,14 @@ import {
   isKnownErrorCode,
   isSoftActionError,
 } from '@/online/errorMessages'
+import { sanitizeAvatarIndex } from '@/localGame/avatarCatalog'
 import {
   clearResumeToken,
   loadLastRoomCode,
   loadResumeToken,
+  loadSavedAvatarIndex,
   loadSavedDisplayName,
+  saveAvatarIndex,
   saveDisplayName,
   saveResumeToken,
 } from '@/online/resumeStorage'
@@ -87,6 +90,8 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     bidValue?: number
   } | null>(null)
   const displayName = ref(loadSavedDisplayName())
+  /** Preferred avatar catalog index (persisted). Sent on join / lobby update. */
+  const avatarIndex = ref(loadSavedAvatarIndex())
   const eventLog = ref<EventLogItem[]>([])
   /** Room chat lines (newest last). Filled by chat_history + chat. */
   const chatMessages = ref<ChatMessage[]>([])
@@ -547,6 +552,7 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
           type: 'join',
           displayName: name.trim() || 'プレイヤー',
           resumeToken: token ?? undefined,
+          avatarIndex: sanitizeAvatarIndex(avatarIndex.value, 0),
         }
 
         helloWait = {
@@ -1015,8 +1021,25 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
   }
 
   /**
+   * Persist preferred avatar and re-send join in lobby so the seat updates.
+   * Invalid indices are clamped via sanitizeAvatarIndex.
+   */
+  function updateAvatarIndex(index: number): void {
+    const next = sanitizeAvatarIndex(index, 0)
+    avatarIndex.value = next
+    saveAvatarIndex(next)
+    if (ws && ws.readyState === WebSocket.OPEN && playerId.value) {
+      send({
+        type: 'join',
+        displayName: displayName.value.trim() || 'プレイヤー',
+        avatarIndex: next,
+      })
+    }
+  }
+
+  /**
    * Update display name in lobby (re-sends join; server renames existing seat).
-   * No-op when not connected.
+   * No-op when not connected. Also re-sends preferred avatarIndex.
    */
   function updateDisplayName(name: string): void {
     const sanitized = name.trim().replace(/\s+/g, ' ').slice(0, 12)
@@ -1026,6 +1049,7 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
       send({
         type: 'join',
         displayName: sanitized || 'プレイヤー',
+        avatarIndex: sanitizeAvatarIndex(avatarIndex.value, 0),
       })
     }
   }
@@ -1125,6 +1149,7 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     lastActionFx,
     clearError,
     displayName,
+    avatarIndex,
     eventLog,
     chatMessages,
     floatingReactions,
@@ -1164,6 +1189,7 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     sendChat,
     sendReaction,
     updateDisplayName,
+    updateAvatarIndex,
     leave,
     endRoom,
     send,

@@ -2,9 +2,14 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import AppLogo from '@/components/common/AppLogo.vue'
+import AvatarPicker from '@/components/common/AvatarPicker.vue'
 import HelpModal from '@/components/common/HelpModal.vue'
 import MockBadge from '@/components/common/MockBadge.vue'
 import { allowLocalPlay, allowUiMock, isDevBuild } from '@/config/runtime'
+import {
+  AVATAR_ASSETS,
+  type AvatarAssetId,
+} from '@/localGame/avatarCatalog'
 import {
   buildDemoLineup,
   type DemoPlayerCount,
@@ -12,7 +17,9 @@ import {
 import {
   clearResumeToken,
   loadLastRoomCode,
+  loadSavedAvatarIndex,
   loadSavedDisplayName,
+  saveAvatarIndex,
 } from '@/online/resumeStorage'
 import { useLocalGameStore } from '@/stores/localGame'
 import { useOnlineGameStore } from '@/stores/onlineGame'
@@ -27,6 +34,8 @@ const showDevMockNav = allowUiMock
 
 const roomCode = ref('')
 const playerName = ref(loadSavedDisplayName())
+/** Preferred avatar; kept in sync with online store + localStorage. */
+const playerAvatarIndex = ref(loadSavedAvatarIndex())
 const toast = ref<string | null>(null)
 const helpOpen = ref(false)
 const onlineBusy = ref(false)
@@ -76,6 +85,15 @@ function onCodeInput(e: Event) {
   roomCode.value = normalizeCode(el.value)
 }
 
+function persistAvatarChoice() {
+  saveAvatarIndex(playerAvatarIndex.value)
+  onlineGame.updateAvatarIndex(playerAvatarIndex.value)
+}
+
+watch(playerAvatarIndex, () => {
+  persistAvatarChoice()
+})
+
 async function createRoom() {
   if (onlineBusy.value) return
   flashCta('create')
@@ -83,6 +101,7 @@ async function createRoom() {
   try {
     // Leave any previous online session
     if (onlineGame.isOnlineSession) onlineGame.leave()
+    persistAvatarChoice()
     const code = await onlineGame.createRoom(playerName.value)
     showToast(`ルーム ${code} を作成しました`)
     await router.push({ name: 'lobby', query: { code, online: '1' } })
@@ -104,6 +123,7 @@ async function joinRoom() {
   onlineBusy.value = true
   try {
     if (onlineGame.isOnlineSession) onlineGame.leave()
+    persistAvatarChoice()
     await onlineGame.joinRoom(code, playerName.value)
     showToast(`${code} に参加しました`)
     await router.push({
@@ -124,9 +144,13 @@ async function startLocalDemo() {
   try {
     // Ensure online session does not interfere
     if (onlineGame.isOnlineSession) onlineGame.leave()
+    const assetId = AVATAR_ASSETS[playerAvatarIndex.value]?.id as
+      | AvatarAssetId
+      | undefined
     const profiles = buildDemoLineup({
       playerCount: demoPlayerCount.value,
       selfName: demoSelfName.value || undefined,
+      selfAvatarId: assetId,
     })
     await localGame.startLocalGame({
       profiles,
@@ -367,9 +391,9 @@ watch(
           <span class="chip text-[10px]">最大10人</span>
         </div>
         <p class="mb-4 text-xs text-sand-dim">
-          表示名は席とチャットに出ます。空欄のときは「プレイヤー」になります
+          表示名とアイコンは席とチャットに出ます。空欄のときは「プレイヤー」になります
         </p>
-        <label class="mb-5 block">
+        <label class="mb-4 block">
           <span class="mb-1.5 block text-xs text-sand-dim">表示名</span>
           <input
             v-model="playerName"
@@ -380,6 +404,9 @@ watch(
             class="w-full rounded-xl border border-gold-400/25 bg-night-900/80 px-4 py-3 text-sm text-sand outline-none transition placeholder:text-sand-dim/50 focus:border-gold-400/50 focus:ring-1 focus:ring-gold-400/30"
           />
         </label>
+        <div class="mb-5">
+          <AvatarPicker v-model="playerAvatarIndex" label="アイコン" />
+        </div>
 
         <div class="mb-1 flex items-center gap-2">
           <h3 class="text-sm font-semibold text-gold-200">ルームを作る</h3>

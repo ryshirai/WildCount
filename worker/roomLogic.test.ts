@@ -27,6 +27,7 @@ import {
   removePlayerFromRoom,
   resetRoomForRematch,
   sanitizeChatText,
+  parseOptionalAvatarIndex,
   sanitizeDisplayName,
   shouldPurgeRoom,
   type RoomPlayer,
@@ -62,8 +63,38 @@ describe('roomLogic', () => {
     expect(sanitizeDisplayName(null)).toBe('プレイヤー')
   })
 
+  it('parses optional avatarIndex strictly (no silent clamp of junk)', () => {
+    expect(parseOptionalAvatarIndex(undefined)).toBeUndefined()
+    expect(parseOptionalAvatarIndex(null)).toBeUndefined()
+    expect(parseOptionalAvatarIndex(0)).toBe(0)
+    expect(parseOptionalAvatarIndex(9)).toBe(9)
+    expect(parseOptionalAvatarIndex(10)).toBeUndefined()
+    expect(parseOptionalAvatarIndex(-1)).toBeUndefined()
+    expect(parseOptionalAvatarIndex(1.5)).toBeUndefined()
+    expect(parseOptionalAvatarIndex(NaN)).toBeUndefined()
+    expect(parseOptionalAvatarIndex('3')).toBe(3)
+    expect(parseOptionalAvatarIndex('99')).toBeUndefined()
+    expect(parseOptionalAvatarIndex('nope')).toBeUndefined()
+    expect(parseOptionalAvatarIndex({})).toBeUndefined()
+  })
+
   it('parses join / ready / start', () => {
     expect(parseClientMessage({ type: 'join', displayName: 'A' })).toEqual({
+      type: 'join',
+      displayName: 'A',
+      resumeToken: undefined,
+    })
+    expect(
+      parseClientMessage({ type: 'join', displayName: 'A', avatarIndex: 3 }),
+    ).toEqual({
+      type: 'join',
+      displayName: 'A',
+      resumeToken: undefined,
+      avatarIndex: 3,
+    })
+    expect(
+      parseClientMessage({ type: 'join', displayName: 'A', avatarIndex: 99 }),
+    ).toEqual({
       type: 'join',
       displayName: 'A',
       resumeToken: undefined,

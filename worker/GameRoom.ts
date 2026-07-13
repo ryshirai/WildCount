@@ -207,7 +207,13 @@ export class GameRoom {
         this.send(ws, { type: 'pong' })
         return
       case 'join':
-        await this.handleJoin(ws, room, msg.displayName, msg.resumeToken)
+        await this.handleJoin(
+          ws,
+          room,
+          msg.displayName,
+          msg.resumeToken,
+          msg.avatarIndex,
+        )
         return
       case 'resume':
         await this.handleJoin(ws, room, 'プレイヤー', msg.resumeToken)
@@ -371,13 +377,17 @@ export class GameRoom {
     room: RoomState,
     displayName: string,
     resumeToken?: string,
+    avatarIndex?: number,
   ): Promise<void> {
-    // Already joined on this socket → allow name refresh in lobby
+    // Already joined on this socket → allow name / avatar refresh in lobby
     const existingAtt = (ws.deserializeAttachment() ?? {}) as WsAttachment
     if (existingAtt.playerId) {
       const me = room.players.find((p) => p.id === existingAtt.playerId)
       if (me && room.status === 'open') {
         me.displayName = displayName
+        if (avatarIndex !== undefined) {
+          me.avatarIndex = avatarIndex
+        }
         me.connected = true
         clearDisconnectDeadline(room, me.id)
         room.lastActivityAt = Date.now()
@@ -410,8 +420,13 @@ export class GameRoom {
         this.detachOtherSockets(resumed.id, ws)
         resumed.connected = true
         clearDisconnectDeadline(room, resumed.id)
-        if (room.status === 'open' && displayName !== 'プレイヤー') {
-          resumed.displayName = displayName
+        if (room.status === 'open') {
+          if (displayName !== 'プレイヤー') {
+            resumed.displayName = displayName
+          }
+          if (avatarIndex !== undefined) {
+            resumed.avatarIndex = avatarIndex
+          }
         }
         ws.serializeAttachment({ playerId: resumed.id } satisfies WsAttachment)
         room.lastActivityAt = Date.now()
@@ -468,7 +483,8 @@ export class GameRoom {
       ready: false,
       connected: true,
       resumeToken: token,
-      avatarIndex: nextAvatarIndex(room),
+      avatarIndex:
+        avatarIndex !== undefined ? avatarIndex : nextAvatarIndex(room),
     }
 
     room.players.push(player)

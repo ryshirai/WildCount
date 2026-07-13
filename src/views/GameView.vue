@@ -29,7 +29,7 @@ import DeckInfoModal from '@/components/game/DeckInfoModal.vue'
 import MockBadge from '@/components/common/MockBadge.vue'
 import { allowLocalPlay, allowUiMock } from '@/config/runtime'
 import { STANDARD_DECK, type DeckComposition } from '@/domain/game'
-import { AVATAR_ASSETS, avatarSrc } from '@/localGame/avatarCatalog'
+import { avatarByIndex, avatarSrc } from '@/localGame/avatarCatalog'
 import type { WireDeckComposition } from '@/online/protocol'
 import type { GameRoomMock, RevealedCard } from '@/types/game'
 
@@ -169,8 +169,7 @@ function chatAvatarForPlayer(playerId: string) {
   }
   const fromView = onlineGame.view?.players.find((p) => p.id === playerId)
   if (fromView) {
-    const i = (fromView.avatarIndex ?? 0) % AVATAR_ASSETS.length
-    const meta = AVATAR_ASSETS[i]!
+    const meta = avatarByIndex(fromView.avatarIndex)
     return { avatar: meta.emoji, avatarSrc: avatarSrc(meta.id) }
   }
   return { avatar: '👤' }

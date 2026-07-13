@@ -22,7 +22,13 @@ export interface ChatMessage {
 }
 
 export type ClientMessage =
-  | { type: 'join'; displayName: string; resumeToken?: string }
+  | {
+      type: 'join'
+      displayName: string
+      resumeToken?: string
+      /** Optional catalog index 0..AVATAR_COUNT-1; omitted → server assigns */
+      avatarIndex?: number
+    }
   | { type: 'ready'; ready: boolean }
   | { type: 'start' }
   | {

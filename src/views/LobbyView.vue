@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppLogo from '@/components/common/AppLogo.vue'
+import AvatarPicker from '@/components/common/AvatarPicker.vue'
 import FxSparkleBurst from '@/components/common/FxSparkleBurst.vue'
 import HelpModal from '@/components/common/HelpModal.vue'
 import MockBadge from '@/components/common/MockBadge.vue'
@@ -15,7 +16,12 @@ import type { StampId } from '@/online/stamps'
 import type { WireDeckComposition, WireExtraRules } from '@/online/protocol'
 import { allowLocalPlay } from '@/config/runtime'
 import { mockLobby } from '@/data/mockLobby'
-import { AVATAR_ASSETS, avatarSrc } from '@/localGame/avatarCatalog'
+import {
+  AVATAR_ASSETS,
+  avatarByIndex,
+  avatarSrc,
+  sanitizeAvatarIndex,
+} from '@/localGame/avatarCatalog'
 import { buildDemoLineup, DEFAULT_PROFILES } from '@/localGame/profiles'
 import { useLocalGameStore } from '@/stores/localGame'
 import { useOnlineGameStore } from '@/stores/onlineGame'
@@ -35,6 +41,8 @@ const resumeBusy = ref(false)
 const resumeFailed = ref(false)
 /** Editable display name while waiting in online lobby */
 const nameDraft = ref(onlineGame.displayName || '')
+/** Editable avatar while waiting in online lobby */
+const avatarDraft = ref(sanitizeAvatarIndex(onlineGame.avatarIndex, 0))
 
 const isOnline = computed(
   () =>
@@ -58,8 +66,7 @@ const roomCode = computed(() => {
 })
 
 function avatarForIndex(index: number | undefined) {
-  const i = typeof index === 'number' ? index % AVATAR_ASSETS.length : 0
-  const meta = AVATAR_ASSETS[i]!
+  const meta = avatarByIndex(index)
   return { emoji: meta.emoji, src: avatarSrc(meta.id) }
 }
 
@@ -356,6 +363,25 @@ function applyDisplayName() {
   showToast(`表示名を「${next}」に変更しました`)
 }
 
+/** Lobby: apply avatar as soon as the player picks one. */
+function onAvatarPick(index: number) {
+  if (!isOnline.value) return
+  if (onlineGame.connection !== 'open') {
+    showToast('つながっているときだけ変更できます')
+    return
+  }
+  const next = sanitizeAvatarIndex(index, 0)
+  avatarDraft.value = next
+  if (onlineGame.avatarIndex === next) {
+    // Still re-send so seat stays in sync if store was ahead of server
+    const self = onlineGame.view?.players.find((p) => p.id === onlineGame.playerId)
+    if (self && self.avatarIndex === next) return
+  }
+  onlineGame.updateAvatarIndex(next)
+  const label = AVATAR_ASSETS[next]?.name ?? 'アイコン'
+  showToast(`アイコンを「${label}」に変更しました`)
+}
+
 function applyDeck(deck: WireDeckComposition) {
   if (!isOnline.value || !isHost.value) {
     showToast('山札を変えられるのはホストだけです')
@@ -399,6 +425,28 @@ watch(
   },
   (n) => {
     if (n && !nameDraft.value.trim()) nameDraft.value = n
+  },
+  { immediate: true },
+)
+
+// Sync avatar draft from preferred store or server self seat
+watch(
+  () => onlineGame.avatarIndex,
+  (i) => {
+    avatarDraft.value = sanitizeAvatarIndex(i, 0)
+  },
+)
+
+watch(
+  () => {
+    if (!isOnline.value || !onlineGame.view || !onlineGame.playerId) return null
+    const self = onlineGame.view.players.find(
+      (p) => p.id === onlineGame.playerId,
+    )
+    return self?.avatarIndex ?? null
+  },
+  (i) => {
+    if (i != null) avatarDraft.value = sanitizeAvatarIndex(i, 0)
   },
   { immediate: true },
 )
@@ -500,8 +548,8 @@ watch(
         </p>
       </section>
 
-      <!-- Display name (online lobby) -->
-      <section v-if="isOnline" class="panel mb-6 p-4 sm:p-5">
+      <!-- Display name + avatar (online lobby) -->
+      <section v-if="isOnline" class="panel mb-6 space-y-5 p-4 sm:p-5">
         <label class="block">
           <span class="mb-1.5 block text-xs font-medium text-gold-200">表示名</span>
           <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -527,6 +575,18 @@ watch(
             最大12文字。席とチャットに表示されます
           </p>
         </label>
+
+        <div>
+          <AvatarPicker
+            v-model="avatarDraft"
+            label="アイコン"
+            :disabled="onlineGame.connection !== 'open'"
+            @update:model-value="onAvatarPick"
+          />
+          <p class="mt-1.5 text-[11px] text-sand-dim">
+            タップですぐ反映。カタログ 10 種・他の人と被っても構いません
+          </p>
+        </div>
       </section>
 
       <!-- Mountain deck (online lobby; host can customize) -->

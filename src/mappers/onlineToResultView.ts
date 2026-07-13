@@ -1,4 +1,4 @@
-import { AVATAR_ASSETS, avatarSrc } from '@/localGame/avatarCatalog'
+import { avatarByIndex, avatarSrc } from '@/localGame/avatarCatalog'
 import type { ResultViewModel } from '@/mappers/toResultView'
 import type {
   PendingResultSnapshot,
@@ -12,8 +12,7 @@ function profile(
   view: PlayerView,
 ): { name: string; avatar: string; avatarSrc?: string } {
   const p = view.players.find((x) => x.id === playerId)
-  const i = (p?.avatarIndex ?? 0) % AVATAR_ASSETS.length
-  const meta = AVATAR_ASSETS[i]!
+  const meta = avatarByIndex(p?.avatarIndex)
   return {
     name: p?.displayName ?? playerId.slice(0, 8),
     avatar: meta.emoji,

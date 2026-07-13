@@ -1,12 +1,11 @@
-import { AVATAR_ASSETS, avatarSrc } from '@/localGame/avatarCatalog'
+import { avatarByIndex, avatarSrc } from '@/localGame/avatarCatalog'
 import type { GameViewModel } from '@/mappers/toGameView'
 import type { MaskedGamePayload, PlayerView } from '@/online/protocol'
 import type { EventLogItem, PlayerSeat } from '@/types/game'
 
 export function onlineProfilesFromView(view: PlayerView) {
   return view.players.map((p) => {
-    const i = (p.avatarIndex ?? 0) % AVATAR_ASSETS.length
-    const meta = AVATAR_ASSETS[i]!
+    const meta = avatarByIndex(p.avatarIndex)
     return {
       id: p.id,
       name: p.displayName,
@@ -65,8 +64,7 @@ export function onlineToGameView(
 
 function seatsToUi(game: MaskedGamePayload): PlayerSeat[] {
   return game.seats.map((s) => {
-    const i = s.avatarIndex % AVATAR_ASSETS.length
-    const meta = AVATAR_ASSETS[i]!
+    const meta = avatarByIndex(s.avatarIndex)
     return {
       id: s.id,
       // UI uses 1-based seat badges

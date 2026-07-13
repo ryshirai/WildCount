@@ -28,6 +28,8 @@ export interface BuildDemoLineupOptions {
   playerCount?: DemoPlayerCount
   /** Display name for the local player (default「あなた」). */
   selfName?: string
+  /** Catalog id for local player portrait (default `self` bear). */
+  selfAvatarId?: AvatarAssetId
 }
 
 /** Bot seats for the local demo (order is fixed). */
@@ -67,12 +69,10 @@ export function buildDemoLineup(
   const selfName =
     rawName && rawName.length > 0 ? rawName.slice(0, 12) : 'あなた'
   const botCount = playerCount - 1
+  const selfAssetId =
+    options.selfAvatarId ?? DEMO_PLAYER_ASSET_IDS.self ?? 'self'
 
-  const self = profileFromAsset(
-    SELF_ID,
-    selfName,
-    DEMO_PLAYER_ASSET_IDS.self ?? 'self',
-  )
+  const self = profileFromAsset(SELF_ID, selfName, selfAssetId)
   const bots = DEMO_BOT_SPECS.slice(0, botCount).map((b) =>
     profileFromAsset(b.id, b.name, b.assetId),
   )

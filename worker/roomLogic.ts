@@ -14,6 +14,11 @@ import {
   type GameState,
 } from '../src/domain/game'
 import {
+  AVATAR_COUNT,
+  isValidAvatarIndex,
+  sanitizeAvatarIndex,
+} from '../src/localGame/avatarCatalog'
+import {
   buildMaskedGame,
   viewPhase,
   type BidHistoryEntry,
@@ -198,6 +203,26 @@ export function sanitizeDisplayName(raw: unknown): string {
 }
 
 /**
+ * Optional wire avatar index.
+ * - Missing / null / undefined → undefined (caller assigns default)
+ * - Valid integer in range → that index
+ * - Invalid (float, string junk, out of range, wrong type) → undefined
+ *   so clients cannot force a bad catalog slot
+ */
+export function parseOptionalAvatarIndex(raw: unknown): number | undefined {
+  if (raw === undefined || raw === null) return undefined
+  if (isValidAvatarIndex(raw)) return raw
+  // Numeric string only when exact integer in range (no silent clamp of 99 → last)
+  if (typeof raw === 'string' && /^\d{1,2}$/.test(raw.trim())) {
+    const n = Number(raw.trim())
+    if (isValidAvatarIndex(n)) return n
+  }
+  return undefined
+}
+
+export { AVATAR_COUNT, isValidAvatarIndex, sanitizeAvatarIndex }
+
+/**
  * Normalize chat body: strip control chars, collapse whitespace, cap length.
  * Returns null when empty after sanitize.
  */
@@ -314,7 +339,13 @@ export function parseClientMessage(raw: unknown): ClientMessage | { error: strin
         typeof msg.resumeToken === 'string' && msg.resumeToken.length > 0
           ? msg.resumeToken
           : undefined
-      return { type: 'join', displayName, resumeToken }
+      const avatarIndex = parseOptionalAvatarIndex(msg.avatarIndex)
+      return {
+        type: 'join',
+        displayName,
+        resumeToken,
+        ...(avatarIndex !== undefined ? { avatarIndex } : {}),
+      }
     }
     case 'ready': {
       if (typeof msg.ready !== 'boolean') {
@@ -682,8 +713,9 @@ export function findPlayerByToken(
   return room.players.find((p) => p.id === id)
 }
 
+/** Round-robin fallback when client does not pick an avatar. */
 export function nextAvatarIndex(room: RoomState): number {
-  return room.players.length % 10
+  return room.players.length % AVATAR_COUNT
 }
 
 /** Cap appliedActions map size. */

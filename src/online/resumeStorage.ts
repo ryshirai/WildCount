@@ -1,5 +1,8 @@
+import { sanitizeAvatarIndex } from '@/localGame/avatarCatalog'
+
 const RESUME_PREFIX = 'wc:resume:'
 const NAME_KEY = 'wc:displayName'
+const AVATAR_KEY = 'wc:avatarIndex'
 const LAST_ROOM_KEY = 'wc:lastRoom'
 
 function normalizeCode(roomCode: string): string {
@@ -73,6 +76,26 @@ export function saveDisplayName(name: string): void {
   try {
     const t = name.trim()
     if (t) localStorage.setItem(NAME_KEY, t)
+  } catch {
+    // ignore
+  }
+}
+
+/** Preferred avatar catalog index (0..AVATAR_COUNT-1). Invalid storage → 0. */
+export function loadSavedAvatarIndex(): number {
+  try {
+    const raw = localStorage.getItem(AVATAR_KEY)
+    if (raw == null) return 0
+    return sanitizeAvatarIndex(raw, 0)
+  } catch {
+    return 0
+  }
+}
+
+export function saveAvatarIndex(index: number): void {
+  try {
+    const i = sanitizeAvatarIndex(index, 0)
+    localStorage.setItem(AVATAR_KEY, String(i))
   } catch {
     // ignore
   }

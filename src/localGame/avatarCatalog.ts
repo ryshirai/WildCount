@@ -47,6 +47,9 @@ export const AVATAR_ASSETS: readonly AvatarAssetMeta[] = [
   { id: 'coyote', name: 'コヨーテ', emoji: '🐺', note: 'Brand-leaning; optional' },
 ] as const
 
+/** Catalog length — wire `avatarIndex` is 0 .. AVATAR_COUNT-1. */
+export const AVATAR_COUNT = AVATAR_ASSETS.length
+
 const byId = new Map(AVATAR_ASSETS.map((a) => [a.id, a]))
 
 export function getAvatarAsset(id: AvatarAssetId): AvatarAssetMeta {
@@ -55,6 +58,54 @@ export function getAvatarAsset(id: AvatarAssetId): AvatarAssetMeta {
     throw new Error(`Unknown avatar asset id: ${id}`)
   }
   return found
+}
+
+/**
+ * True when value is an integer in [0, AVATAR_COUNT).
+ * Rejects floats, NaN, out-of-range, and non-numbers.
+ */
+export function isValidAvatarIndex(value: unknown): value is number {
+  return (
+    typeof value === 'number' &&
+    Number.isInteger(value) &&
+    value >= 0 &&
+    value < AVATAR_COUNT
+  )
+}
+
+function clampAvatarIndex(n: number): number {
+  if (!Number.isFinite(n) || !Number.isInteger(n)) return 0
+  if (n < 0) return 0
+  if (n >= AVATAR_COUNT) return AVATAR_COUNT - 1
+  return n
+}
+
+/**
+ * Normalize UI / localStorage avatar index (lenient).
+ * - Integer (or short digit string) → clamped into [0, AVATAR_COUNT)
+ * - Otherwise → `fallback` clamped into range
+ *
+ * Wire ingest uses worker `parseOptionalAvatarIndex` (strict reject, no clamp).
+ */
+export function sanitizeAvatarIndex(
+  raw: unknown,
+  fallback: number = 0,
+): number {
+  if (typeof raw === 'number' && Number.isInteger(raw) && Number.isFinite(raw)) {
+    return clampAvatarIndex(raw)
+  }
+  if (typeof raw === 'string' && /^-?\d{1,3}$/.test(raw.trim())) {
+    return clampAvatarIndex(Number(raw.trim()))
+  }
+  return clampAvatarIndex(
+    typeof fallback === 'number' && Number.isInteger(fallback) ? fallback : 0,
+  )
+}
+
+/** Resolve catalog entry by wire index (wraps out-of-range for display safety). */
+export function avatarByIndex(index: number | undefined | null): AvatarAssetMeta {
+  const i = sanitizeAvatarIndex(index, 0)
+  return AVATAR_ASSETS[i]!
 }
 
 /**
