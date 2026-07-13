@@ -53,11 +53,38 @@ describe('toGameView', () => {
     // Indian poker: own card hidden, others face-up
     expect(vm.players[0]!.handHidden).toBe(true)
     expect(vm.players[0]!.handLabel).toBeTruthy() // label kept for result; UI uses handHidden
+    expect(vm.players[0]!.handCount).toBeGreaterThanOrEqual(1)
+    expect(vm.players[0]!.handLabels.length).toBe(vm.players[0]!.handCount)
     const others = vm.players.filter((p) => !p.isSelf)
     expect(others.every((p) => p.handHidden === false)).toBe(true)
     expect(others.every((p) => p.handLabel != null && p.handLabel.length > 0)).toBe(true)
+    expect(others.every((p) => p.handLabels.length === p.handCount && p.handCount >= 1)).toBe(
+      true,
+    )
     expect(vm.minBid).toBe(1)
     expect(vm.phase).toBe('bidding')
+  })
+
+  it('maps multi-card hands as separate labels (draw1)', () => {
+    let state = freshState()
+    const victim = state.players.find((p) => p.id !== SELF_ID && p.alive)!
+    // Force two cards on another player
+    const hand = state.hands[victim.id] ?? []
+    const extra = { id: 'extra-double', kind: 'double' as const }
+    state = {
+      ...state,
+      hands: {
+        ...state.hands,
+        [victim.id]: [...hand, extra],
+      },
+    }
+
+    const vm = toGameView({ state, profiles: DEFAULT_PROFILES })
+    const seat = vm.players.find((p) => p.id === victim.id)!
+    expect(seat.handCount).toBe(2)
+    expect(seat.handLabels).toHaveLength(2)
+    expect(seat.handLabels[1]).toBe('×2')
+    expect(seat.handLabel).toContain('×2')
   })
 
   it('marks current bidder hasDeclared and updates minBid after PLACE_BID', () => {

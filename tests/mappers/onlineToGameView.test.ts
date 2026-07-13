@@ -112,9 +112,13 @@ describe('onlineToGameView', () => {
     const self = vm!.players.find((p) => p.isSelf)!
     expect(self.handHidden).toBe(true)
     expect(self.handLabel).toBeNull()
+    expect(self.handLabels).toEqual([])
+    expect(self.handCount).toBeGreaterThanOrEqual(0)
 
     const other = vm!.players.find((p) => !p.isSelf)!
     expect(other.handHidden).toBe(false)
     expect(other.handLabel).toBe('+5')
+    expect(other.handLabels).toEqual(['+5'])
+    expect(other.handCount).toBe(1)
   })
 })

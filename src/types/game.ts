@@ -21,11 +21,20 @@ export interface PlayerSeat {
   /** Remaining lives (0 = eliminated) */
   lives: number
   /**
-   * Hand card face label (e.g. "+5", "×2", "M→0").
-   * Indian poker: others' cards are visible; self is always `handHidden`.
-   * null when no hand (eliminated / not dealt).
+   * Hand card face labels (e.g. ["+5"], ["+5", "×2"] when draw1 multi-card).
+   * Indian poker: others' cards are visible; self is always `handHidden`
+   * (labels may still be filled for local adapters — UI must not show them).
+   * Empty when no hand (eliminated / not dealt).
+   */
+  handLabels: string[]
+  /**
+   * Convenience single string (labels joined by space). Prefer `handLabels`
+   * when rendering so multi-card hands become multiple tiles.
+   * null when no hand.
    */
   handLabel: string | null
+  /** Card count in hand (needed for multi mystery tiles when handHidden). */
+  handCount: number
   /** true → show as ? (own forehead card; local player must not see it) */
   handHidden: boolean
   /** Online: WebSocket connected. Local always true / undefined. */

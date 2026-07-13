@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { PlayerSeat } from '@/types/game'
-import BidCard from './BidCard.vue'
+import HandTiles from './HandTiles.vue'
 import LifeHearts from './LifeHearts.vue'
 import PlayerAvatar from './PlayerAvatar.vue'
 
@@ -18,8 +18,9 @@ defineProps<{
       <div
         v-for="player in players"
         :key="player.id"
-        class="flex w-[3.6rem] shrink-0 flex-col items-center gap-0.5 rounded-xl px-0.5 py-1 transition"
+        class="flex shrink-0 flex-col items-center gap-0.5 rounded-xl px-0.5 py-1 transition"
         :class="[
+          player.handCount >= 2 ? 'w-[4.6rem]' : 'w-[3.85rem]',
           player.isCurrentTurn
             ? 'bg-gold-400/10 ring-1 ring-gold-400/35'
             : player.isSelf
@@ -52,17 +53,18 @@ defineProps<{
         <!-- Lives under avatar -->
         <LifeHearts :lives="player.lives" :max-visible="3" size-class="text-[9px]" />
 
-        <!-- Hand: others face-up, self ? -->
-        <BidCard
-          v-if="player.lives > 0"
-          :label="player.handHidden ? null : player.handLabel"
-          :mystery="player.handHidden || player.handLabel == null"
+        <!-- Hand: multi-card fan when draw1 -->
+        <HandTiles
+          v-if="player.lives > 0 && player.handCount > 0"
+          :labels="player.handHidden ? null : player.handLabels"
+          :count="player.handCount"
+          :mystery="player.handHidden"
           :emphasized="player.isCurrentTurn || player.isSelf"
           compact
         />
         <div
           v-else
-          class="card-tile-mystery !h-9 !w-7 !text-sm opacity-50"
+          class="card-tile-mystery !h-10 !w-8 !text-sm opacity-50"
         >—</div>
 
         <!-- Status under card (compact) -->

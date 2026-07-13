@@ -2711,6 +2711,49 @@
 
 ---
 
+## 2026-07-13 — 手札2枚表示＋カード見た目リッチ化
+
+### 背景・目的
+- ドロー1などで **2枚持ち** になったとき、ラベルを1枚のタイルに結合して出していた（例: `+5 ×2`）
+- 2枚を別タイルとして表示したい。ついでに手札・公開カードを少し大きくリッチに
+
+### 実施内容
+1. **ViewModel** — `handLabels: string[]` / `handCount` を追加（`handLabel` は結合文字列として維持）
+2. **HandTiles** — 複数枚は扇状（fan）の2タイル。自分（hidden）も `handCount` 分の `?` を表示
+3. **BidCard** — 種別別フレーム（数字 / マイナス / ×2 / MAX→0 / 1/2 / 0* / ？）、シーン・コーナーpip、やや大型化
+4. **RevealCardTile** — サイズアップ＋シーン/pip/×2バッジ
+5. **mock** — `?mock=1` でフクロウを2枚デモ（`+20` + `×2`）
+6. **フォロー** — 数字コントラスト強化（text-shadow / dense サイズ上げ / sheen を背面化 / 扇の重なり緩和）。SP の「自分の札は見えない」文言削除
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/types/game.ts` | handLabels / handCount |
+| `src/mappers/toGameView.ts` / `onlineToGameView.ts` | 配列マッピング |
+| `src/components/game/HandTiles.vue` | 新規・扇表示 |
+| `src/components/game/BidCard.vue` | リッチフェイス |
+| `src/components/game/PlayerSeat.vue` / `MobilePlayerCarousel.vue` | HandTiles 利用 |
+| `src/components/game/RevealCardTile.vue` | サイズ・装飾 |
+| `src/styles/main.css` | card-tile / hand-tiles / reveal 拡張 |
+| `src/views/GameView.vue` | SP 文言削除 |
+| `src/data/mockGame.ts` | 2枚デモ |
+| `tests/mappers/*` | 複数枚・配列アサート |
+
+### 明示的にやっていないこと
+- 3枚以上のレイアウト最適化（現状は同ロジックで並べる）
+- 結果画面のプレイヤー単位グループ化（公開は従来どおりカード単位）
+- Worker プロトコル変更（`hands` / `handCount` 既存）
+
+### 確認結果
+- 関連 vitest パス
+- `npm run build` 成功
+
+### 次に考えられる作業
+1. 実機でドロー1後の2枚扇と席の重なりを目視
+2. 結果画面で同一プレイヤーの複数カードをグループ表示するか検討
+
+---
+
 ## ログの書き方
 
 **正規のルールは `AGENTS.md` を参照。** 変更のあったセッションでは、このファイルに日付見出しで **追記** する（過去エントリは消さない）。

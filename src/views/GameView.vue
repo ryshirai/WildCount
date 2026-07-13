@@ -1415,7 +1415,6 @@ async function onChallenge() {
                   >{{ room.turnsUntilSelf }}人</span
                 >
               </span>
-              <span class="text-[10px] text-sand-dim/80">自分の札は見えない</span>
             </div>
 
             <main

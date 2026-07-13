@@ -5,7 +5,7 @@ import type { GameRoomMock, PlayerSeat } from '@/types/game'
  * Mock state matching the design mock (Round 3, bid 18, 10 players).
  * Indian poker: self card is ?, others face-up.
  */
-const seats: Omit<PlayerSeat, 'handLabel' | 'handHidden'>[] = [
+const seats: Omit<PlayerSeat, 'handLabel' | 'handLabels' | 'handCount' | 'handHidden'>[] = [
   {
     id: 'p1',
     seatIndex: 1,
@@ -150,11 +150,19 @@ export const mockGameRoom: GameRoomMock = {
   turnsUntilSelf: 3,
   draftBid: 18,
   connectionStatus: 'good',
-  players: seats.map((p) => ({
-    ...p,
-    handLabel: mockHands[p.id] ?? null,
-    handHidden: p.isSelf,
-  })),
+  players: seats.map((p) => {
+    const label = mockHands[p.id] ?? null
+    // Mock multi-card demo: フクロウ has draw1 pair (+20 and ×2) as two tiles
+    const multi =
+      p.id === 'p1' ? ['+20', '×2'] : label != null ? [label] : []
+    return {
+      ...p,
+      handLabels: multi,
+      handLabel: multi.length > 0 ? multi.join(' ') : null,
+      handCount: multi.length,
+      handHidden: p.isSelf,
+    }
+  }),
   eventLog: [
     {
       id: 'e1',

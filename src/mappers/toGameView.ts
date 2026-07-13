@@ -84,7 +84,7 @@ export function toGameView(input: ToGameViewInput): GameViewModel {
       const handLabels =
         p.alive && hand && hand.length > 0
           ? hand.map((c) => cardLabel(c))
-          : null
+          : []
       return {
         id: p.id,
         // UI mock used 1-based seat badges
@@ -98,7 +98,9 @@ export function toGameView(input: ToGameViewInput): GameViewModel {
         isCurrentTurn: p.alive && state.currentTurnPlayerId === p.id,
         lives: p.lives,
         // Indian poker: self never sees own face; others are visible
-        handLabel: handLabels ? handLabels.join(' ') : null,
+        handLabels,
+        handLabel: handLabels.length > 0 ? handLabels.join(' ') : null,
+        handCount: handLabels.length,
         handHidden: isSelf,
       }
     })

@@ -27,8 +27,8 @@ const props = withDefaults(
 )
 
 const sizeClass: Record<'md' | 'lg', string> = {
-  md: 'h-14 w-11',
-  lg: 'h-16 w-12 sm:h-[4.5rem] sm:w-14',
+  md: 'h-[3.85rem] w-[2.95rem]',
+  lg: 'h-[4.35rem] w-[3.25rem] sm:h-[5rem] sm:w-[3.65rem]',
 }
 
 const isSpecial = computed(
@@ -61,6 +61,9 @@ const isSpecial = computed(
     role="img"
     :aria-label="label"
   >
+    <span class="reveal-card__sheen" aria-hidden="true" />
+    <span class="reveal-card__pip reveal-card__pip--tl" aria-hidden="true" />
+    <span class="reveal-card__pip reveal-card__pip--br" aria-hidden="true" />
     <span
       v-if="revealed && isSpecial"
       class="reveal-sparkle"
@@ -78,6 +81,7 @@ const isSpecial = computed(
         <circle cx="20" cy="20" r="11" stroke="currentColor" stroke-width="1" opacity="0.3" />
       </svg>
       <span class="reveal-card__hero font-display">×2</span>
+      <span class="reveal-card__badge">DBL</span>
     </template>
 
     <!-- MAX → 0（2行: 小さな MAX + 大きな →0。1行 "MAX→0" は幅不足で潰れる） -->

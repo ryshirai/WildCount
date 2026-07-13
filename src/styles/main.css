@@ -65,30 +65,244 @@
       text-xs font-medium text-gold-200;
   }
 
+  /* ---- Hand card tiles (seat / carousel) ---- */
   .card-tile {
-    @apply flex h-12 w-10 items-center justify-center rounded-lg
-      border border-gold-400/50 bg-gradient-to-b from-gold-50 via-gold-100 to-gold-300
-      font-display text-lg font-bold leading-none text-night-900 shadow-md
-      ring-1 ring-inset ring-white/25
-      sm:h-14 sm:w-11 sm:text-xl;
-    /* Long specials (e.g. 0*, M→0) still fit without growing the tile */
-    letter-spacing: -0.02em;
-    padding-inline: 0.1rem;
-    overflow: hidden;
-    text-overflow: clip;
+    @apply relative flex flex-col items-center justify-center gap-0
+      overflow-hidden rounded-xl border select-none
+      font-display font-bold leading-none shadow-md
+      ring-1 ring-inset;
+    /* Default (md seat): slightly larger than previous h-12/w-10 */
+    width: 2.85rem;
+    height: 3.65rem;
+    letter-spacing: -0.01em;
+    padding-inline: 0.12rem;
     white-space: nowrap;
   }
 
-  /* 3+ glyph faces (M→0, 0*, multi-digit) */
-  .card-tile--dense {
-    @apply text-[0.7rem] tracking-tighter sm:text-xs;
+  @media (min-width: 640px) {
+    .card-tile {
+      width: 3.15rem;
+      height: 4.05rem;
+    }
   }
 
+  .card-tile--compact {
+    width: 2.45rem !important;
+    height: 3.15rem !important;
+  }
+
+  .card-tile--number {
+    @apply border-gold-400/70 bg-gradient-to-b from-gold-50 via-gold-100 to-gold-300
+      text-night-950 ring-white/40;
+    box-shadow:
+      0 2px 0 rgba(255, 255, 255, 0.4) inset,
+      0 6px 14px rgba(0, 0, 0, 0.35);
+  }
+
+  .card-tile--negative {
+    @apply border-rose-500/55 bg-gradient-to-b from-rose-50 via-gold-50 to-gold-200
+      text-rose-900 ring-rose-200/50;
+    box-shadow:
+      0 2px 0 rgba(255, 255, 255, 0.35) inset,
+      0 6px 14px rgba(0, 0, 0, 0.35);
+  }
+
+  .card-tile--mystery {
+    @apply border-2 border-gold-400/80 bg-gradient-to-b from-night-600 via-night-800 to-night-950
+      text-gold-200 ring-gold-400/35;
+    box-shadow:
+      0 0 14px rgba(201, 168, 76, 0.28),
+      0 6px 14px rgba(0, 0, 0, 0.4);
+  }
+
+  .card-tile--double {
+    @apply border-teal-soft/70 bg-gradient-to-b from-teal-deep via-night-800 to-night-950
+      text-teal-soft ring-teal-soft/35;
+    box-shadow:
+      0 0 14px rgba(42, 138, 138, 0.35),
+      0 6px 14px rgba(0, 0, 0, 0.4);
+  }
+
+  .card-tile--half {
+    @apply border-sky-400/55 bg-gradient-to-b from-sky-800/80 via-night-800 to-night-950
+      text-sky-100 ring-sky-400/30;
+    box-shadow:
+      0 0 12px rgba(56, 189, 248, 0.22),
+      0 6px 14px rgba(0, 0, 0, 0.4);
+  }
+
+  .card-tile--max0 {
+    @apply border-amber-400/60 bg-gradient-to-b from-amber-800/60 via-night-800 to-night-950
+      text-amber-50 ring-amber-400/30;
+    box-shadow:
+      0 0 12px rgba(245, 158, 11, 0.22),
+      0 6px 14px rgba(0, 0, 0, 0.4);
+  }
+
+  .card-tile--redraw {
+    @apply border-gold-400/55 bg-gradient-to-b from-night-600 via-night-800 to-night-950
+      text-gold-100 ring-gold-400/30;
+  }
+
+  .card-tile--zeromix {
+    @apply border-amber-500/60 bg-gradient-to-b from-amber-50 via-gold-100 to-amber-200
+      text-night-950 ring-amber-200/50;
+  }
+
+  .card-tile--emphasized {
+    @apply ring-2 ring-gold-300/60;
+    box-shadow:
+      0 0 0 1px rgba(201, 168, 76, 0.4),
+      0 0 18px rgba(201, 168, 76, 0.4),
+      0 6px 16px rgba(0, 0, 0, 0.4);
+  }
+
+  /* Face value — high contrast, always above decoration */
+  .card-tile__hero {
+    @apply relative z-10 text-[1.2rem] font-extrabold leading-none tracking-tight
+      sm:text-[1.4rem];
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45);
+  }
+
+  .card-tile--number .card-tile__hero,
+  .card-tile--negative .card-tile__hero,
+  .card-tile--zeromix .card-tile__hero {
+    color: #0b1220;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.55);
+  }
+
+  .card-tile--double .card-tile__hero,
+  .card-tile--half .card-tile__hero,
+  .card-tile--max0 .card-tile__hero,
+  .card-tile--redraw .card-tile__hero,
+  .card-tile--mystery .card-tile__hero {
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.65);
+  }
+
+  /* +10 / +15 / +20 etc. — still readable, not micro-type */
+  .card-tile--dense .card-tile__hero {
+    @apply text-[0.95rem] tracking-tight sm:text-[1.05rem];
+  }
+
+  .card-tile--compact .card-tile__hero {
+    @apply text-[1.05rem] sm:text-lg;
+  }
+
+  .card-tile--compact.card-tile--dense .card-tile__hero {
+    @apply text-[0.85rem] sm:text-[0.95rem];
+  }
+
+  .card-tile--mystery .card-tile__hero {
+    @apply text-2xl sm:text-[1.7rem] text-gold-200;
+  }
+
+  .card-tile--compact.card-tile--mystery .card-tile__hero {
+    @apply text-xl;
+  }
+
+  .card-tile__badge {
+    @apply relative z-10 mt-0.5 text-[7px] font-semibold tracking-[0.12em]
+      text-teal-soft/90 sm:text-[8px];
+  }
+
+  .card-tile__sub {
+    @apply relative z-10 text-[7px] font-bold tracking-wide text-night-800 sm:text-[8px];
+  }
+
+  .card-tile__stack {
+    @apply relative z-10 flex flex-col items-center justify-center leading-none;
+  }
+
+  .card-tile__stack-top {
+    @apply text-[8px] font-extrabold tracking-[0.12em] text-amber-50 sm:text-[9px];
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+  }
+
+  .card-tile__stack-bot {
+    @apply mt-0.5 text-base font-extrabold tracking-tight text-amber-50 sm:text-lg;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+  }
+
+  /* Soft top light — must stay under face text */
+  .card-tile__sheen {
+    @apply pointer-events-none absolute inset-x-0 top-0 z-0 h-[42%]
+      bg-gradient-to-b from-white/20 to-transparent;
+  }
+
+  .card-tile--mystery .card-tile__sheen {
+    @apply from-gold-200/10;
+  }
+
+  .card-tile__pip {
+    @apply pointer-events-none absolute z-0 h-1 w-1 rounded-[1px]
+      border border-current opacity-20;
+  }
+
+  .card-tile__pip--tl {
+    @apply left-1 top-1;
+  }
+
+  .card-tile__pip--br {
+    @apply bottom-1 right-1;
+  }
+
+  /* Legacy class still used for eliminated seat placeholder */
   .card-tile-mystery {
-    @apply flex h-14 w-11 items-center justify-center rounded-lg
-      border-2 border-gold-400 bg-gradient-to-b from-night-700 to-night-900
-      font-display text-2xl font-bold text-gold-300 shadow-gold-glow
-      ring-1 ring-gold-400/30;
+    @apply relative flex flex-col items-center justify-center overflow-hidden
+      rounded-xl border-2 border-gold-400/80
+      bg-gradient-to-b from-night-600 via-night-800 to-night-950
+      font-display text-2xl font-bold text-gold-200
+      ring-1 ring-gold-400/35 select-none;
+    width: 2.85rem;
+    height: 3.65rem;
+    box-shadow:
+      0 0 14px rgba(201, 168, 76, 0.28),
+      0 6px 14px rgba(0, 0, 0, 0.4);
+  }
+
+  /* Multi-card fan under seat — keep overlap light so both faces read */
+  .hand-tiles {
+    @apply relative flex items-end justify-center;
+    min-height: 3.65rem;
+  }
+
+  @media (min-width: 640px) {
+    .hand-tiles {
+      min-height: 4.05rem;
+    }
+  }
+
+  .hand-tiles--compact {
+    min-height: 3.15rem;
+  }
+
+  .hand-tiles--multi {
+    width: 4.85rem;
+  }
+
+  .hand-tiles--compact.hand-tiles--multi {
+    width: 4.15rem;
+  }
+
+  .hand-tiles__item {
+    @apply relative shrink-0;
+  }
+
+  .hand-tiles--multi .hand-tiles__item--back {
+    margin-right: -0.45rem;
+  }
+
+  .hand-tiles--multi .hand-tiles__item--front {
+    margin-left: 0;
+  }
+
+  @media (min-width: 640px) {
+    .hand-tiles--multi:not(.hand-tiles--compact) {
+      width: 5.35rem;
+    }
+    .hand-tiles--multi:not(.hand-tiles--compact) .hand-tiles__item--back {
+      margin-right: -0.5rem;
+    }
   }
 
   /* Seat status chips (宣言済み / 手番 / あなた) */
@@ -156,6 +370,9 @@
       ring-1 ring-inset;
     transform-style: preserve-3d;
     backface-visibility: hidden;
+    box-shadow:
+      0 2px 0 rgba(255, 255, 255, 0.18) inset,
+      0 8px 18px rgba(0, 0, 0, 0.4);
   }
 
   .reveal-card--hidden {
@@ -203,7 +420,7 @@
   }
 
   .reveal-card__hero {
-    @apply relative z-[1] text-lg font-bold leading-none tracking-tight sm:text-xl;
+    @apply relative z-[1] text-xl font-bold leading-none tracking-tight sm:text-2xl;
   }
 
   .reveal-card__hero--sm {
@@ -225,6 +442,28 @@
 
   .reveal-card__sub {
     @apply relative z-[1] text-[8px] font-semibold tracking-wider text-night-700/75;
+  }
+
+  .reveal-card__badge {
+    @apply relative z-[1] mt-0.5 text-[7px] font-semibold tracking-[0.14em] opacity-70 sm:text-[8px];
+  }
+
+  .reveal-card__sheen {
+    @apply pointer-events-none absolute inset-x-0 top-0 h-1/2
+      bg-gradient-to-b from-white/20 to-transparent opacity-70;
+  }
+
+  .reveal-card__pip {
+    @apply pointer-events-none absolute h-1.5 w-1.5 rounded-[1px]
+      border border-current opacity-25;
+  }
+
+  .reveal-card__pip--tl {
+    @apply left-1 top-1;
+  }
+
+  .reveal-card__pip--br {
+    @apply bottom-1 right-1;
   }
 
   /* Calc step progressive highlight */

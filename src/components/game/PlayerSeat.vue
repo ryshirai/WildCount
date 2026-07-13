@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { PlayerSeat } from '@/types/game'
 import PlayerAvatar from './PlayerAvatar.vue'
-import BidCard from './BidCard.vue'
+import HandTiles from './HandTiles.vue'
 import LifeHearts from './LifeHearts.vue'
 
 defineProps<{
@@ -11,7 +11,7 @@ defineProps<{
 
 <template>
   <div
-    class="flex max-w-[5.5rem] flex-col items-center gap-0.5 transition-transform duration-200 sm:max-w-[6.5rem]"
+    class="flex max-w-[6.25rem] flex-col items-center gap-0.5 transition-transform duration-200 sm:max-w-[7rem]"
     :class="[
       player.isCurrentTurn ? 'z-10 scale-[1.03]' : '',
       player.lives <= 0 ? 'opacity-40 grayscale' : '',
@@ -34,17 +34,22 @@ defineProps<{
       </template>
     </PlayerAvatar>
 
-    <!-- Hand card: Indian poker — others face-up, self always ? -->
+    <!-- Hand: multi-card (draw1) shows two tiles instead of one joined label -->
     <div class="relative mt-0.5">
-      <BidCard
-        v-if="player.lives > 0"
-        :label="player.handHidden ? null : player.handLabel"
-        :mystery="player.handHidden || player.handLabel == null"
+      <HandTiles
+        v-if="player.lives > 0 && player.handCount > 0"
+        :labels="player.handHidden ? null : player.handLabels"
+        :count="player.handCount"
+        :mystery="player.handHidden"
         :emphasized="player.isCurrentTurn || player.isSelf"
       />
       <div
+        v-else-if="player.lives > 0"
+        class="card-tile-mystery !h-11 !w-9 !text-lg opacity-50"
+      >?</div>
+      <div
         v-else
-        class="card-tile-mystery !h-10 !w-8 !text-base opacity-50"
+        class="card-tile-mystery !h-11 !w-9 !text-base opacity-50"
       >—</div>
     </div>
 

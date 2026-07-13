@@ -77,6 +77,13 @@ function seatsToUi(game: MaskedGamePayload): PlayerSeat[] {
       isSelf: s.isSelf,
       isCurrentTurn: s.isCurrentTurn,
       lives: s.lives,
+      handLabels: s.handHidden
+        ? []
+        : s.hands && s.hands.length > 0
+          ? s.hands.map((h) => h.label)
+          : s.hand
+            ? [s.hand.label]
+            : [],
       handLabel: s.handHidden
         ? null
         : s.hands && s.hands.length > 0
@@ -84,6 +91,14 @@ function seatsToUi(game: MaskedGamePayload): PlayerSeat[] {
           : s.hand
             ? s.hand.label
             : null,
+      handCount:
+        typeof s.handCount === 'number'
+          ? s.handCount
+          : s.hands?.length
+            ? s.hands.length
+            : s.hand
+              ? 1
+              : 0,
       handHidden: s.handHidden,
       connected: s.connected,
     }
