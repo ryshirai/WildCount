@@ -10,8 +10,6 @@ defineProps<{
 const emit = defineEmits<{
   help: []
   deck: []
-  chat: []
-  stamp: []
   leave: []
 }>()
 
@@ -82,24 +80,6 @@ const connectionLabel: Record<string, string> = {
       </button>
       <button
         type="button"
-        class="btn-ghost !p-2"
-        title="スタンプ"
-        aria-label="スタンプ"
-        @click="emit('stamp')"
-      >
-        😀
-      </button>
-      <button
-        type="button"
-        class="btn-ghost !p-2"
-        title="チャット"
-        aria-label="チャット"
-        @click="emit('chat')"
-      >
-        💬
-      </button>
-      <button
-        type="button"
         class="btn-ghost !px-2.5 !py-2 text-xs"
         title="ゲームを終了して退出"
         aria-label="ゲームを終了して退出"
@@ -149,24 +129,6 @@ const connectionLabel: Record<string, string> = {
       <h1 class="font-display text-lg font-bold text-gold-200">Wild Count</h1>
     </div>
     <div class="flex items-center gap-0.5">
-      <button
-        type="button"
-        class="btn-ghost !p-2 text-base"
-        title="スタンプ"
-        aria-label="スタンプ"
-        @click="emit('stamp')"
-      >
-        😀
-      </button>
-      <button
-        type="button"
-        class="btn-ghost !p-2 text-base"
-        title="チャット"
-        aria-label="チャット"
-        @click="emit('chat')"
-      >
-        💬
-      </button>
       <button
         type="button"
         class="btn-ghost !px-2 !py-2 text-[11px] font-medium"

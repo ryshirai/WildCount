@@ -115,12 +115,6 @@ const roomDeck = computed((): WireDeckComposition | DeckComposition => {
   return STANDARD_DECK
 })
 
-function onHeaderChat() {
-  desktopSideTab.value = 'chat'
-  stampSheetOpen.value = false
-  mobileTab.value = mobileTab.value === 'chat' ? null : 'chat'
-}
-
 function toggleMobileChat() {
   stampSheetOpen.value = false
   mobileTab.value = mobileTab.value === 'chat' ? null : 'chat'
@@ -974,8 +968,6 @@ async function onChallenge() {
             :round="room.round"
             @help="openHelp"
             @deck="openDeckInfo"
-            @chat="onHeaderChat"
-            @stamp="openStampSheet"
             @leave="requestLeaveGame"
           />
         </div>
@@ -1308,8 +1300,6 @@ async function onChallenge() {
             :connection-status="room.connectionStatus"
             @help="openHelp"
             @deck="openDeckInfo"
-            @chat="onHeaderChat"
-            @stamp="openStampSheet"
             @leave="requestLeaveGame"
           />
         </div>
