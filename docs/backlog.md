@@ -84,9 +84,10 @@
 | TEST-1 | idea | Playwright E2E（2 ブラウザ） | design-overview §7。手動 2 タブが当面の受け入れ |
 | OPS-1 | idea | Worker ヘルス表示（ホームに「Worker 未接続」） | create タイムアウト文言は済 |
 | **UX-13** | **done** | **制限時間（持ち時間 + 毎ターン一時時間）** | ロビー host 設定。`main + turn` 秒。一時時間から先に減る。DO alarm でタイムアウト（自動最小宣言 / コヨーテ / 脱落） |
-| UX-14 | idea | 効果音（宣言 / コヨーテ / 勝敗）+ 任意トグル | Phase R 非ゴール。CSS 演出のみ現状 |
-| UX-15 | idea | 触覚フィードバック（vibration） | モバイル。OFF デフォルト推奨 |
+| UX-14 | planned | 効果音（入力 / 宣言 / 手番 / 特殊能力 / コヨーテ / 勝敗）+ 任意トグル | `gameplay-dopamine-plan.md` D2。音量・優先制御を含む |
+| UX-15 | planned | 触覚フィードバック（vibration） | `gameplay-dopamine-plan.md` D4。モバイル、OFF デフォルト |
 | UX-16 | idea | 席ごと残り持ち時間の常時表示 | 中央時計は UX-13 済み。席 UI へのミラーは未 |
+| UX-17 | planned | ゲーム中ドーパミン演出（HEAT / RALLY / RAISE / COYOTE 解放） | 正本: `docs/gameplay-dopamine-plan.md`。ルール変更なし |
 
 ---
 
