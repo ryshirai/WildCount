@@ -217,7 +217,7 @@ describe('ER-3b change', () => {
       playerId: 'b',
       forbiddenValue: 9,
       minExclusive: 7,
-      resumeNextPlayerId: 'a', // c's next in +1 direction
+      resumeNextPlayerId: 'c', // change user resumes after rebid
     })
     expect(state.currentTurnPlayerId).toBe('b')
     expect(state.extraActionUsedThisRound).toContain('c')
@@ -234,7 +234,8 @@ describe('ER-3b change', () => {
     expect(state.currentBidderId).toBe('b')
     expect(state.bidUnderCurrent).toBe(7)
     expect(state.pendingChangeRebid).toBeNull()
-    expect(state.currentTurnPlayerId).toBe('a')
+    // Turn returns to the change user (not skipped)
+    expect(state.currentTurnPlayerId).toBe('c')
   })
 
   it('opening-only change: rebid ≠ B and ≥ minOpeningBid', () => {
@@ -252,11 +253,13 @@ describe('ER-3b change', () => {
       playerId: 'a',
       forbiddenValue: 3,
       minExclusive: null,
+      resumeNextPlayerId: 'b',
     })
     expect(() => applyAction(state, { type: 'PLACE_BID', value: 3 }, rng)).toThrow()
     expect(() => applyAction(state, { type: 'PLACE_BID', value: 0 }, rng)).toThrow()
     state = applyAction(state, { type: 'PLACE_BID', value: 1 }, rng)
     expect(state.currentBid).toBe(1)
+    expect(state.currentTurnPlayerId).toBe('b')
   })
 })
 

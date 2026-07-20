@@ -164,7 +164,7 @@ export interface PendingChangeRebid {
   forbiddenValue: number
   /** Previous bid A; null when only opening bid existed */
   minExclusive: number | null
-  /** After rebid, turn goes to this player (CHANGE user's next in direction) */
+  /** After rebid, turn goes to this player (the CHANGE user) */
   resumeNextPlayerId: PlayerId
 }
 

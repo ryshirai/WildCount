@@ -388,12 +388,8 @@ function doChange(state: GameState): GameState {
   const forbiddenValue = state.currentBid
   const minExclusive = state.bidUnderCurrent
 
-  // After rebid, turn goes to CHANGE user's next in current direction
-  const resumeNextPlayerId = nextAlivePlayerId(
-    state.players,
-    actor,
-    state.turnDirection,
-  )
+  // After forced rebid, turn returns to the CHANGE user (not skipped)
+  const resumeNextPlayerId = actor
 
   return {
     ...state,
