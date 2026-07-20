@@ -41,6 +41,12 @@ export interface GameViewModel extends GameRoomMock {
   allowDraw1: boolean
   allowLifeDouble: boolean
   isGameOver: boolean
+  /** Confirmed PLACE_BID count this round (display HEAT / RALLY). */
+  roundBidCount: number
+  /** Last player who placed the current bid (null if none). */
+  lastBidderId: PlayerId | null
+  /** Whose turn it is now (alive player id). */
+  currentTurnPlayerId: PlayerId | null
 }
 
 /**
@@ -157,6 +163,9 @@ export function toGameView(input: ToGameViewInput): GameViewModel {
     allowDraw1: er.draw1,
     allowLifeDouble: er.lifeDouble,
     isGameOver: state.phase === 'game_over',
+    roundBidCount: currentRoundBids.length,
+    lastBidderId: state.currentBidderId,
+    currentTurnPlayerId: state.currentTurnPlayerId,
   }
 }
 

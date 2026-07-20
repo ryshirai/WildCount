@@ -1,25 +1,34 @@
 <script setup lang="ts">
 /**
- * Short declare cut-in (wave-3).
- * Lighter than ExtraActionCutIn / CoyoteCutIn — only open bid or hard raise (+5).
- * CSS-only; tap to skip. Does not hard-block gameplay for long.
+ * Short declare cut-in (wave-3 + D1).
+ * Lighter than ExtraActionCutIn / CoyoteCutIn — open bid or hard raise
+ * (NICE / BIG / WILD via raise tier). CSS-only; tap to skip.
  */
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import type { RaiseIntensity } from '@/utils/resultDrama'
+import type { RaiseTier } from '@/utils/bidDrama'
 
 const props = withDefaults(
   defineProps<{
     /** open | hard (soft/normal should not mount this) */
     intensity: RaiseIntensity
+    /** D1 raise tier for labels / styling */
+    tier?: RaiseTier
+    doubleRaise?: boolean
     bidValue: number
-    /** Raise amount when intensity is hard */
+    /** Raise amount when not open */
     delta?: number | null
     actorName?: string
+    /** Override title (NICE RAISE / BIG JUMP / …) */
+    title?: string
     durationMs?: number
   }>(),
   {
+    tier: 'normal',
+    doubleRaise: false,
     delta: null,
     actorName: '',
+    title: '',
     durationMs: 1000,
   },
 )
@@ -32,15 +41,40 @@ const phase = ref<'in' | 'out'>('in')
 let dismissTimer: ReturnType<typeof setTimeout> | null = null
 let outTimer: ReturnType<typeof setTimeout> | null = null
 
-const title = computed(() =>
-  props.intensity === 'open' ? '宣言！' : '大幅アップ！',
-)
+const resolvedTitle = computed(() => {
+  if (props.title) return props.title
+  if (props.intensity === 'open' || props.delta == null) return '宣言！'
+  switch (props.tier) {
+    case 'nice':
+      return 'NICE RAISE'
+    case 'big':
+      return 'BIG JUMP'
+    case 'wild':
+      return 'WILD CALL'
+    default:
+      return '大幅アップ！'
+  }
+})
 
 const line = computed(() => {
-  if (props.intensity === 'hard' && props.delta != null && props.delta > 0) {
+  if (props.delta != null && props.delta > 0) {
     return `+${props.delta}`
   }
   return null
+})
+
+const tierClass = computed(() => {
+  if (props.intensity === 'open') return 'bid-cutin--open'
+  switch (props.tier) {
+    case 'wild':
+      return 'bid-cutin--hard bid-cutin--wild'
+    case 'big':
+      return 'bid-cutin--hard bid-cutin--big'
+    case 'nice':
+      return 'bid-cutin--hard bid-cutin--nice'
+    default:
+      return 'bid-cutin--hard'
+  }
 })
 
 function finish() {
@@ -83,7 +117,8 @@ onUnmounted(() => {
     class="bid-cutin"
     :class="[
       phase === 'out' ? 'bid-cutin--out' : 'bid-cutin--in',
-      intensity === 'hard' ? 'bid-cutin--hard' : 'bid-cutin--open',
+      tierClass,
+      doubleRaise ? 'bid-cutin--double' : '',
     ]"
     role="status"
     aria-live="polite"
@@ -93,9 +128,10 @@ onUnmounted(() => {
     <div class="bid-cutin__slash" aria-hidden="true" />
     <div class="bid-cutin__card">
       <p v-if="actorName" class="bid-cutin__actor">{{ actorName }}</p>
-      <p class="bid-cutin__title">{{ title }}</p>
+      <p class="bid-cutin__title">{{ resolvedTitle }}</p>
       <p class="bid-cutin__value font-display tabular-nums">{{ bidValue }}</p>
       <p v-if="line" class="bid-cutin__delta font-display">{{ line }}</p>
+      <p v-if="doubleRaise" class="bid-cutin__mod">×2 RAISE</p>
     </div>
   </div>
 </template>

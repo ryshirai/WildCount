@@ -100,6 +100,7 @@ const isLgUp = useIsLgUp()
         :self-stamp-avatar-id="s.selfStampAvatarId"
         :chat-connection-open="onlineGame.connection === 'open'"
         :avatar-for-player="s.chatAvatarForPlayer"
+        :table-drama="s.tableDrama"
         @help="s.openHelp"
         @deck="s.openDeckInfo"
         @leave="s.requestLeaveGame"
@@ -154,6 +155,7 @@ const isLgUp = useIsLgUp()
         :self-stamp-avatar-id="s.selfStampAvatarId"
         :chat-connection-open="onlineGame.connection === 'open'"
         :avatar-for-player="s.chatAvatarForPlayer"
+        :table-drama="s.tableDrama"
         @help="s.openHelp"
         @deck="s.openDeckInfo"
         @leave="s.requestLeaveGame"
@@ -219,14 +221,17 @@ const isLgUp = useIsLgUp()
       @done="s.onExtraFxDone"
     />
 
-    <!-- Wave-3: open / hard raise cut-in (below coyote/extra) -->
+    <!-- Wave-3 / D1: open / hard raise cut-in (NICE / BIG / WILD) -->
     <BidDeclareCutIn
       v-if="s.bidFx && !s.cutInPayload && !s.extraFx"
       :key="s.bidFx.key"
       :intensity="s.bidFx.intensity"
+      :tier="s.bidFx.tier"
+      :double-raise="s.bidFx.doubleRaise"
       :bid-value="s.bidFx.bidValue"
       :delta="s.bidFx.delta"
       :actor-name="s.bidFx.actorName"
+      :title="s.bidFx.title"
       @done="s.onBidFxDone"
     />
 

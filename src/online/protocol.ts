@@ -213,6 +213,8 @@ export interface MaskedGamePayload {
   pendingLifeDouble?: boolean
   draw1UsedThisRound?: boolean
   extraActionUsedThisRound?: readonly string[]
+  /** Confirmed PLACE_BID count this round (HEAT / RALLY). Optional for older servers. */
+  roundBidCount?: number
 }
 
 export interface PendingResultSnapshot {

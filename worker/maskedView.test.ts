@@ -48,6 +48,24 @@ describe('maskedView', () => {
     const selfCard = game.hands['a']![0]!
     expect(json).not.toContain(selfCard.id)
     expect(json).toContain(game.hands['b']![0]!.id)
+    expect(payload.roundBidCount).toBe(0)
+  })
+
+  it('exposes roundBidCount from public bid history', () => {
+    const ids = ['a', 'b', 'c']
+    const game = startGame({ playerIds: ids }, seedRandom(7))
+    const history = [
+      { playerId: 'a', value: 2, round: 1 },
+      { playerId: 'b', value: 5, round: 1 },
+    ]
+    const payload = buildMaskedGame(
+      game,
+      'a',
+      roomPlayers(ids),
+      history,
+      'a',
+    )
+    expect(payload.roundBidCount).toBe(2)
   })
 
   it('pending result includes all hands including self', () => {

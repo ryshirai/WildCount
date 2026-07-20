@@ -98,6 +98,7 @@ function sampleView(): PlayerView {
       turnsUntilSelf: 0,
       legalMoves: [],
       isGameOver: false,
+      roundBidCount: 1,
     },
   }
 }
@@ -110,6 +111,9 @@ describe('onlineToGameView', () => {
     expect(vm!.canDeclare).toBe(true)
     expect(vm!.canChallenge).toBe(true)
     expect(vm!.minBid).toBe(4)
+    expect(vm!.roundBidCount).toBe(1)
+    expect(vm!.lastBidderId).toBe('b')
+    expect(vm!.currentTurnPlayerId).toBe('a')
 
     const self = vm!.players.find((p) => p.isSelf)!
     expect(self.handHidden).toBe(true)
@@ -122,5 +126,12 @@ describe('onlineToGameView', () => {
     expect(other.handLabel).toBe('+5')
     expect(other.handLabels).toEqual(['+5'])
     expect(other.handCount).toBe(1)
+  })
+
+  it('falls back roundBidCount from declared seats when server omits it', () => {
+    const view = sampleView()
+    delete view.game!.roundBidCount
+    const vm = onlineToGameView(view)
+    expect(vm!.roundBidCount).toBe(1)
   })
 })

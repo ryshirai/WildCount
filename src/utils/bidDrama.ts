@@ -142,6 +142,62 @@ export function raiseTier(previous: number | null, next: number): RaiseTier {
   return classifyRaise(previous, next).tier
 }
 
+/** Short on-table / cut-in label for RAISE tier (null = no special label). */
+export function raiseTierLabel(
+  classification: RaiseClassification | null | undefined,
+): string | null {
+  if (classification == null) return null
+  // Opening bid: no NICE/BIG/WILD label (cut-in uses 「宣言！」 separately)
+  if (classification.delta == null) return null
+  switch (classification.tier) {
+    case 'nice':
+      return 'NICE RAISE'
+    case 'big': {
+      const n = classification.delta
+      return n > 0 ? `BIG JUMP +${n}` : 'BIG JUMP'
+    }
+    case 'wild': {
+      const n = classification.delta
+      return n > 0 ? `WILD CALL +${n}` : 'WILD CALL'
+    }
+    default:
+      return null
+  }
+}
+
+/** Compact cut-in title (no +N; delta shown separately). */
+export function raiseCutInTitle(
+  classification: RaiseClassification | null | undefined,
+): string {
+  if (classification == null || classification.delta == null) return '宣言！'
+  switch (classification.tier) {
+    case 'nice':
+      return 'NICE RAISE'
+    case 'big':
+      return 'BIG JUMP'
+    case 'wild':
+      return 'WILD CALL'
+    default:
+      return '大幅アップ！'
+  }
+}
+
+/** HEAT stage label for UI chip (null when none). */
+export function heatStageLabel(heat: HeatLevel): string | null {
+  switch (heat) {
+    case 'warm':
+      return 'WARM UP'
+    case 'heating':
+      return 'HEATING'
+    case 'danger':
+      return 'DANGER'
+    case 'wild':
+      return 'WILD'
+    default:
+      return null
+  }
+}
+
 /** True when next is at least double previous (previous must be > 0). */
 export function isDoubleRaise(previous: number | null, next: number): boolean {
   if (previous == null || previous <= 0) return false

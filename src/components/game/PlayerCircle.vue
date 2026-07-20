@@ -2,10 +2,23 @@
 import { computed } from 'vue'
 import type { PlayerSeat as PlayerSeatType } from '@/types/game'
 import PlayerSeat from './PlayerSeat.vue'
+import RallyTrail from './RallyTrail.vue'
 
-const props = defineProps<{
-  players: PlayerSeatType[]
-}>()
+const props = withDefaults(
+  defineProps<{
+    players: PlayerSeatType[]
+    /** Last bidder → next turn light trail (D1 RALLY) */
+    lastBidderId?: string | null
+    currentTurnPlayerId?: string | null
+    /** Replay trail when this changes (e.g. bidCount) */
+    trailKey?: number | string | null
+  }>(),
+  {
+    lastBidderId: null,
+    currentTurnPlayerId: null,
+    trailKey: null,
+  },
+)
 
 /**
  * Place seats on an ellipse. Seat 1 is top-center-ish, going clockwise.
@@ -39,6 +52,12 @@ const seatPositions = computed(() => {
   -->
   <div class="player-circle-stage">
     <div class="player-circle-stage__board">
+      <RallyTrail
+        :players="players"
+        :from-id="lastBidderId"
+        :to-id="currentTurnPlayerId"
+        :flash-key="trailKey"
+      />
       <div
         v-for="{ player, x, y, scale } in seatPositions"
         :key="player.id"

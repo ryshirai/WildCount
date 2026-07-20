@@ -3603,3 +3603,49 @@
 1. D1: HEAT 段階表現・RALLY・RAISE 拡張を UI に接続（identity dedupe 込み）
 2. 既存 `playBidFx` / `CurrentBidDisplay` を `classifyRaise` 経路に寄せる
 3. D2: SFX 基盤
+
+## 2026-07-20 — ドーパミン D1（宣言ループ）
+
+### 背景・目的
+- `docs/gameplay-dopamine-plan.md` の D1 を実装し、D0 の HEAT / RALLY / RAISE 分類を UI に接続する
+- 宣言操作をブロックせず、通常宣言は短く・大幅宣言だけ強く見せる
+
+### 実施内容
+1. **公開カウンタ** — local: `toGameView.roundBidCount`（bidHistory）。online: masked `roundBidCount` + 旧サーバ向け seats フォールバック
+2. **セッション** — `useGameSession` で `classifyRaise` / `raiseIntensityFromTier` + `raiseCutInEventId` dedupe。`tableDrama` を layouts へ
+3. **中央表示** — `CurrentBidDisplay` に HEAT chip・RALLY badge・NICE/BIG/WILD ラベル・double ring
+4. **cut-in** — `BidDeclareCutIn` を tier 対応（タイトル / 修飾 ×2 RAISE）
+5. **席間光** — `RallyTrail` + `PlayerCircle`（lastBidder → currentTurn）
+6. **入力** — `BidControls` ステップ上下スライド + 宣言ボタン任意チャージ（hold のみ、確定は即時）
+7. **卓縁 CSS** — `game-table-felt--heat-*`、reduced-motion で移動系を抑制
+8. **ヘルプ** — RALLY/HEAT は演出で倍率ではない旨を追記
+9. テスト・docs 追随
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/utils/bidDrama.ts` | ラベル純関数 |
+| `src/composables/useGameSession.ts` | classifyRaise 経路・dedupe・tableDrama |
+| `src/components/game/CurrentBidDisplay.vue` | HEAT/RALLY/RAISE UI |
+| `src/components/game/BidDeclareCutIn.vue` | tier タイトル |
+| `src/components/game/BidControls.vue` | チャージ・ステップ |
+| `src/components/game/RallyTrail.vue` | 席間光（新規） |
+| `src/components/game/PlayerCircle.vue` | trail 接続 |
+| `src/mappers/toGameView.ts` / `onlineToGameView.ts` | roundBidCount 等 |
+| `worker/maskedView.ts` / `src/online/protocol.ts` | wire 公開カウンタ |
+| `src/styles/main.css` | heat/rally/trail CSS |
+| `docs/gameplay-dopamine-plan.md` / `backlog.md` | D1 完了 |
+
+### 明示的にやっていないこと
+- SFX / 触覚（D2 / D4）
+- COYOTE シーケンス統合・レア決着（D3）
+- ルールエンジンへの演出状態混入（意図的になし）
+- 演出プリセット設定 UI（ひかえめ / WILD）
+
+### 確認結果
+- `npm test` 214 緑 / `typecheck` / `lint` / `build` 成功
+
+### 次に考えられる作業
+1. D2: SFX 基盤（音量・ミュート・カテゴリ優先）
+2. 実プレイで HEAT 閾値・RALLY 尺を調整
+3. 10人モックで trail 負荷確認

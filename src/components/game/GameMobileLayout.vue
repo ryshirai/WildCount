@@ -10,6 +10,7 @@ import type { StampId } from '@/online/stamps'
 import type { AvatarAssetId } from '@/localGame/avatarCatalog'
 import type { ChatMessage } from '@/online/protocol'
 import type { GameViewModel } from '@/mappers/toGameView'
+import type { TableDramaState } from '@/composables/useGameSession'
 import { computed } from 'vue'
 import GameHeader from '@/components/game/GameHeader.vue'
 import TurnClockDisplay from '@/components/game/TurnClockDisplay.vue'
@@ -64,6 +65,8 @@ const props = defineProps<{
     avatarSrc?: string
     avatarId?: AvatarAssetId
   }
+  /** D1 table drama (HEAT / RALLY) */
+  tableDrama?: TableDramaState | null
 }>()
 
 const emit = defineEmits<{
@@ -205,6 +208,8 @@ const showDock = computed(
               compact
               :show-turns-hint="false"
               :current-bid="room.currentBid"
+              :bid-count="tableDrama?.bidCount ?? 0"
+              :heat="tableDrama?.heat ?? 'none'"
             />
           </div>
         </main>

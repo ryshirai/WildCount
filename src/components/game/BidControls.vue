@@ -52,6 +52,12 @@ const emit = defineEmits<{
 const tickKey = ref(0)
 const declareFlash = ref(false)
 const challengeFlash = ref(false)
+/** Stepper press flash direction for slide feedback */
+const stepDir = ref<'up' | 'down' | null>(null)
+let stepDirTimer: ReturnType<typeof setTimeout> | null = null
+/** Optional declare charge while pointer is held (does not delay click) */
+const declareCharging = ref(false)
+let chargeTimer: ReturnType<typeof setTimeout> | null = null
 /** Flying number from declare button */
 const launchFx = ref<{ key: number; value: number } | null>(null)
 let launchSeq = 0
@@ -194,9 +200,42 @@ function adjust(delta: number) {
   ) {
     next = Math.max(floor(), next + (delta > 0 ? 1 : -1))
   }
-  if (next === bid.value && delta < 0) return
+  if (next === bid.value && delta < 0) {
+    // Boundary nudge only — no reward
+    tickKey.value += 1
+    stepDir.value = 'down'
+    if (stepDirTimer) clearTimeout(stepDirTimer)
+    stepDirTimer = setTimeout(() => {
+      stepDir.value = null
+    }, 160)
+    return
+  }
+  if (next === bid.value) return
   bid.value = next
   tickKey.value += 1
+  stepDir.value = delta > 0 ? 'up' : 'down'
+  if (stepDirTimer) clearTimeout(stepDirTimer)
+  stepDirTimer = setTimeout(() => {
+    stepDir.value = null
+  }, 180)
+}
+
+function onDeclarePointerDown() {
+  if (props.canDeclare === false) return
+  if (chargeTimer) clearTimeout(chargeTimer)
+  // Charge is optional polish (150–300ms); release still declares immediately
+  chargeTimer = setTimeout(() => {
+    declareCharging.value = true
+    chargeTimer = null
+  }, 160)
+}
+
+function onDeclarePointerEnd() {
+  if (chargeTimer) {
+    clearTimeout(chargeTimer)
+    chargeTimer = null
+  }
+  declareCharging.value = false
 }
 
 function selectSkill(id: BidExtraChoice) {
@@ -223,6 +262,7 @@ function buildExtra(): ClientBidExtra | undefined {
 }
 
 function onDeclare() {
+  onDeclarePointerEnd()
   if (props.canDeclare === false) return
   if (
     props.forbiddenValue != null &&
@@ -302,8 +342,15 @@ function toggleSkills() {
         <button
           type="button"
           class="btn-gold relative min-w-0 flex-1 !py-2 text-sm"
-          :class="declareFlash ? 'btn-fx-press' : ''"
+          :class="[
+            declareFlash ? 'btn-fx-press' : '',
+            declareCharging ? 'btn-declare-charge' : '',
+          ]"
           :disabled="canDeclare === false"
+          @pointerdown="onDeclarePointerDown"
+          @pointerup="onDeclarePointerEnd"
+          @pointerleave="onDeclarePointerEnd"
+          @pointercancel="onDeclarePointerEnd"
           @click="onDeclare"
         >
           {{ declareLabel }}
@@ -503,7 +550,11 @@ function toggleSkills() {
         <span
           :key="tickKey"
           class="bid-step-tick text-center font-display font-bold text-gold-100 tabular-nums"
-          :class="mobile ? 'min-w-[2.25rem] text-xl' : 'min-w-[2.75rem] text-2xl'"
+          :class="[
+            mobile ? 'min-w-[2.25rem] text-xl' : 'min-w-[2.75rem] text-2xl',
+            stepDir === 'up' ? 'bid-step-tick--up' : '',
+            stepDir === 'down' ? 'bid-step-tick--down' : '',
+          ]"
         >
           {{ bid }}
         </span>
@@ -558,10 +609,15 @@ function toggleSkills() {
           class="btn-gold relative flex-1 sm:flex-none"
           :class="[
             declareFlash ? 'btn-fx-press' : '',
+            declareCharging ? 'btn-declare-charge' : '',
             mobile ? '!py-2 text-sm' : '',
             extraChoice !== 'none' ? 'ring-1 ring-teal-soft/40' : '',
           ]"
           :disabled="canDeclare === false"
+          @pointerdown="onDeclarePointerDown"
+          @pointerup="onDeclarePointerEnd"
+          @pointerleave="onDeclarePointerEnd"
+          @pointercancel="onDeclarePointerEnd"
           @click="onDeclare"
         >
           {{ declareLabel }}
@@ -646,5 +702,53 @@ function toggleSkills() {
 .skill-chip--life_double.skill-chip--on {
   border-color: rgba(248, 113, 113, 0.55);
   box-shadow: 0 0 14px rgba(248, 113, 113, 0.18);
+}
+
+.bid-step-tick--up {
+  animation: bid-step-slide-up 0.18s ease-out both;
+}
+.bid-step-tick--down {
+  animation: bid-step-slide-down 0.18s ease-out both;
+}
+@keyframes bid-step-slide-up {
+  from {
+    transform: translateY(6px);
+    opacity: 0.65;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+@keyframes bid-step-slide-down {
+  from {
+    transform: translateY(-6px);
+    opacity: 0.65;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.btn-declare-charge {
+  box-shadow:
+    0 0 0 2px rgba(245, 230, 184, 0.55),
+    0 0 22px rgba(201, 168, 76, 0.45);
+  filter: brightness(1.08);
+  transition:
+    box-shadow 0.15s ease,
+    filter 0.15s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bid-step-tick--up,
+  .bid-step-tick--down {
+    animation: none !important;
+  }
+  .btn-declare-charge {
+    box-shadow: 0 0 0 1px rgba(245, 230, 184, 0.4);
+    filter: none;
+  }
 }
 </style>

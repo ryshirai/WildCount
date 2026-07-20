@@ -2,7 +2,7 @@
 
 作成日: 2026-07-20
 
-状態: 計画（D0 完了）
+状態: 計画（D0・D1 完了）
 
 関連: `docs/design-polish-plan.md` / `docs/ui-mock.md` / `docs/ui-redesign.md` / `docs/backlog.md`
 
@@ -220,13 +220,22 @@ COYOTE / 結果
 - 閾値の単体テストがある
 - ルールエンジンに演出専用状態を混入させていない
 
-### D1 — 宣言ループ
+### D1 — 宣言ループ ✅
 
 1. HEAT の段階表現
 2. RALLY 表示と席間の光
 3. 既存 raise intensity を NICE / BIG / WILD に拡張
 4. 入力クリック、任意チャージ、中央への着弾を接続
 5. reduced-motion とモバイル負荷を確認
+
+実装:
+
+- 分類表示: `CurrentBidDisplay`（HEAT chip / RALLY badge / NICE·BIG·WILD）
+- cut-in: `BidDeclareCutIn` + `useGameSession.playBidFx`（`classifyRaise` + `raiseCutInEventId` dedupe）
+- 卓縁: `game-table-felt--heat-*` / 席間光: `RallyTrail` in `PlayerCircle`
+- 入力: `BidControls` ステップスライド + 宣言ボタン任意チャージ（pointer hold、確定は即時）
+- 公開カウンタ: `roundBidCount`（local history / online masked payload）
+- ラベル純関数: `raiseTierLabel` / `raiseCutInTitle` / `heatStageLabel` in `bidDrama.ts`
 
 完了条件:
 

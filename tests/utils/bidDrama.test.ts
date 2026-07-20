@@ -17,6 +17,9 @@ import {
   previousBidInRound,
   raiseCutInEventId,
   raiseIntensityFromTier,
+  raiseTierLabel,
+  raiseCutInTitle,
+  heatStageLabel,
   raiseTier,
   rallyCount,
   RAISE_BIG_MIN,
@@ -143,6 +146,28 @@ describe('classifyRaise / raiseTier', () => {
     expect(raiseIntensityFromTier(classifyRaise(5, 7))).toBe('normal')
     expect(raiseIntensityFromTier(classifyRaise(5, 8))).toBe('hard')
     expect(raiseIntensityFromTier(classifyRaise(5, 20))).toBe('hard')
+  })
+
+  it('raiseTierLabel / raiseCutInTitle for D1 UI', () => {
+    expect(raiseTierLabel(classifyRaise(null, 12))).toBeNull()
+    expect(raiseTierLabel(classifyRaise(5, 6))).toBeNull()
+    expect(raiseTierLabel(classifyRaise(5, 8))).toBe('NICE RAISE')
+    expect(raiseTierLabel(classifyRaise(5, 12))).toBe('BIG JUMP +7')
+    expect(raiseTierLabel(classifyRaise(5, 20))).toBe('WILD CALL +15')
+    expect(raiseCutInTitle(classifyRaise(null, 3))).toBe('宣言！')
+    expect(raiseCutInTitle(classifyRaise(5, 8))).toBe('NICE RAISE')
+    expect(raiseCutInTitle(classifyRaise(5, 12))).toBe('BIG JUMP')
+    expect(raiseCutInTitle(classifyRaise(5, 20))).toBe('WILD CALL')
+  })
+})
+
+describe('heatStageLabel', () => {
+  it('labels each heat stage', () => {
+    expect(heatStageLabel('none')).toBeNull()
+    expect(heatStageLabel('warm')).toBe('WARM UP')
+    expect(heatStageLabel('heating')).toBe('HEATING')
+    expect(heatStageLabel('danger')).toBe('DANGER')
+    expect(heatStageLabel('wild')).toBe('WILD')
   })
 })
 

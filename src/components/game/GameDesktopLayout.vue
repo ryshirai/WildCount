@@ -10,6 +10,7 @@ import type { StampId } from '@/online/stamps'
 import type { AvatarAssetId } from '@/localGame/avatarCatalog'
 import type { ChatMessage } from '@/online/protocol'
 import type { GameViewModel } from '@/mappers/toGameView'
+import type { TableDramaState } from '@/composables/useGameSession'
 import GameHeader from '@/components/game/GameHeader.vue'
 import TurnClockDisplay from '@/components/game/TurnClockDisplay.vue'
 import PlayerCircle from '@/components/game/PlayerCircle.vue'
@@ -63,6 +64,8 @@ defineProps<{
     avatarSrc?: string
     avatarId?: AvatarAssetId
   }
+  /** D1 table drama (HEAT / RALLY) */
+  tableDrama?: TableDramaState | null
 }>()
 
 const emit = defineEmits<{
@@ -176,8 +179,16 @@ const emit = defineEmits<{
         <div
           class="relative flex min-h-0 flex-1 items-center justify-center px-2 py-2 sm:px-4 sm:py-3"
         >
-          <!-- Soft table felt under seats / bid (R5) -->
-          <div class="game-table-felt pointer-events-none absolute z-0" aria-hidden="true" />
+          <!-- Soft table felt under seats / bid (R5 + D1 heat tint) -->
+          <div
+            class="game-table-felt pointer-events-none absolute z-0"
+            :class="
+              tableDrama && tableDrama.heat !== 'none'
+                ? `game-table-felt--heat-${tableDrama.heat}`
+                : ''
+            "
+            aria-hidden="true"
+          />
 
           <div
             class="pointer-events-none absolute inset-0 z-[1] flex items-center justify-center"
@@ -185,10 +196,18 @@ const emit = defineEmits<{
             <CurrentBidDisplay
               :current-bid="room.currentBid"
               :turns-until-self="room.turnsUntilSelf"
+              :bid-count="tableDrama?.bidCount ?? 0"
+              :heat="tableDrama?.heat ?? 'none'"
             />
           </div>
 
-          <PlayerCircle :players="room.players" class="relative z-10 h-full w-full" />
+          <PlayerCircle
+            :players="room.players"
+            :last-bidder-id="tableDrama?.lastBidderId"
+            :current-turn-player-id="tableDrama?.currentTurnPlayerId"
+            :trail-key="tableDrama?.bidCount"
+            class="relative z-10 h-full w-full"
+          />
         </div>
 
         <div

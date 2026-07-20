@@ -26,10 +26,21 @@ import {
   type UseChallengeRevealOptions,
 } from '@/composables/useChallengeReveal'
 import {
-  raiseIntensity,
   shouldShowBidCutIn,
   type RaiseIntensity,
 } from '@/utils/resultDrama'
+import {
+  classifyRaise,
+  createDramaEventDeduper,
+  heatLevel,
+  heatStageLabel,
+  raiseCutInEventId,
+  raiseIntensityFromTier,
+  shouldShowRally,
+  type HeatLevel,
+  type RaiseClassification,
+  type RaiseTier,
+} from '@/utils/bidDrama'
 
 export type ExtraFxState = {
   key: string
@@ -42,10 +53,25 @@ export type ExtraFxState = {
 export type BidFxState = {
   key: string
   intensity: RaiseIntensity
+  tier: RaiseTier
+  doubleRaise: boolean
   bidValue: number
   delta: number | null
   actorName: string
+  /** Cut-in title (NICE RAISE / BIG JUMP / …) */
+  title: string
 } | null
+
+/** Live table drama for HEAT / RALLY chrome (display-only). */
+export type TableDramaState = {
+  bidCount: number
+  heat: HeatLevel
+  heatLabel: string | null
+  rally: number
+  showRally: boolean
+  lastBidderId: string | null
+  currentTurnPlayerId: string | null
+}
 
 /**
  * Game screen session: online / local / mock resolution, actions, leave, toast.
@@ -231,9 +257,13 @@ export function useGameSession() {
 
   /** 特殊能力 / セイム / チェンジ impact banner */
   const extraFx = ref<ExtraFxState>(null)
-  /** Wave-3: open / hard raise cut-in */
+  /** Wave-3 / D1: open / hard raise cut-in (NICE / BIG / WILD) */
   const bidFx = ref<BidFxState>(null)
   let prevBidForFx: number | null | undefined = undefined
+  /** D1: stable event identity across remount / reconnect */
+  const dramaDeduper = createDramaEventDeduper()
+  /** Last bid that landed a cut-in this round (for seq identity) */
+  let lastBidFxRound: number | null = null
 
   const roomCode = computed(() => onlineGame.roomCode)
 
@@ -277,9 +307,13 @@ export function useGameSession() {
 
   function playBidFx(payload: {
     intensity: RaiseIntensity
+    tier: RaiseTier
+    doubleRaise: boolean
     bidValue: number
     delta: number | null
     actorName?: string
+    title: string
+    eventId: string
   }) {
     if (!shouldShowBidCutIn(payload.intensity)) return
     // Don't stack over coyote / extra / result reveal
@@ -287,12 +321,16 @@ export function useGameSession() {
     if (extraFx.value) return
     if (pendingResult.value) return
     if (reveal.coyoteBanner.value) return
+    if (!dramaDeduper.tryConsume(payload.eventId)) return
     bidFx.value = {
-      key: `${Date.now()}-bid`,
+      key: payload.eventId,
       intensity: payload.intensity,
+      tier: payload.tier,
+      doubleRaise: payload.doubleRaise,
       bidValue: payload.bidValue,
       delta: payload.delta,
       actorName: payload.actorName ?? '',
+      title: payload.title,
     }
   }
 
@@ -301,12 +339,32 @@ export function useGameSession() {
   }
 
   function findLastBidderName(bid: number): string {
-    const players = gameView.value?.players
-    if (!players) return ''
-    // Prefer seat that currently shows this bid (hasDeclared)
-    const match = players.find((p) => p.bid === bid && p.hasDeclared)
+    const gv = gameView.value
+    if (!gv) return ''
+    // Prefer server lastBidderId when present
+    if (gv.lastBidderId) {
+      const byId = gv.players.find((p) => p.id === gv.lastBidderId)
+      if (byId) return byId.name
+    }
+    const match = gv.players.find((p) => p.bid === bid && p.hasDeclared)
     return match?.name ?? ''
   }
+
+  /** Table HEAT / RALLY from public roundBidCount (local + online). */
+  const tableDrama = computed((): TableDramaState => {
+    const gv = gameView.value
+    const bidCount = gv?.roundBidCount ?? 0
+    const heat = heatLevel(bidCount)
+    return {
+      bidCount,
+      heat,
+      heatLabel: heatStageLabel(heat),
+      rally: bidCount,
+      showRally: shouldShowRally(bidCount),
+      lastBidderId: gv?.lastBidderId ?? null,
+      currentTurnPlayerId: gv?.currentTurnPlayerId ?? null,
+    }
+  })
 
   function resolveTargetName(targetId?: string): string | undefined {
     if (!targetId) return undefined
@@ -544,32 +602,80 @@ export function useGameSession() {
     },
   )
 
-  // Wave-3: open / hard raise → short BidDeclareCutIn (all clients)
+  // D1: open / hard raise → BidDeclareCutIn via classifyRaise + identity dedupe
   watch(
-    () => room.value?.currentBid,
-    (next) => {
+    () =>
+      [
+        room.value?.currentBid,
+        room.value?.round,
+        gameView.value?.roundBidCount,
+        gameView.value?.lastBidderId,
+      ] as const,
+    ([next, round, bidCount, lastBidderId]) => {
       if (prevBidForFx === undefined) {
         prevBidForFx = next ?? null
+        lastBidFxRound = round ?? null
         return
       }
+      // New round: reset previous anchor without firing cut-in
+      if (round != null && lastBidFxRound != null && round !== lastBidFxRound) {
+        prevBidForFx = next ?? null
+        lastBidFxRound = round
+        // Allow cut-in ids for the new round (keep old ids so remount mid-round is safe)
+        return
+      }
+      lastBidFxRound = round ?? lastBidFxRound
       const prev = prevBidForFx
       prevBidForFx = next ?? null
       if (next == null || next === prev) return
-      // Round reset null→value is open; raise prev→higher
       if (typeof next !== 'number') return
-      const intensity = raiseIntensity(
-        typeof prev === 'number' ? prev : null,
-        next,
-      )
+      const previous = typeof prev === 'number' ? prev : null
+      const raise: RaiseClassification = classifyRaise(previous, next)
+      const intensity = raiseIntensityFromTier(raise)
       if (!shouldShowBidCutIn(intensity)) return
-      const delta =
-        typeof prev === 'number' && next > prev ? next - prev : null
+      const seq =
+        typeof bidCount === 'number' && bidCount > 0
+          ? bidCount
+          : Math.max(1, (typeof previous === 'number' ? 2 : 1))
+      const r = round ?? 0
+      const eventId = raiseCutInEventId({
+        round: r,
+        seq,
+        value: next,
+        tier: raise.tier,
+      })
+      const title =
+        raise.delta == null
+          ? '宣言！'
+          : raise.tier === 'nice'
+            ? 'NICE RAISE'
+            : raise.tier === 'big'
+              ? 'BIG JUMP'
+              : raise.tier === 'wild'
+                ? 'WILD CALL'
+                : '大幅アップ！'
       playBidFx({
         intensity,
+        tier: raise.tier,
+        doubleRaise: raise.doubleRaise,
         bidValue: next,
-        delta,
+        delta: raise.delta,
         actorName: findLastBidderName(next),
+        title,
+        eventId,
       })
+      void lastBidderId
+    },
+  )
+
+  // Clear drama dedupe when switching rooms (leave / rematch lobby / new match)
+  watch(
+    () => room.value?.roomCode ?? null,
+    (code, prevCode) => {
+      if (code === prevCode) return
+      dramaDeduper.clear()
+      prevBidForFx = undefined
+      lastBidFxRound = null
     },
   )
 
@@ -936,6 +1042,7 @@ export function useGameSession() {
     onExtraFxDone,
     bidFx,
     onBidFxDone,
+    tableDrama,
     roundBannerVisible,
     roundBannerNum,
     onRoundBannerDone,

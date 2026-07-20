@@ -34,13 +34,20 @@ export function onlineToGameView(
   )
   const er = view.extraRules
 
+  const seats = seatsToUi(game)
+  // Prefer server roundBidCount; fall back to unique declared seats (under-counts multi-lap).
+  const roundBidCount =
+    typeof game.roundBidCount === 'number' && Number.isFinite(game.roundBidCount)
+      ? Math.max(0, Math.floor(game.roundBidCount))
+      : seats.filter((s) => s.hasDeclared).length
+
   return {
     roomCode: view.roomCode,
     playerCount: view.playerCount,
     round: game.round,
     currentBid: game.currentBid,
     turnsUntilSelf: game.turnsUntilSelf,
-    players: seatsToUi(game),
+    players: seats,
     eventLog: [...eventLog],
     draftBid: game.minBid,
     connectionStatus: 'good',
@@ -59,6 +66,9 @@ export function onlineToGameView(
     allowDraw1: er?.draw1 === true,
     allowLifeDouble: er?.lifeDouble === true,
     isGameOver: game.isGameOver,
+    roundBidCount,
+    lastBidderId: game.currentBidderId,
+    currentTurnPlayerId: game.currentTurnPlayerId,
   }
 }
 

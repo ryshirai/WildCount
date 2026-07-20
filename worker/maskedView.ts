@@ -78,6 +78,11 @@ export interface MaskedGamePayload {
   pendingLifeDouble: boolean
   draw1UsedThisRound: boolean
   extraActionUsedThisRound: readonly string[]
+  /**
+   * Confirmed bids this round (public). Display-only HEAT / RALLY source.
+   * Does not include SAME (value unchanged) — only PLACE_BID history length.
+   */
+  roundBidCount: number
 }
 
 export interface PendingResultSnapshot {
@@ -196,6 +201,7 @@ export function buildMaskedGame(
     pendingLifeDouble: game.pendingLifeDouble,
     draw1UsedThisRound: game.draw1UsedThisRound,
     extraActionUsedThisRound: game.extraActionUsedThisRound,
+    roundBidCount: currentRoundBids.length,
   }
 }
 

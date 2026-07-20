@@ -63,6 +63,9 @@ describe('toGameView', () => {
     )
     expect(vm.minBid).toBe(1)
     expect(vm.phase).toBe('bidding')
+    expect(vm.roundBidCount).toBe(0)
+    expect(vm.lastBidderId).toBeNull()
+    expect(vm.currentTurnPlayerId).toBe(SELF_ID)
   })
 
   it('maps multi-card hands as separate labels (draw1)', () => {
