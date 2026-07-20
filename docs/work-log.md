@@ -3280,3 +3280,47 @@
 1. **HOLD-5** 本番デプロイ（ユーザー確認後）
 2. UX-2 / TEST-1 / OPS-1（任意）
 3. idea: UX-14 SFX / UX-15 触覚 / UX-16 席ごと時計
+
+---
+
+## 2026-07-20 — スタンプ / チャット体感パフォーマンス改善
+
+### 背景・目的
+- スタンプ・チャット操作が全体的に重い（遅延・再描画・重い CSS）という体感報告
+
+### 実施内容
+1. **Worker**: chat / reaction は **broadcast を先に**、room 保存は後。`scheduleNextAlarm` は不要なので省略（期限変更なし）
+2. **楽観 UI**: 自分の stamp / chat は送信直後に浮遊表示。サーバ echo 時は二重 float をスキップ
+3. **再描画分離**: `FloatingReactionsHost` が store を購読 → GameView / Lobby 全体が float TTL で再描画しない
+4. **レイアウト**: `useIsLgUp` で PC / SP どちらか一方だけ mount（CSS で片方 hide の二重ツリーをやめる）
+5. **ChatPanel**: 行データの precompute、スタンプ src の多重計算を削減
+6. **描画コスト**: float の `backdrop-blur` 削除、burst の box-shadow アニメ削減、stamp アニメ 3.2s→2.4s、スタンプシートの blur 削除、モバイル chat/log ドロワー blur 削除
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `worker/GameRoom.ts` | chat/reaction 低遅延 broadcast |
+| `src/stores/onlineGame.ts` | 楽観 float・in-place ring buffer |
+| `src/composables/useBreakpoint.ts` | lg 判定 |
+| `src/components/game/FloatingReactionsHost.vue` | 新規・購読分離 |
+| `src/views/GameView.vue` | 単一 layout mount + host |
+| `src/views/LobbyView.vue` | host 利用 |
+| `src/components/game/ChatPanel.vue` | 行 precompute |
+| `src/components/game/ReactionOverlay.vue` | 軽い CSS |
+| `src/components/game/StampPickerSheet.vue` | blur 削除 |
+| `src/components/game/GameMobileLayout.vue` | drawer blur 削除 |
+| `src/styles/main.css` | stamp float 軽量化 |
+| `docs/work-log.md` | 本エントリ |
+
+### 明示的にやっていないこと
+- スタンプ WebP の再圧縮 / プリロード
+- チャット履歴の仮想スクロール
+- 本番デプロイ
+
+### 確認結果
+- `npm test` 167 passed
+- `npm run typecheck` / `lint` 成功
+
+### 次に考えられる作業
+1. 実機でスタンプ連打・チャット往復の体感確認
+2. まだ重い場合: スタンプ画像サイズ最適化 / chat 仮想リスト

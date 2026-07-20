@@ -1834,12 +1834,12 @@
 
 @keyframes reaction-burst-ring {
   0% {
-    opacity: 0.9;
-    transform: scale(0.35);
+    opacity: 0.85;
+    transform: scale(0.4);
   }
   100% {
     opacity: 0;
-    transform: scale(1.85);
+    transform: scale(1.7);
   }
 }
 
@@ -1851,9 +1851,9 @@
   height: 5.5rem;
   margin: -2.75rem 0 0 -2.75rem;
   border-radius: 9999px;
-  border: 2px solid rgba(201, 168, 76, 0.55);
-  box-shadow: 0 0 18px rgba(94, 207, 207, 0.35);
-  animation: reaction-burst-ring 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  border: 2px solid rgba(201, 168, 76, 0.5);
+  /* Solid ring only — avoid animated box-shadow (paint-heavy on mobile) */
+  animation: reaction-burst-ring 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 @keyframes reaction-stamp-pop {
@@ -1863,22 +1863,24 @@
   }
   12% {
     opacity: 1;
-    transform: translateX(-50%) translateY(-4px) scale(1.18);
+    transform: translateX(-50%) translateY(-4px) scale(1.12);
   }
   28% {
     transform: translateX(-50%) translateY(-18px) scale(1);
   }
-  72% {
+  70% {
     opacity: 1;
   }
   100% {
     opacity: 0;
-    transform: translateX(-50%) translateY(-150px) scale(0.9);
+    transform: translateX(-50%) translateY(-140px) scale(0.92);
   }
 }
 
 .reaction-float--stamp {
-  animation: reaction-stamp-pop 3.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  /* Shorter + transform/opacity only (pairs with contain on overlay items) */
+  animation: reaction-stamp-pop 2.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  will-change: transform, opacity;
 }
 
 @keyframes lobby-ready-pop {

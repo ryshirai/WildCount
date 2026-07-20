@@ -6,12 +6,13 @@
  * coyote grid → CoyoteRevealPanel. FX mount points unchanged.
  */
 import { useGameSession } from '@/composables/useGameSession'
+import { useIsLgUp } from '@/composables/useBreakpoint'
 import GameDesktopLayout from '@/components/game/GameDesktopLayout.vue'
 import GameMobileLayout from '@/components/game/GameMobileLayout.vue'
 import CoyoteCutIn from '@/components/game/CoyoteCutIn.vue'
 import RoundStartBanner from '@/components/game/RoundStartBanner.vue'
 import ExtraActionCutIn from '@/components/game/ExtraActionCutIn.vue'
-import ReactionOverlay from '@/components/game/ReactionOverlay.vue'
+import FloatingReactionsHost from '@/components/game/FloatingReactionsHost.vue'
 import StampPickerSheet from '@/components/game/StampPickerSheet.vue'
 import DeckInfoModal from '@/components/game/DeckInfoModal.vue'
 import AppConfirmDialog from '@/components/common/AppConfirmDialog.vue'
@@ -21,6 +22,8 @@ import MockBadge from '@/components/common/MockBadge.vue'
 
 const s = useGameSession()
 const { onlineGame, allowUiMock } = s
+/** Mount only one layout — dual trees doubled re-render cost on chat/stamp. */
+const isLgUp = useIsLgUp()
 </script>
 
 <template>
@@ -59,6 +62,7 @@ const { onlineGame, allowUiMock } = s
 
     <template v-else-if="s.room">
       <GameDesktopLayout
+        v-if="isLgUp"
         v-model:draft-bid="s.draftBid"
         v-model:desktop-side-tab="s.desktopSideTab"
         :room="s.room"
@@ -112,6 +116,7 @@ const { onlineGame, allowUiMock } = s
       />
 
       <GameMobileLayout
+        v-else
         v-model:draft-bid="s.draftBid"
         v-model:mobile-tab="s.mobileTab"
         v-model:stamp-sheet-open="s.stampSheetOpen"
@@ -268,10 +273,7 @@ const { onlineGame, allowUiMock } = s
       @close="s.deckInfoOpen = false"
     />
 
-    <ReactionOverlay
-      v-if="s.isOnline"
-      :reactions="onlineGame.floatingReactions"
-    />
+    <FloatingReactionsHost v-if="s.isOnline" />
 
     <StampPickerSheet
       :open="s.stampSheetOpen"

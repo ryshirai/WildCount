@@ -73,19 +73,38 @@ function avatarOf(playerId: string) {
   return { avatar: '👤' as const, avatarSrc: undefined, avatarId: undefined }
 }
 
-function isStamp(m: ChatMessage): boolean {
-  return m.kind === 'stamp'
-}
+/** Precompute per-row data once per messages change (avoid N× template calls). */
+const displayRows = computed(() =>
+  props.messages.map((m) => {
+    const av = avatarOf(m.playerId)
+    const isStamp = m.kind === 'stamp'
+    return {
+      id: m.id,
+      displayName: m.displayName,
+      text: m.text,
+      stampId: m.stampId,
+      isSelf: m.playerId === props.selfPlayerId,
+      isStamp,
+      stampSrc:
+        isStamp && m.stampId
+          ? characterStampSrc(av.avatarId, m.stampId)
+          : null,
+      avatar: av.avatar,
+      avatarSrc: av.avatarSrc,
+      time: formatTime(m.ts),
+    }
+  }),
+)
 
-function stampArtSrc(m: ChatMessage): string | null {
-  if (!isStamp(m) || !m.stampId) return null
-  const av = avatarOf(m.playerId)
-  return characterStampSrc(av.avatarId, m.stampId)
-}
-
-function pickerStampSrc(stampId: StampId): string | null {
-  return characterStampSrc(props.selfAvatarId ?? 'self', stampId)
-}
+const pickerItems = computed(() => {
+  const av = props.selfAvatarId ?? 'self'
+  return STAMP_CATALOG.map((s) => ({
+    id: s.id as StampId,
+    label: s.label,
+    emoji: s.emoji,
+    src: characterStampSrc(av, s.id),
+  }))
+})
 
 function onSubmit() {
   if (!canSend.value) return
@@ -150,28 +169,26 @@ watch(
       aria-relevant="additions"
     >
       <p
-        v-if="messages.length === 0"
+        v-if="displayRows.length === 0"
         class="px-1 text-center text-xs text-sand-dim"
         :class="compact ? 'py-4' : 'py-5'"
       >
         まだメッセージはありません
       </p>
       <div
-        v-for="m in messages"
-        :key="m.id"
+        v-for="row in displayRows"
+        :key="row.id"
         class="flex gap-1.5 rounded-lg"
         :class="[
           compact ? 'px-1.5 py-1' : 'px-2 py-1.5',
-          m.playerId === selfPlayerId
-            ? 'bg-teal-deep/25'
-            : 'bg-night-900/40',
+          row.isSelf ? 'bg-teal-deep/25' : 'bg-night-900/40',
         ]"
       >
         <PlayerAvatar
           class="shrink-0"
-          :avatar="avatarOf(m.playerId).avatar"
-          :avatar-src="avatarOf(m.playerId).avatarSrc"
-          :name="m.displayName"
+          :avatar="row.avatar"
+          :avatar-src="row.avatarSrc"
+          :name="row.displayName"
           size="sm"
           hide-name
         />
@@ -181,34 +198,36 @@ watch(
               class="truncate font-semibold text-gold-200"
               :class="compact ? 'text-[11px]' : 'text-xs'"
             >
-              {{ m.displayName }}
+              {{ row.displayName }}
               <span
-                v-if="m.playerId === selfPlayerId"
+                v-if="row.isSelf"
                 class="ml-0.5 font-normal text-sand-dim"
                 >（自分）</span
               >
             </span>
             <span class="shrink-0 text-[10px] text-sand-dim">{{
-              formatTime(m.ts)
+              row.time
             }}</span>
           </div>
           <div
-            v-if="isStamp(m)"
+            v-if="row.isStamp"
             class="mt-0.5 select-none leading-none"
-            :title="m.stampId ?? m.text"
+            :title="row.stampId ?? row.text"
           >
             <img
-              v-if="stampArtSrc(m)"
-              :src="stampArtSrc(m)!"
+              v-if="row.stampSrc"
+              :src="row.stampSrc"
               alt=""
               class="rounded-full object-cover ring-1 ring-gold-400/30"
               :class="compact ? 'h-9 w-9' : 'h-11 w-11'"
               draggable="false"
+              decoding="async"
+              loading="lazy"
             />
             <span
               v-else
               :class="compact ? 'text-2xl' : 'text-3xl'"
-              >{{ m.text }}</span
+              >{{ row.text }}</span
             >
           </div>
           <p
@@ -216,7 +235,7 @@ watch(
             class="mt-0.5 break-words leading-snug text-sand"
             :class="compact ? 'text-xs' : 'text-sm'"
           >
-            {{ m.text }}
+            {{ row.text }}
           </p>
         </div>
       </div>
@@ -231,7 +250,7 @@ watch(
     >
       <div class="grid grid-cols-5 gap-1">
         <button
-          v-for="s in STAMP_CATALOG"
+          v-for="s in pickerItems"
           :key="s.id"
           type="button"
           role="option"
@@ -241,11 +260,12 @@ watch(
           @click="onPickStamp(s.id)"
         >
           <img
-            v-if="pickerStampSrc(s.id)"
-            :src="pickerStampSrc(s.id)!"
+            v-if="s.src"
+            :src="s.src"
             alt=""
             class="h-7 w-7 rounded-full object-cover"
             draggable="false"
+            decoding="async"
           />
           <span v-else class="text-lg leading-none">{{ s.emoji }}</span>
           <span class="mt-0.5 max-w-full truncate text-[8px] text-sand-dim">{{

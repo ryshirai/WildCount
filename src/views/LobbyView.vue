@@ -10,7 +10,7 @@ import HelpModal from '@/components/common/HelpModal.vue'
 import MockBadge from '@/components/common/MockBadge.vue'
 import StatusChip from '@/components/common/StatusChip.vue'
 import ChatPanel from '@/components/game/ChatPanel.vue'
-import ReactionOverlay from '@/components/game/ReactionOverlay.vue'
+import FloatingReactionsHost from '@/components/game/FloatingReactionsHost.vue'
 import PlayerAvatar from '@/components/game/PlayerAvatar.vue'
 import DeckSettingsPanel from '@/components/lobby/DeckSettingsPanel.vue'
 import ExtraRulesPanel from '@/components/lobby/ExtraRulesPanel.vue'
@@ -936,10 +936,7 @@ watch(
 
     <HelpModal :open="helpOpen" @close="helpOpen = false" />
 
-    <ReactionOverlay
-      v-if="isOnline"
-      :reactions="onlineGame.floatingReactions"
-    />
+    <FloatingReactionsHost v-if="isOnline" />
 
     <MockBadge />
   </div>

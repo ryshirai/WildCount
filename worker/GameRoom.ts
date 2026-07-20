@@ -563,9 +563,10 @@ export class GameRoom {
       return
     }
 
-    await this.saveRoom(room)
-    await this.scheduleNextAlarm(room)
+    // Broadcast first so clients see chat without waiting on storage I/O.
+    // Chat does not change turn deadlines — skip scheduleNextAlarm.
     this.broadcast(room, { type: 'chat', message: result.message })
+    await this.saveRoom(room)
   }
 
   /** Fixed stamp reaction (UX-7): chat log + client-side float. */
@@ -603,9 +604,9 @@ export class GameRoom {
       return
     }
 
-    await this.saveRoom(room)
-    await this.scheduleNextAlarm(room)
+    // Same as chat: low-latency broadcast, then persist history.
     this.broadcast(room, { type: 'chat', message: result.message })
+    await this.saveRoom(room)
   }
 
   /**

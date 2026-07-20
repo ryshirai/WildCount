@@ -31,25 +31,26 @@ defineProps<{
             v-if="r.stampSrc"
             :src="r.stampSrc"
             alt=""
-            class="relative h-20 w-20 select-none rounded-full object-cover shadow-[0_4px_16px_rgba(0,0,0,0.55)] ring-2 ring-gold-400/40 md:h-24 md:w-24"
+            class="relative h-20 w-20 select-none rounded-full object-cover shadow-[0_4px_12px_rgba(0,0,0,0.45)] ring-2 ring-gold-400/40 md:h-24 md:w-24"
             draggable="false"
+            decoding="async"
           />
           <span
             v-else
-            class="relative select-none text-6xl drop-shadow-[0_4px_16px_rgba(0,0,0,0.55)] md:text-7xl"
+            class="relative select-none text-6xl drop-shadow-[0_4px_12px_rgba(0,0,0,0.45)] md:text-7xl"
             >{{ r.body }}</span
           >
           <span
-            class="mt-1.5 max-w-[9rem] truncate rounded-full bg-night-950/80 px-2.5 py-0.5 text-[11px] font-semibold text-gold-100 shadow-md backdrop-blur-sm"
+            class="mt-1.5 max-w-[9rem] truncate rounded-full bg-night-950/90 px-2.5 py-0.5 text-[11px] font-semibold text-gold-100 shadow-md"
           >
             {{ r.displayName }}
           </span>
         </template>
 
-        <!-- Text chat: bubble + name -->
+        <!-- Text chat: bubble + name (no backdrop-blur — expensive while animating) -->
         <template v-else>
           <div
-            class="max-w-[min(16rem,72vw)] rounded-2xl border border-gold-400/30 bg-night-900/92 px-3 py-2 shadow-[0_8px_28px_rgba(0,0,0,0.45)] backdrop-blur-md"
+            class="max-w-[min(16rem,72vw)] rounded-2xl border border-gold-400/30 bg-night-900/95 px-3 py-2 shadow-[0_8px_20px_rgba(0,0,0,0.4)]"
           >
             <p
               class="break-words text-center text-sm font-medium leading-snug text-sand"
@@ -58,7 +59,7 @@ defineProps<{
             </p>
           </div>
           <span
-            class="mt-1.5 max-w-[9rem] truncate rounded-full bg-night-950/80 px-2.5 py-0.5 text-[11px] font-semibold text-gold-100 shadow-md backdrop-blur-sm"
+            class="mt-1.5 max-w-[9rem] truncate rounded-full bg-night-950/90 px-2.5 py-0.5 text-[11px] font-semibold text-gold-100 shadow-md"
           >
             {{ r.displayName }}
           </span>
@@ -70,8 +71,13 @@ defineProps<{
 
 <style scoped>
 /* Text chat bubble float; stamps use global .reaction-float--stamp */
+.reaction-float {
+  contain: layout style paint;
+  will-change: transform, opacity;
+}
+
 .reaction-float:not(.reaction-float--stamp) {
-  animation: reaction-rise 3.2s ease-out forwards;
+  animation: reaction-rise 2.8s ease-out forwards;
 }
 
 @keyframes reaction-rise {

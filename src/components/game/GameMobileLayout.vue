@@ -312,7 +312,7 @@ const showDock = computed(
         >
           <div
             v-if="mobileTab === 'chat'"
-            class="absolute inset-x-0 bottom-0 z-20 flex h-[min(45%,18rem)] max-h-[20rem] flex-col overflow-hidden rounded-t-2xl border border-b-0 border-gold-400/30 bg-night-900/98 shadow-[0_-12px_40px_rgba(0,0,0,0.5)] backdrop-blur-md"
+            class="absolute inset-x-0 bottom-0 z-20 flex h-[min(45%,18rem)] max-h-[20rem] flex-col overflow-hidden rounded-t-2xl border border-b-0 border-gold-400/30 bg-night-900/98 shadow-[0_-12px_40px_rgba(0,0,0,0.5)]"
             role="dialog"
             aria-label="チャット"
             @click.stop
@@ -361,7 +361,7 @@ const showDock = computed(
         >
           <div
             v-if="mobileTab === 'log'"
-            class="absolute inset-x-0 bottom-0 z-20 flex h-[min(45%,18rem)] max-h-[20rem] flex-col overflow-hidden rounded-t-2xl border border-b-0 border-gold-400/30 bg-night-900/98 shadow-[0_-12px_40px_rgba(0,0,0,0.5)] backdrop-blur-md"
+            class="absolute inset-x-0 bottom-0 z-20 flex h-[min(45%,18rem)] max-h-[20rem] flex-col overflow-hidden rounded-t-2xl border border-b-0 border-gold-400/30 bg-night-900/98 shadow-[0_-12px_40px_rgba(0,0,0,0.5)]"
             role="dialog"
             aria-label="対戦ログ"
             @click.stop

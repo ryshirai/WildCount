@@ -62,7 +62,7 @@ const stampItems = computed(() =>
       >
         <button
           type="button"
-          class="absolute inset-0 bg-night-950/55 backdrop-blur-[2px]"
+          class="absolute inset-0 bg-night-950/60"
           aria-label="閉じる"
           @click="emit('close')"
         />
@@ -106,6 +106,7 @@ const stampItems = computed(() =>
                 alt=""
                 class="h-10 w-10 rounded-full object-cover ring-1 ring-gold-400/25"
                 draggable="false"
+                decoding="async"
               />
               <span v-else class="text-3xl leading-none">{{ s.emoji }}</span>
               <span class="mt-1 max-w-full truncate text-[10px] text-sand-dim">{{

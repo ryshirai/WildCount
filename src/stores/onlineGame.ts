@@ -30,7 +30,7 @@ import {
   avatarSrc,
   sanitizeAvatarIndex,
 } from '@/localGame/avatarCatalog'
-import { characterStampSrc } from '@/online/stamps'
+import { characterStampSrc, stampEmoji } from '@/online/stamps'
 import {
   clearResumeToken,
   loadLastRoomCode,
@@ -148,6 +148,16 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null
   /** Clears ephemeral status-bar events (RESUME, BID, etc.) */
   let lastEventClearTimer: ReturnType<typeof setTimeout> | null = null
+  /**
+   * Self chat/stamp already floated optimistically — skip re-float on server echo.
+   * Cleared when matched or after timeout.
+   */
+  let pendingSelfFloat: {
+    kind: 'stamp' | 'text'
+    stampId?: StampId
+    text?: string
+    ts: number
+  } | null = null
 
   const isOnlineSession = computed(
     () => roomCode.value != null && connection.value !== 'idle',
@@ -834,14 +844,51 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
         if (!m?.id) break
         // Dedup if history and live race
         if (chatMessages.value.some((x) => x.id === m.id)) break
-        chatMessages.value = [...chatMessages.value, m].slice(-50)
-        // Live only: float stamp + text like reactions (history does not re-float)
-        enqueueFloatingChat(m)
+        // In-place ring buffer (avoids full array copy on every line)
+        chatMessages.value.push(m)
+        if (chatMessages.value.length > 50) {
+          chatMessages.value.splice(0, chatMessages.value.length - 50)
+        }
+        // Live only: float stamp + text (history does not re-float).
+        // Skip re-float when we already showed optimistic local feedback.
+        if (!consumePendingSelfFloat(m)) {
+          enqueueFloatingChat(m)
+        }
         break
       }
       default:
         break
     }
+  }
+
+  /**
+   * If this server chat matches a recent optimistic self send, consume the
+   * pending flag and return true (caller should not float again).
+   */
+  function consumePendingSelfFloat(m: ChatMessage): boolean {
+    const pending = pendingSelfFloat
+    if (!pending || m.playerId !== playerId.value) return false
+    if (Date.now() - pending.ts > 5000) {
+      pendingSelfFloat = null
+      return false
+    }
+    if (
+      m.kind === 'stamp' &&
+      pending.kind === 'stamp' &&
+      m.stampId === pending.stampId
+    ) {
+      pendingSelfFloat = null
+      return true
+    }
+    if (
+      m.kind !== 'stamp' &&
+      pending.kind === 'text' &&
+      m.text === pending.text
+    ) {
+      pendingSelfFloat = null
+      return true
+    }
+    return false
   }
 
   function enqueueFloatingChat(m: ChatMessage): void {
@@ -866,11 +913,42 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
       displayName: m.displayName || '?',
       x: 12 + Math.random() * 76,
     }
-    floatingReactions.value = [...floatingReactions.value, item].slice(-12)
-    const ttl = isStamp ? 3000 : 3600
+    floatingReactions.value.push(item)
+    if (floatingReactions.value.length > 12) {
+      floatingReactions.value.splice(0, floatingReactions.value.length - 12)
+    }
+    // Stamp float CSS is ~2.4s; text ~2.8s — remove shortly after animation ends
+    const ttl = isStamp ? 2600 : 3000
     window.setTimeout(() => {
-      floatingReactions.value = floatingReactions.value.filter((r) => r.key !== key)
+      const list = floatingReactions.value
+      const idx = list.findIndex((r) => r.key === key)
+      if (idx >= 0) list.splice(idx, 1)
     }, ttl)
+  }
+
+  /** Instant local float for own chat/stamp (server echo fills chat log). */
+  function enqueueOptimisticSelfFloat(
+    kind: 'stamp' | 'text',
+    opts: { stampId?: StampId; text: string },
+  ): void {
+    const pid = playerId.value
+    if (!pid) return
+    const now = Date.now()
+    pendingSelfFloat = {
+      kind,
+      stampId: opts.stampId,
+      text: opts.text,
+      ts: now,
+    }
+    enqueueFloatingChat({
+      id: `local-${now}-${Math.random().toString(36).slice(2, 8)}`,
+      playerId: pid,
+      displayName: displayName.value.trim() || 'プレイヤー',
+      text: opts.text,
+      ts: now,
+      kind,
+      stampId: opts.stampId,
+    })
   }
 
   /**
@@ -967,12 +1045,14 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     if (err) h.reject(err)
   }
 
-  function send(msg: ClientMessage): void {
+  /** @returns false when not connected (message not sent). */
+  function send(msg: ClientMessage): boolean {
     if (!ws || ws.readyState !== WebSocket.OPEN) {
       setError('CONNECTION', '未接続です')
-      return
+      return false
     }
     ws.send(JSON.stringify(msg))
+    return true
   }
 
   function setReady(ready: boolean): void {
@@ -1067,13 +1147,20 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     const trimmed = text.replace(/\s+/g, ' ').trim()
     if (!trimmed) return
     clearError()
-    send({ type: 'chat', text: trimmed.slice(0, 120) })
+    const body = trimmed.slice(0, 120)
+    if (!send({ type: 'chat', text: body })) return
+    // Feel instant: float bubble now; chat log waits for server id / history
+    enqueueOptimisticSelfFloat('text', { text: body })
   }
 
   /** Fixed stamp reaction (online only). Server allowlists stampId. */
   function sendReaction(stampId: StampId): void {
     clearError()
-    send({ type: 'reaction', stampId })
+    if (!send({ type: 'reaction', stampId })) return
+    enqueueOptimisticSelfFloat('stamp', {
+      stampId,
+      text: stampEmoji(stampId),
+    })
   }
 
   /**
