@@ -3114,3 +3114,44 @@
 1. **R3** GameView 構造分割（見た目同一リファクタ）
 2. **R4** Game モバイル UX
 3. 詳細は `docs/ui-redesign.md`
+
+## 2026-07-20 — R3 GameView 構造分割（見た目同一）
+
+### 背景・目的
+- 全面 UI リデザイン（`docs/ui-redesign.md`）Phase R3
+- ~1818 行の GameView デュアルテンプレを分割し、R4 以降のモバイル/デスクトップ磨きを可能にする
+- 挙動・クラス名・演出マウントは現状維持（スナップショット的リファクタ）
+
+### 実施内容
+1. **`useChallengeReveal`**: コヨーテ cut-in → 札 stagger 公開 → Result 遷移 FSM
+2. **`useGameSession`**: online/local/mock 解決、bid/challenge、leave、toast、round/extra FX、チャット
+3. **`CoyoteRevealPanel`**: PC/SP 公開グリッドを 1 コンポーネントに統合（`variant`）
+4. **`GameDesktopLayout` / `GameMobileLayout`**: テンプレ二重を分離
+5. **`GameView`**: オーケストレータ化（~286 行）。FX（CoyoteCutIn / ExtraActionCutIn / ROUND / turn-edge）は親に維持
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/composables/useChallengeReveal.ts` | 新規: チャレンジ後公開 FSM |
+| `src/composables/useGameSession.ts` | 新規: セッション・操作・トースト |
+| `src/components/game/CoyoteRevealPanel.vue` | 新規: 札公開 UI 共通化 |
+| `src/components/game/GameDesktopLayout.vue` | 新規: lg+ レイアウト |
+| `src/components/game/GameMobileLayout.vue` | 新規: SP レイアウト |
+| `src/views/GameView.vue` | 薄殻化（1818 → ~286 行） |
+| `docs/backlog.md` | R3 done、着手順更新 |
+| `docs/work-log.md` | 本エントリ |
+
+### 明示的にやっていないこと
+- Game モバイルクロム圧縮・特殊能力折りたたみ・チャット中操作（R4）
+- Game デスクトップ磨き・席共通化（R5）
+- ルール / Worker / 演出ロジック・keyframe の変更
+- 本番デプロイ（HOLD-5）
+
+### 確認結果
+- `npm test` 167 passed
+- `npm run typecheck` / `lint` / `build` 成功
+
+### 次に考えられる作業
+1. **R4** Game モバイル UX（`docs/ui-redesign.md` §5.3.3）
+2. **R5** Game デスクトップ + SeatContent
+3. **HOLD-5** 本番デプロイ（ユーザー確認後）

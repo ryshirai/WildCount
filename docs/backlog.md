@@ -112,7 +112,7 @@
 | **R0** | done | デザインシステム（field / btn-sm / chip variants / AppHeader / AppToast / Confirm） | `src/components/common/*` + `main.css` |
 | **R1** | done | Home + Result リデザイン | 依存 R0 |
 | **R2** | done | Lobby 情報設計（sticky CTA・設定折りたたみ・2 カラム） | 依存 R0 |
-| **R3** | todo | GameView 構造分割（見た目同一リファクタ） | R0 と並列可 |
+| **R3** | done | GameView 構造分割（見た目同一リファクタ） | composables + Desktop/Mobile layout + CoyoteRevealPanel |
 | **R4** | todo | Game モバイル（クロム圧縮・特殊能力折りたたみ・チャット中操作） | 依存 R3 推奨・UX 本丸 |
 | **R5** | todo | Game デスクトップ磨き + 席共通化 | 依存 R3–R4 |
 | **R6** | todo | docs 更新・デッド UI/CSS 掃除 | 仕上げ |
@@ -121,10 +121,9 @@
 
 ## 直近のおすすめ着手順
 
-1. **R3** GameView 構造分割（見た目同一）— `docs/ui-redesign.md`
-2. **R4** Game モバイル（R3 推奨）→ **R5** デスクトップ
-3. **HOLD-5** — `https://wildcount.rysh.dev`（Pages + Worker `/api/*`）。手順は `docs/deploy.md`。実行はユーザー確認後  
-4. UX-2（ホスト移譲カウントダウン）・TEST-1 / OPS-1 は任意
+1. **R4** Game モバイル（R3 完了済み）→ **R5** デスクトップ
+2. **HOLD-5** — `https://wildcount.rysh.dev`（Pages + Worker `/api/*`）。手順は `docs/deploy.md`。実行はユーザー確認後  
+3. UX-2（ホスト移譲カウントダウン）・TEST-1 / OPS-1 は任意
 
 ---
 
@@ -135,4 +134,4 @@
 3. Phase 1 スライスの ID（P1-x）は `phase1-multiplayer.md` §10 と揃える  
 4. エクストラルールの ID（ER-x）は `docs/extra-rules.md` §4 と揃える  
 
-最終更新: 2026-07-20（R2 Lobby 情報設計 完了）
+最終更新: 2026-07-20（R3 GameView 構造分割 完了）
