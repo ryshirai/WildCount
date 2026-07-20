@@ -413,23 +413,43 @@ function toggleSkills() {
             hasSpecials ? 'skill-chip--badge' : '',
           ]"
           :aria-expanded="skillsExpanded"
+          :aria-controls="skillsExpanded ? 'bid-specials-panel' : undefined"
           @click="toggleSkills"
         >
           <span aria-hidden="true">✨</span>
-          {{ skillsToggleLabel }}
+          {{ skillsExpanded ? '特殊能力' : skillsToggleLabel }}
           <span class="text-sand-dim" aria-hidden="true">{{
             skillsExpanded ? '▴' : '▾'
           }}</span>
         </button>
       </div>
 
-      <!-- Special abilities (solo + bid-ride share 1 slot / round) -->
+      <!-- Special abilities panel (solo + bid-ride share 1 slot / round) -->
       <div
         v-if="specialsOpen && (canSame || canChange || showSkillBar)"
+        id="bid-specials-panel"
         class="mb-2 space-y-1.5"
       >
+        <!-- Mobile: explicit close — toggle chip alone is easy to miss when panel is tall -->
+        <div
+          v-if="mobile"
+          class="flex items-center justify-between gap-2 rounded-lg border border-gold-400/15 bg-night-800/50 px-2 py-1"
+        >
+          <p class="text-[10px] font-medium text-gold-200/90">
+            特殊能力
+            <span class="font-normal text-sand-dim">（1Rに1回）</span>
+          </p>
+          <button
+            type="button"
+            class="btn-ghost btn-sm !px-2.5 !py-1 text-[11px]"
+            aria-label="特殊能力を閉じる"
+            @click="skillsExpanded = false"
+          >
+            閉じる
+          </button>
+        </div>
         <p
-          v-if="!mobile"
+          v-else
           class="text-xs font-medium text-gold-200/90"
         >
           特殊能力
@@ -462,75 +482,86 @@ function toggleSkills() {
             チェンジ
           </button>
         </div>
-      </div>
 
-      <!-- Bid-ride skills under same special-ability budget -->
-      <div v-if="specialsOpen && showSkillBar" class="mb-2 space-y-1.5">
-        <div
-          class="flex items-baseline justify-between gap-2"
-          :class="mobile ? 'justify-center' : ''"
-        >
+        <!-- Bid-ride skills under same special-ability budget -->
+        <template v-if="showSkillBar">
+          <div
+            class="flex items-baseline justify-between gap-2"
+            :class="mobile ? 'justify-center' : ''"
+          >
+            <p
+              class="text-sand-dim"
+              :class="mobile ? 'text-[10px]' : 'text-[11px]'"
+            >
+              宣言と一緒に使う
+            </p>
+          </div>
+          <div
+            class="flex flex-wrap gap-1.5"
+            :class="mobile ? 'justify-center' : ''"
+            role="group"
+            aria-label="特殊能力を選ぶ"
+          >
+            <button
+              v-for="opt in skillOptions"
+              :key="opt.id"
+              type="button"
+              class="skill-chip"
+              :class="[
+                mobile ? 'skill-chip--sm' : '',
+                extraChoice === opt.id ? 'skill-chip--on' : '',
+                opt.id !== 'none' ? `skill-chip--${opt.id}` : '',
+              ]"
+              :aria-pressed="extraChoice === opt.id"
+              @click="selectSkill(opt.id)"
+            >
+              <span aria-hidden="true">{{ opt.emoji }}</span>
+              {{ opt.label }}
+            </button>
+          </div>
           <p
+            v-if="selectedSkill && extraChoice !== 'none'"
             class="text-sand-dim"
-            :class="mobile ? 'text-[10px]' : 'text-[11px]'"
+            :class="mobile ? 'text-center text-[10px]' : 'text-[11px]'"
           >
-            宣言と一緒に使う
+            {{ selectedSkill.hint }}
           </p>
-        </div>
-        <div
-          class="flex flex-wrap gap-1.5"
-          :class="mobile ? 'justify-center' : ''"
-          role="group"
-          aria-label="特殊能力を選ぶ"
-        >
+          <div
+            v-if="needsTarget"
+            class="flex flex-wrap items-center gap-1.5"
+            :class="mobile ? 'justify-center' : ''"
+          >
+            <span
+              class="text-sand-dim"
+              :class="mobile ? 'text-[10px]' : 'text-[11px]'"
+            >
+              対象
+            </span>
+            <button
+              v-for="t in targetOptions ?? []"
+              :key="t.id"
+              type="button"
+              class="skill-chip skill-chip--target"
+              :class="[
+                mobile ? 'skill-chip--sm' : '',
+                targetId === t.id ? 'skill-chip--on' : '',
+              ]"
+              :aria-pressed="targetId === t.id"
+              @click="targetId = t.id"
+            >
+              {{ t.name }}
+            </button>
+          </div>
+        </template>
+
+        <!-- Mobile: second close when list is long (scroll past header) -->
+        <div v-if="mobile" class="flex justify-center pt-0.5">
           <button
-            v-for="opt in skillOptions"
-            :key="opt.id"
             type="button"
-            class="skill-chip"
-            :class="[
-              mobile ? 'skill-chip--sm' : '',
-              extraChoice === opt.id ? 'skill-chip--on' : '',
-              opt.id !== 'none' ? `skill-chip--${opt.id}` : '',
-            ]"
-            :aria-pressed="extraChoice === opt.id"
-            @click="selectSkill(opt.id)"
+            class="btn-ghost btn-sm !px-3 !py-1 text-[11px] text-sand-dim"
+            @click="skillsExpanded = false"
           >
-            <span aria-hidden="true">{{ opt.emoji }}</span>
-            {{ opt.label }}
-          </button>
-        </div>
-        <p
-          v-if="selectedSkill && extraChoice !== 'none'"
-          class="text-sand-dim"
-          :class="mobile ? 'text-center text-[10px]' : 'text-[11px]'"
-        >
-          {{ selectedSkill.hint }}
-        </p>
-        <div
-          v-if="needsTarget"
-          class="flex flex-wrap items-center gap-1.5"
-          :class="mobile ? 'justify-center' : ''"
-        >
-          <span
-            class="text-sand-dim"
-            :class="mobile ? 'text-[10px]' : 'text-[11px]'"
-          >
-            対象
-          </span>
-          <button
-            v-for="t in targetOptions ?? []"
-            :key="t.id"
-            type="button"
-            class="skill-chip skill-chip--target"
-            :class="[
-              mobile ? 'skill-chip--sm' : '',
-              targetId === t.id ? 'skill-chip--on' : '',
-            ]"
-            :aria-pressed="targetId === t.id"
-            @click="targetId = t.id"
-          >
-            {{ t.name }}
+            閉じる
           </button>
         </div>
       </div>

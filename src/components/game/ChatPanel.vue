@@ -301,12 +301,13 @@ watch(
         type="text"
         maxlength="120"
         autocomplete="off"
+        autocorrect="off"
         enterkeyhint="send"
-        class="min-w-0 flex-1 border border-gold-400/20 bg-night-900/80 text-sand placeholder:text-sand-dim focus:border-gold-400/45 focus:outline-none"
+        class="min-w-0 flex-1 border border-gold-400/20 bg-night-900/80 text-base text-sand placeholder:text-sand-dim focus:border-gold-400/45 focus:outline-none"
         :class="
           compact
-            ? 'rounded-lg px-2 py-1 text-xs'
-            : 'rounded-xl px-2.5 py-1.5 text-sm'
+            ? 'rounded-lg px-2 py-1.5'
+            : 'rounded-xl px-2.5 py-1.5'
         "
         :placeholder="disabled ? disabledHint : 'メッセージを入力…'"
         :disabled="disabled"

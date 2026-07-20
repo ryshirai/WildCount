@@ -10,6 +10,11 @@
    */
   html {
     height: 100%;
+    /*
+     * iOS Safari: disable double-tap-to-zoom (keeps pinch-zoom).
+     * Prefer this over maximum-scale=1 for accessibility.
+     */
+    touch-action: manipulation;
   }
 
   html,
@@ -24,10 +29,38 @@
   body {
     @apply bg-night-950 text-sand font-sans antialiased;
     margin: 0;
+    touch-action: manipulation;
   }
 
   * {
     -webkit-tap-highlight-color: transparent;
+  }
+
+  /*
+   * Inputs/buttons: no double-tap zoom delay; form fields stay interactive.
+   * (touch-action is not inherited in all engines — set on interactive targets too.)
+   */
+  button,
+  a,
+  input,
+  select,
+  textarea,
+  [role='button'] {
+    touch-action: manipulation;
+  }
+
+  /*
+   * iOS Safari auto-zooms focused text fields under 16px (chat, etc.).
+   * Keep a floor on typed inputs; range/checkbox/radio are excluded.
+   */
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not(
+      [type='button']
+    ):not([type='submit']):not([type='reset']):not([type='image']):not(
+      [type='file']
+    ):not([type='color']),
+  textarea,
+  select {
+    font-size: max(16px, 1em);
   }
 }
 
@@ -108,9 +141,13 @@
    * Spacing scale (document only): section mb-4 tight / mb-6 normal;
    * panel p-5 sm:p-6; page horizontal px-4 + safe-x.
    */
+  /*
+   * text-base (16px) minimum: iOS Safari zooms focused inputs under 16px,
+   * which feels like “can't type” / page jumps on Home join field.
+   */
   .field {
     @apply w-full rounded-xl border border-gold-400/25 bg-night-900/80
-      px-4 py-3 text-sm text-sand outline-none transition
+      px-4 py-3 text-base text-sand outline-none transition
       placeholder:text-sand-dim/50
       focus:border-gold-400/50 focus:ring-1 focus:ring-gold-400/30;
   }

@@ -92,13 +92,36 @@ function dismissToast() {
   toast.value = null
 }
 
+/** Half-width alphanumerics only; full-width (全角) common on JP iOS keyboards. */
 function normalizeCode(raw: string) {
-  return raw.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 6)
+  const half = raw.replace(/[Ａ-Ｚａ-ｚ０-９]/g, (ch) =>
+    String.fromCharCode(ch.charCodeAt(0) - 0xfee0),
+  )
+  return half.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 6)
+}
+
+/**
+ * Room code field: controlled + uppercase/filter.
+ * iOS Safari often drops keystrokes if we rewrite :value mid-composition or
+ * leave the DOM value out of sync after filtering.
+ */
+function applyRoomCodeFromInput(el: HTMLInputElement) {
+  const next = normalizeCode(el.value)
+  roomCode.value = next
+  // Force DOM sync when we stripped / uppercased (iOS controlled-input quirk)
+  if (el.value !== next) {
+    el.value = next
+  }
 }
 
 function onCodeInput(e: Event) {
-  const el = e.target as HTMLInputElement
-  roomCode.value = normalizeCode(el.value)
+  // Don't fight Japanese IME while composing
+  if (e instanceof InputEvent && e.isComposing) return
+  applyRoomCodeFromInput(e.target as HTMLInputElement)
+}
+
+function onCodeCompositionEnd(e: Event) {
+  applyRoomCodeFromInput(e.target as HTMLInputElement)
 }
 
 function persistAvatarChoice() {
@@ -452,13 +475,19 @@ watch(
             :value="roomCode"
             type="text"
             inputmode="text"
+            enterkeyhint="go"
             autocomplete="off"
+            autocapitalize="characters"
+            autocorrect="off"
             spellcheck="false"
+            lang="en"
             placeholder="例: AB7KQ2"
             maxlength="6"
+            pattern="[A-Za-z0-9]*"
             class="field field-mono"
             @input="onCodeInput"
-            @keydown.enter="joinRoom"
+            @compositionend="onCodeCompositionEnd"
+            @keydown.enter.prevent="joinRoom"
           />
         </label>
         <button

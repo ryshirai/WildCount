@@ -4149,3 +4149,70 @@
 ### 次に考えられる作業
 1. Pages へデプロイ
 2. 既端末は 1 回リロードで新 JS（`?v=` URL）が効くことを確認
+
+---
+
+## 2026-07-20 — iOS バグ3件（ルームID入力 / ダブルタップ拡大 / 特殊能力閉じる）
+
+### 背景・目的
+- iOS ユーザ報告:
+  1. ルームIDを入力できない
+  2. ダブルタップすると拡大する
+  3. 特殊能力が閉じにくい（閉じるボタンがほしい）
+
+### 実施内容
+1. **ルームコード入力（HomeView）**
+   - IME 変換中は正規化しない（`isComposing` / `compositionend`）
+   - 全角英数 → 半角、制御値と DOM を同期（iOS controlled-input 対策）
+   - `autocapitalize=characters` / `autocorrect=off` / `lang=en` / `pattern`
+2. **フォーム文字サイズ** — `.field` を `text-base`（16px）に。iOS のフォーカス時ズームを抑制
+3. **ダブルタップ拡大** — `touch-action: manipulation` を html/body と interactive 要素に付与（ピンチズームは維持）
+4. **特殊能力パネル（BidControls・mobile）** — 展開時に明示的な「閉じる」をヘッダ＋フッタに配置
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/views/HomeView.vue` | ルームコード入力の iOS 対策 |
+| `src/styles/main.css` | touch-action / field 16px |
+| `src/components/game/BidControls.vue` | 閉じるボタン・パネル統合 |
+| `docs/work-log.md` / `docs/backlog.md` | 本エントリ |
+
+### 明示的にやっていないこと
+- viewport の `maximum-scale=1` / `user-scalable=no`（a11y のため touch-action を優先）
+- ルームコード用カスタムキーボード
+- iPhone 実機での手動確認
+
+### 確認結果
+- `npm run typecheck` / `npm run lint` 成功
+
+### 次に考えられる作業
+1. iPhone Safari 実機でホームのコード入力・ダブルタップ・特殊能力の開閉を確認
+2. まだ入力が不安定なら、仮想キーボード用の文字パッドを検討
+
+---
+
+## 2026-07-20 — iOS チャット入力フォーカス時ズーム
+
+### 背景・目的
+- 追加報告: チャット入力時に画面が拡大する（iOS Safari の 16px 未満 input フォーカスズーム）
+
+### 実施内容
+1. **ChatPanel** — 入力を常時 `text-base`（16px）。compact でも `text-xs` をやめる
+2. **global base** — テキスト系 input / textarea / select に `font-size: max(16px, 1em)` の下限（range 等は除外）
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/components/game/ChatPanel.vue` | チャット input 16px |
+| `src/styles/main.css` | テキスト入力の font-size 下限 |
+| `docs/work-log.md` | 本エントリ |
+
+### 明示的にやっていないこと
+- 実機確認
+- viewport の scale ロック
+
+### 確認結果
+- 静的変更のみ
+
+### 次に考えられる作業
+1. ロビー／ゲーム両方のチャットでフォーカス時ズームしないことを実機確認
