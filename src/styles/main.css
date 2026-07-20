@@ -994,8 +994,16 @@
   .lobby-ready-pop,
   .lobby-join-in,
   .copy-flash,
-  .fx-sparkle__dot {
+  .fx-sparkle__dot,
+  .turn-clock--critical,
+  .turn-clock--critical .turn-clock__bank,
+  .turn-clock--critical .turn-clock__temp,
+  .turn-clock__bloom {
     animation: none !important;
+  }
+
+  .turn-clock__progress {
+    transition: none !important;
   }
 
   .bid-glow--up,
@@ -3020,5 +3028,294 @@
   100% {
     opacity: 0;
     transform: translate(-50%, -50%) scale(0.9);
+  }
+}
+
+/* ========== Turn clock (center-table, above current bid) ========== */
+
+.turn-clock {
+  --tc-fg: #e8d5a3;
+  --tc-muted: rgba(196, 180, 154, 0.75);
+  --tc-ring: #c9a84c;
+  --tc-track: rgba(201, 168, 76, 0.18);
+  --tc-bg: rgba(11, 18, 32, 0.88);
+  --tc-border: rgba(201, 168, 76, 0.38);
+  --tc-glow: rgba(201, 168, 76, 0.28);
+  --tc-temp: #99f6e4;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  isolation: isolate;
+}
+
+.turn-clock--self {
+  --tc-fg: #b6ebe6;
+  --tc-muted: rgba(94, 207, 207, 0.7);
+  --tc-ring: #2a8a8a;
+  --tc-track: rgba(42, 138, 138, 0.22);
+  --tc-bg: rgba(15, 40, 48, 0.9);
+  --tc-border: rgba(42, 138, 138, 0.48);
+  --tc-glow: rgba(42, 138, 138, 0.35);
+  --tc-temp: #5eead4;
+}
+
+.turn-clock--danger {
+  --tc-fg: #fecaca;
+  --tc-muted: rgba(254, 202, 202, 0.7);
+  --tc-ring: #fb7185;
+  --tc-track: rgba(251, 113, 133, 0.22);
+  --tc-bg: rgba(40, 10, 18, 0.92);
+  --tc-border: rgba(251, 113, 133, 0.5);
+  --tc-glow: rgba(251, 113, 133, 0.4);
+  --tc-temp: #fda4af;
+}
+
+/* Prominent: glass pill above the bid */
+.turn-clock--prominent {
+  padding: 0.4rem 0.85rem 0.4rem 0.45rem;
+  border-radius: 9999px;
+  border: 1px solid var(--tc-border);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.06), transparent 42%),
+    var(--tc-bg);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.35) inset,
+    0 6px 20px rgba(0, 0, 0, 0.45),
+    0 0 22px var(--tc-glow);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.turn-clock--prominent.turn-clock--compact {
+  gap: 0.4rem;
+  padding: 0.28rem 0.65rem 0.28rem 0.32rem;
+}
+
+.turn-clock--plain {
+  gap: 0.4rem;
+}
+
+.turn-clock__bloom {
+  pointer-events: none;
+  position: absolute;
+  inset: -30% -12%;
+  z-index: -1;
+  border-radius: 9999px;
+  background: radial-gradient(
+    ellipse at 30% 50%,
+    var(--tc-glow) 0%,
+    transparent 68%
+  );
+  opacity: 0.55;
+}
+
+.turn-clock--prominent.turn-clock--self .turn-clock__bloom {
+  animation: turn-clock-bloom 2.4s ease-in-out infinite;
+}
+
+.turn-clock--prominent.turn-clock--danger .turn-clock__bloom {
+  opacity: 0.85;
+  animation: turn-clock-bloom 1.1s ease-in-out infinite;
+}
+
+.turn-clock__ring {
+  position: relative;
+  flex-shrink: 0;
+  width: 2.15rem;
+  height: 2.15rem;
+}
+
+.turn-clock--compact .turn-clock__ring {
+  width: 1.7rem;
+  height: 1.7rem;
+}
+
+.turn-clock--plain .turn-clock__ring {
+  width: 1.35rem;
+  height: 1.35rem;
+}
+
+.turn-clock__svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.turn-clock__track {
+  stroke: var(--tc-track);
+  stroke-width: 3.2;
+}
+
+.turn-clock__progress {
+  stroke: var(--tc-ring);
+  stroke-width: 3.2;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.12s linear;
+  filter: drop-shadow(0 0 3px var(--tc-glow));
+}
+
+.turn-clock--danger .turn-clock__progress {
+  filter: drop-shadow(0 0 4px rgba(251, 113, 133, 0.65));
+}
+
+.turn-clock__glyph {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  line-height: 1;
+  opacity: 0.92;
+  filter: drop-shadow(0 0 4px var(--tc-glow));
+}
+
+.turn-clock--compact .turn-clock__glyph {
+  font-size: 0.58rem;
+}
+
+.turn-clock--plain .turn-clock__glyph {
+  font-size: 0.55rem;
+}
+
+.turn-clock__body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  line-height: 1;
+}
+
+.turn-clock__caption {
+  font-family: Cinzel, "Noto Sans JP", serif;
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  color: var(--tc-muted);
+  margin-bottom: 0.12rem;
+}
+
+.turn-clock--compact .turn-clock__caption {
+  font-size: 0.48rem;
+  letter-spacing: 0.18em;
+  margin-bottom: 0.06rem;
+}
+
+.turn-clock--plain .turn-clock__caption {
+  display: none;
+}
+
+.turn-clock__digits {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.22rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.turn-clock__bank {
+  font-family: Cinzel, "Noto Sans JP", serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--tc-fg);
+  text-shadow: 0 0 12px var(--tc-glow);
+}
+
+.turn-clock--compact .turn-clock__bank {
+  font-size: 0.88rem;
+}
+
+.turn-clock--plain .turn-clock__bank {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.turn-clock__plus {
+  font-family: Cinzel, "Noto Sans JP", serif;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--tc-muted);
+  opacity: 0.85;
+}
+
+.turn-clock--compact .turn-clock__plus {
+  font-size: 0.6rem;
+}
+
+.turn-clock__temp {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--tc-temp);
+  text-shadow: 0 0 10px color-mix(in srgb, var(--tc-temp) 45%, transparent);
+}
+
+.turn-clock--compact .turn-clock__temp {
+  font-size: 0.68rem;
+}
+
+.turn-clock--plain .turn-clock__temp {
+  font-size: 0.75rem;
+}
+
+/* Critical last seconds: punchier pulse */
+.turn-clock--critical.turn-clock--prominent {
+  animation: turn-clock-critical 0.7s ease-in-out infinite;
+}
+
+.turn-clock--critical .turn-clock__bank,
+.turn-clock--critical .turn-clock__temp {
+  animation: turn-clock-digit-pulse 0.7s ease-in-out infinite;
+}
+
+.turn-clock--expired.turn-clock--prominent {
+  opacity: 0.88;
+  filter: saturate(1.1);
+}
+
+@keyframes turn-clock-bloom {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(0.96);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.04);
+  }
+}
+
+@keyframes turn-clock-critical {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.35) inset,
+      0 6px 20px rgba(0, 0, 0, 0.45),
+      0 0 16px rgba(251, 113, 133, 0.3);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.35) inset,
+      0 6px 22px rgba(0, 0, 0, 0.5),
+      0 0 28px rgba(251, 113, 133, 0.55);
+    transform: scale(1.03);
+  }
+}
+
+@keyframes turn-clock-digit-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    filter: brightness(1);
+  }
+  50% {
+    opacity: 0.82;
+    filter: brightness(1.25);
   }
 }

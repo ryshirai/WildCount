@@ -138,9 +138,9 @@ const showDock = computed(
       @leave="emit('leave')"
     />
 
-    <!-- Pace + clock + declared (merged; no separate meta strip) -->
+    <!-- Pace + declared (timer sits above the bid panel) -->
     <div
-      v-if="paceHint || (turnClock && !awaitingResultView) || !coyoteBanner"
+      v-if="paceHint || (!coyoteBanner && !awaitingResultView)"
       class="flex shrink-0 items-center justify-center gap-2 border-b px-3 py-1.5 text-center text-xs font-medium backdrop-blur-md"
       :class="[
         awaitingResultView
@@ -162,12 +162,6 @@ const showDock = computed(
         {{ declaredCount }}/{{ room.playerCount }} 宣言
       </span>
       <span v-if="paceHint" class="min-w-0 truncate">{{ paceHint }}</span>
-      <TurnClockDisplay
-        v-if="turnClock && !awaitingResultView"
-        :clock="turnClock"
-        :is-self-turn="!!gameView?.isSelfTurn"
-        compact
-      />
     </div>
 
     <!-- Card reveal under header -->
@@ -197,9 +191,17 @@ const showDock = computed(
           "
         >
           <div
-            class="panel relative z-[6] w-full max-w-[13rem] overflow-visible px-4 py-3 shadow-panel transition-transform duration-300"
+            class="panel relative z-[6] flex w-full max-w-[13rem] flex-col items-center overflow-visible px-4 py-3 shadow-panel transition-transform duration-300"
             :class="sheetOpen ? 'scale-90 opacity-90' : ''"
           >
+            <TurnClockDisplay
+              v-if="turnClock && !awaitingResultView"
+              :clock="turnClock"
+              :is-self-turn="!!gameView?.isSelfTurn"
+              compact
+              prominent
+              class="mb-1.5"
+            />
             <CurrentBidDisplay
               compact
               :show-turns-hint="false"

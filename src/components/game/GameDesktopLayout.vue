@@ -117,9 +117,9 @@ const emit = defineEmits<{
       @leave="emit('leave')"
     />
 
-    <!-- Status under header -->
+    <!-- Status under header (pace / bots / result wait — timer lives above the bid) -->
     <div
-      v-if="paceHint || (turnClock && !awaitingResultView)"
+      v-if="paceHint"
       class="flex shrink-0 items-center justify-center gap-2.5 border-b px-3 py-2.5 text-center text-sm font-medium backdrop-blur-md"
       :class="[
         awaitingResultView
@@ -149,13 +149,7 @@ const emit = defineEmits<{
         class="inline-flex h-2.5 w-2.5 shrink-0 rounded-full bg-teal-soft/80"
         aria-hidden="true"
       />
-      <span v-if="paceHint">{{ paceHint }}</span>
-      <TurnClockDisplay
-        v-if="turnClock && !awaitingResultView"
-        :clock="turnClock"
-        :is-self-turn="!!gameView?.isSelfTurn"
-        class="ml-1"
-      />
+      <span>{{ paceHint }}</span>
     </div>
 
     <!-- Card reveal (main body under header) -->
@@ -188,8 +182,15 @@ const emit = defineEmits<{
           />
 
           <div
-            class="pointer-events-none absolute inset-0 z-[1] flex items-center justify-center"
+            class="pointer-events-none absolute inset-0 z-[1] flex flex-col items-center justify-center"
           >
+            <TurnClockDisplay
+              v-if="turnClock && !awaitingResultView"
+              :clock="turnClock"
+              :is-self-turn="!!gameView?.isSelfTurn"
+              prominent
+              class="mb-2"
+            />
             <CurrentBidDisplay
               :current-bid="room.currentBid"
               :turns-until-self="room.turnsUntilSelf"
