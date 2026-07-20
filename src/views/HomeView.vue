@@ -23,6 +23,7 @@ import {
   loadSavedDisplayName,
   saveAvatarIndex,
 } from '@/online/resumeStorage'
+import { useHapticSettings } from '@/composables/useHapticSettings'
 import { useSfxSettings } from '@/composables/useSfxSettings'
 import { useLocalGameStore } from '@/stores/localGame'
 import { useOnlineGameStore } from '@/stores/onlineGame'
@@ -36,6 +37,11 @@ const {
   setEnabled: setSfxEnabled,
   setVolume: setSfxVolume,
 } = useSfxSettings()
+const {
+  enabled: hapticEnabled,
+  supported: hapticSupported,
+  setEnabled: setHapticEnabled,
+} = useHapticSettings()
 
 /** Dev-only surfaces (tree-shaken away from user-facing prod copy). */
 const showLocalDemo = allowLocalPlay
@@ -361,6 +367,40 @@ watch(
               "
             />
           </label>
+        </div>
+
+        <!-- D4: Haptic prefs (default OFF; mobile Vibration API) -->
+        <div class="mt-5 border-t border-gold-400/10 pt-4">
+          <div class="mb-1 flex items-center justify-between gap-3">
+            <div>
+              <p class="text-sm font-semibold text-gold-200">触覚フィードバック</p>
+              <p class="text-xs text-sand-dim">
+                手番・WILD CALL・コヨーテ・ライフ喪失のみ短い振動。初期 OFF。ゲーム中もヘッダで切り替えできます
+              </p>
+            </div>
+            <button
+              type="button"
+              class="btn-ghost btn-sm shrink-0"
+              :aria-pressed="hapticEnabled"
+              :disabled="!hapticSupported"
+              :title="
+                hapticSupported
+                  ? hapticEnabled
+                    ? '触覚オン'
+                    : '触覚オフ'
+                  : 'この端末では振動に対応していません'
+              "
+              @click="setHapticEnabled(!hapticEnabled)"
+            >
+              {{ !hapticSupported ? '非対応' : hapticEnabled ? 'ON' : 'OFF' }}
+            </button>
+          </div>
+          <p
+            v-if="!hapticSupported"
+            class="text-[11px] text-sand-dim"
+          >
+            対応ブラウザ（主に Android）でのみ使えます。iOS など非対応では何もしません
+          </p>
         </div>
       </section>
 

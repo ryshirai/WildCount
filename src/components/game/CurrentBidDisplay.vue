@@ -8,6 +8,7 @@
  */
 import { computed, ref, watch } from 'vue'
 import { pitchForBidLand, playSfx } from '@/audio'
+import { playHaptic } from '@/haptics'
 import FxSparkleBurst from '@/components/common/FxSparkleBurst.vue'
 import type { RaiseIntensity } from '@/utils/resultDrama'
 import {
@@ -139,6 +140,10 @@ function fireDeclareBurst(value: number, raise: RaiseClassification) {
   const gain =
     raise.tier === 'wild' ? 1 : raise.tier === 'big' ? 0.92 : raise.tier === 'nice' ? 0.85 : 0.72
   playSfx('bid_land', { pitch, gain })
+  // D4: haptic only on WILD CALL (limited wiring; not every bid land)
+  if (raise.tier === 'wild') {
+    playHaptic('wild_call')
+  }
   const hold =
     raise.tier === 'wild'
       ? 1300

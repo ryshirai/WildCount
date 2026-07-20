@@ -3738,3 +3738,44 @@
 1. D4: 触覚（初期 OFF）
 2. 実プレイで hold 尺・silence・レア閾値を調整
 3. LAST SECOND をサーバ snapshot に載せるか検討
+
+## 2026-07-20 — ドーパミン D4（触覚フィードバック）
+
+### 背景・目的
+- `docs/gameplay-dopamine-plan.md` の D4 を実装し、手番 / WILD CALL / COYOTE / ライフ喪失に限定した Vibration API 触覚を追加する
+- 初期 OFF・いつでも無効化・連続発火抑制・非対応端末は no-op
+
+### 実施内容
+1. **基盤** — `src/haptics/*`（types / settings / policy / engine）。localStorage `wc:hapticEnabled`（初期 OFF）
+2. **ポリシー** — 対応端末ガード、タブ非表示、ID 別クールダウン
+3. **接続** — 手番（`useGameSession`）、WILD CALL のみ（`CurrentBidDisplay`）、COYOTE（`useChallengeReveal`）、自分のライフ喪失（`ResultView` + `selfIsLoser`）
+4. **UI** — Home トグル、GameHeader 📳、`useHapticSettings`
+5. **ヘルプ / docs** — helpContent・plan・backlog・ui-mock 追随
+6. **テスト** — `tests/haptics/hapticSettings|hapticPolicy|hapticEngine.test.ts`
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/haptics/*` | 触覚基盤（新規） |
+| `src/composables/useHapticSettings.ts` | 設定 UI 用 composable |
+| `src/composables/useGameSession.ts` | 手番 haptic |
+| `src/components/game/CurrentBidDisplay.vue` | WILD CALL haptic |
+| `src/composables/useChallengeReveal.ts` | COYOTE haptic |
+| `src/views/ResultView.vue` | ライフ喪失 haptic |
+| `src/views/HomeView.vue` / `GameHeader.vue` | トグル UI |
+| `tests/haptics/*` | 単体テスト |
+| `docs/gameplay-dopamine-plan.md` / `backlog.md` | D4 / UX-15 / UX-17 done |
+
+### 明示的にやっていないこと
+- 宣言確定の毎回振動（通常 bid_land）— D4 は WILD に限定
+- 演出プリセット（ひかえめ / WILD）UI
+- 実機 iOS 代替（Core Haptics 等は非対応のまま no-op）
+- 閾値・粒子数の大規模再調整（実プレイチューニングは継続可）
+
+### 確認結果
+- `npm test` 262 緑 / `typecheck` / `lint` / `build` 成功
+
+### 次に考えられる作業
+1. 実プレイで振動パターン・クールダウンを調整
+2. UX-16 席ごと持ち時間表示
+3. HOLD-5 本番デプロイ（ユーザー確認後）

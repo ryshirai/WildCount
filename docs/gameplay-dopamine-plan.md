@@ -288,12 +288,21 @@ COYOTE / 結果
 - スキップ後は正しい最終合計、勝敗、ライフが表示される
 - ローカルとオンラインの見た目・順序が一致する
 
-### D4 — 触覚と調整
+### D4 — 触覚と調整 ✅
 
 1. 触覚設定と対応端末ガード
 2. 手番、WILD CALL、COYOTE、ライフ喪失へ限定接続
 3. 低性能端末、reduced-motion、画面幅ごとの負荷確認
 4. 実プレイで閾値、尺、音量、粒子数を調整
+
+実装:
+
+- 設定: `src/haptics/hapticSettings.ts`（`wc:hapticEnabled`、初期 OFF）
+- パターン・クールダウン: `hapticTypes.ts` + `hapticPolicy.ts`
+- 再生: `hapticEngine.ts`（`navigator.vibrate`、非対応は no-op）
+- UI: Home トグル、GameHeader 📳、`useHapticSettings`
+- 接続: `useGameSession`（手番）/ `CurrentBidDisplay`（WILD のみ）/ `useChallengeReveal`（COYOTE）/ `ResultView`（`selfIsLoser` ライフ喪失）
+- テスト: `tests/haptics/haptic*.test.ts`
 
 完了条件:
 

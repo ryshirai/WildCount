@@ -31,6 +31,7 @@ import {
   type RaiseIntensity,
 } from '@/utils/resultDrama'
 import { playSfx } from '@/audio'
+import { playHaptic } from '@/haptics'
 import {
   classifyRaise,
   createDramaEventDeduper,
@@ -871,6 +872,8 @@ export function useGameSession() {
       })
       if (!dramaDeduper.tryConsume(eventId)) return
       playSfx('turn_self')
+      // D4: short pulse on own turn only (public turn state)
+      playHaptic('turn_self')
     },
   )
 

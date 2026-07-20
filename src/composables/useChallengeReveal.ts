@@ -1,6 +1,7 @@
 import { computed, onUnmounted, ref, watch, type ComputedRef, type Ref } from 'vue'
 import type { Router } from 'vue-router'
 import { playSfx, silenceSfx } from '@/audio'
+import { playHaptic } from '@/haptics'
 import type { ResultViewModel } from '@/mappers/toResultView'
 import type { RevealedCard } from '@/types/game'
 import { coyoteCutInEventId } from '@/utils/bidDrama'
@@ -266,6 +267,8 @@ export function useChallengeReveal(options: UseChallengeRevealOptions) {
     cutInVisible.value = true
     if (!isTabHidden()) {
       playSfx('coyote')
+      // D4: strong-gap-strong on COYOTE cut-in
+      playHaptic('coyote')
     }
   }
 

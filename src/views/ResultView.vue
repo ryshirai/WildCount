@@ -7,6 +7,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { playSfx } from '@/audio'
+import { playHaptic } from '@/haptics'
 import { mockResult } from '@/data/mockResult'
 import { useLocalGameStore } from '@/stores/localGame'
 import { useOnlineGameStore } from '@/stores/onlineGame'
@@ -225,6 +226,10 @@ function playVerdictSfx() {
   playSfx('result_slam')
   // Self-centric win/lose from public selfIsLoser; no private hand info
   const lose = selfIsLoser.value
+  // D4: life-loss haptic only when you lost life (public selfIsLoser)
+  if (lose) {
+    playHaptic('life_loss')
+  }
   // Small delay so slam and verdict don't fully stack
   window.setTimeout(() => {
     playSfx(lose ? 'result_lose' : 'result_win')

@@ -7,6 +7,7 @@
 import AppHeader from '@/components/common/AppHeader.vue'
 import AppLogo from '@/components/common/AppLogo.vue'
 import StatusChip from '@/components/common/StatusChip.vue'
+import { useHapticSettings } from '@/composables/useHapticSettings'
 import { useSfxSettings } from '@/composables/useSfxSettings'
 
 withDefaults(
@@ -29,6 +30,11 @@ const emit = defineEmits<{
 }>()
 
 const { enabled: sfxEnabled, toggleEnabled: toggleSfx } = useSfxSettings()
+const {
+  enabled: hapticEnabled,
+  supported: hapticSupported,
+  toggleEnabled: toggleHaptic,
+} = useHapticSettings()
 
 const connectionLabel: Record<string, string> = {
   good: '接続良好',
@@ -95,6 +101,30 @@ function connectionVariant(
         @click="toggleSfx()"
       >
         <span aria-hidden="true">{{ sfxEnabled ? '🔊' : '🔇' }}</span>
+      </button>
+      <button
+        type="button"
+        class="btn-ghost btn-icon"
+        :class="mobile ? '!p-1.5 text-sm' : 'text-sm'"
+        :disabled="!hapticSupported"
+        :title="
+          !hapticSupported
+            ? '触覚非対応'
+            : hapticEnabled
+              ? '触覚オン（タップでオフ）'
+              : '触覚オフ（タップでオン）'
+        "
+        :aria-label="
+          !hapticSupported
+            ? '触覚非対応'
+            : hapticEnabled
+              ? '触覚をオフ'
+              : '触覚をオン'
+        "
+        :aria-pressed="hapticEnabled"
+        @click="toggleHaptic()"
+      >
+        <span aria-hidden="true">{{ hapticEnabled && hapticSupported ? '📳' : '📴' }}</span>
       </button>
       <button
         type="button"

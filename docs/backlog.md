@@ -85,9 +85,9 @@
 | OPS-1 | idea | Worker ヘルス表示（ホームに「Worker 未接続」） | create タイムアウト文言は済 |
 | **UX-13** | **done** | **制限時間（持ち時間 + 毎ターン一時時間）** | ロビー host 設定。`main + turn` 秒。一時時間から先に減る。DO alarm でタイムアウト（自動最小宣言 / コヨーテ / 脱落） |
 | **UX-14** | **done** | 効果音（入力 / 宣言 / 手番 / 特殊能力 / コヨーテ / 勝敗）+ 任意トグル | D2 完了。`src/audio/*` 手続き音 + ミュート/音量 |
-| UX-15 | planned | 触覚フィードバック（vibration） | `gameplay-dopamine-plan.md` D4。モバイル、OFF デフォルト |
+| **UX-15** | **done** | 触覚フィードバック（vibration） | D4 完了。`src/haptics/*`。初期 OFF。手番 / WILD CALL / COYOTE / 自分のライフ喪失 |
 | UX-16 | idea | 席ごと残り持ち時間の常時表示 | 中央時計は UX-13 済み。席 UI へのミラーは未 |
-| UX-17 | planned | ゲーム中ドーパミン演出（HEAT / RALLY / RAISE / COYOTE 解放） | 正本: `docs/gameplay-dopamine-plan.md`。**D0–D3 済**。次は D4（触覚） |
+| UX-17 | **done** | ゲーム中ドーパミン演出（HEAT / RALLY / RAISE / COYOTE 解放 + 触覚） | 正本: `docs/gameplay-dopamine-plan.md`。**D0–D4 済** |
 
 ---
 
@@ -99,8 +99,8 @@
 |------|------|----------|
 | design-polish / ui-mock | 細部 UX（ボット思考時間スライダー等） | 任意 |
 | design-polish | ドーパミン系マイクロ演出（bid / 結果 / 手番） | **done** 第1波 |
-| design-polish | ドーパミン演出 第2波（ROUND / 特殊札 / ライフ / ロビー等） | **done**（CSS only。効果音・触覚は未） |
-| design-polish | ドーパミン演出 第3波（ドラマ差・札強調・宣言 cut-in） | **done**（SFX/触覚は未。UX-14/15） |
+| design-polish | ドーパミン演出 第2波（ROUND / 特殊札 / ライフ / ロビー等） | **done**（CSS + 後続 D2/D4 で SFX・触覚） |
+| design-polish | ドーパミン演出 第3波（ドラマ差・札強調・宣言 cut-in） | **done**（UX-14/15 SFX・触覚も done） |
 | prod-copy | 本番はオンラインのみ・mock/ローカル/開発文言を DEV 限定 | **done**（`src/config/runtime.ts`） |
 | design-overview | 公式素材は使わない・オリジナル維持 | 方針固定 |
 | ローカルデモ | DEV では並存・壊さない / **本番 UI からは除外** | `allowLocalPlay`（`runtime.ts`） |
@@ -130,7 +130,7 @@
 
 1. **HOLD-5** — `https://wildcount.rysh.dev`（Pages + Worker `/api/*`）。手順は `docs/deploy.md`。実行はユーザー確認後  
 2. UX-2（ホスト移譲カウントダウン）・TEST-1 / OPS-1 は任意
-3. idea: SFX / 触覚・席ごと持ち時間（下表）
+3. idea: 席ごと持ち時間（UX-16）
 
 ---
 
@@ -141,4 +141,4 @@
 3. Phase 1 スライスの ID（P1-x）は `phase1-multiplayer.md` §10 と揃える  
 4. エクストラルールの ID（ER-x）は `docs/extra-rules.md` §4 と揃える  
 
-最終更新: 2026-07-20（ドーパミン D3: COYOTE シーケンス + レア決着）
+最終更新: 2026-07-20（ドーパミン D4: 触覚フィードバック）
