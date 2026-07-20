@@ -182,12 +182,24 @@ const isSelfTurn = computed(
           class="min-w-0 truncate text-sm font-bold leading-tight"
         >{{ paceHint }}</span>
       </div>
-      <span
+      <div
         v-if="!coyoteBanner && !awaitingResultView"
-        class="text-[10px] font-normal text-sand-dim"
+        class="flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 text-[10px] font-normal text-sand-dim"
       >
-        宣言 {{ declaredCount }}/{{ room.playerCount }}
-      </span>
+        <span>
+          宣言 {{ declaredCount }}/{{ room.playerCount }}
+        </span>
+        <span class="text-gold-400/35" aria-hidden="true">·</span>
+        <button
+          type="button"
+          class="rounded-full border border-gold-400/20 bg-night-900/50 px-2 py-px font-medium tabular-nums text-sand transition hover:border-gold-400/40 hover:text-gold-100"
+          :aria-label="`山札 残り${room.deckRemaining}枚。内容を見る`"
+          @click="emit('deck')"
+        >
+          山札
+          <span class="font-semibold text-gold-200">{{ room.deckRemaining }}</span>
+        </button>
+      </div>
     </div>
 
     <!-- Card reveal under header -->

@@ -146,6 +146,8 @@ export const mockGameRoom: GameRoomMock = {
   roomCode: 'AB7KQ2',
   playerCount: 10,
   round: 3,
+  // Illustrative remaining after a few deals (recipe is 36)
+  deckRemaining: 16,
   currentBid: 18,
   turnsUntilSelf: 3,
   draftBid: 18,

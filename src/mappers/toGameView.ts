@@ -116,6 +116,7 @@ export function toGameView(input: ToGameViewInput): GameViewModel {
     aliveOrdered.map((p) => p.id),
     state.currentTurnPlayerId,
     selfId,
+    state.turnDirection,
   )
 
   const isSelfTurn =
@@ -142,6 +143,7 @@ export function toGameView(input: ToGameViewInput): GameViewModel {
     roomCode,
     playerCount: state.players.length,
     round: state.round,
+    deckRemaining: state.deck.length,
     currentBid: state.currentBid,
     turnsUntilSelf,
     players,
@@ -170,13 +172,15 @@ export function toGameView(input: ToGameViewInput): GameViewModel {
 }
 
 /**
- * Seats from current turn to self (exclusive of current if self).
+ * Seats from current turn to self along turnDirection (not including current when self).
  * 0 when it is already self's turn or self is not in the alive ring.
+ * Must follow `turnDirection` so reverse does not invert the “あと N 人” hint.
  */
 export function computeTurnsUntilSelf(
   aliveIdsInSeatOrder: readonly PlayerId[],
   currentTurnPlayerId: PlayerId | null,
   selfId: PlayerId,
+  turnDirection: 1 | -1 = 1,
 ): number {
   if (currentTurnPlayerId == null || aliveIdsInSeatOrder.length === 0) return 0
   if (currentTurnPlayerId === selfId) return 0
@@ -186,5 +190,8 @@ export function computeTurnsUntilSelf(
   const selfIdx = aliveIdsInSeatOrder.indexOf(selfId)
   if (start < 0 || selfIdx < 0) return 0
 
-  return (selfIdx - start + n) % n
+  // Forward: seat order +1. Reverse: seat order −1.
+  return turnDirection === 1
+    ? (selfIdx - start + n) % n
+    : (start - selfIdx + n) % n
 }

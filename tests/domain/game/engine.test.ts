@@ -30,8 +30,53 @@ describe('startGame / bidding', () => {
     expect(state.phase).toBe('bidding')
     expect(state.round).toBe(1)
     expect(Object.keys(state.hands)).toHaveLength(3)
-    expect(state.currentTurnPlayerId).toBe('p0')
+    expect(['p0', 'p1', 'p2']).toContain(state.currentTurnPlayerId)
     expect(state.currentBid).toBeNull()
+    // Seats are a permutation of 0..n-1 (randomized at start)
+    const seats = state.players.map((p) => p.seatIndex).sort((a, b) => a - b)
+    expect(seats).toEqual([0, 1, 2])
+  })
+
+  it('randomizes first starter across seeds (not always join-order first)', () => {
+    const ids = ['host', 'p1', 'p2', 'p3']
+    const starters = new Set<string>()
+    for (let seed = 0; seed < 40; seed++) {
+      const s = startGame({ playerIds: ids }, seedRandom(seed))
+      starters.add(s.currentTurnPlayerId!)
+    }
+    expect(starters.size).toBeGreaterThan(1)
+    expect(starters.has('host')).toBe(true)
+  })
+
+  it('reseats players on each new round', () => {
+    const rng = seedRandom(50)
+    let state = startGame(
+      { playerIds: ['a', 'b', 'c'], config: { initialLives: 3 } },
+      rng,
+    )
+    const seatsR1 = Object.fromEntries(
+      state.players.map((p) => [p.id, p.seatIndex]),
+    )
+    state = applyAction(state, { type: 'PLACE_BID', value: 1 }, rng)
+    state = applyAction(state, { type: 'CHALLENGE' }, rng)
+    expect(state.phase).toBe('round_end')
+    state = applyAction(state, { type: 'START_ROUND' }, rng)
+    const seatsR2 = Object.fromEntries(
+      state.players.map((p) => [p.id, p.seatIndex]),
+    )
+    // Same set of seat indices; order may differ (very rarely identical)
+    expect(Object.values(seatsR2).sort()).toEqual([0, 1, 2])
+    // Living loser of R1 opens R2 (if still alive)
+    if (state.lastOutcome) {
+      const loser = state.lastOutcome.loserId
+      const loserAlive = state.players.find((p) => p.id === loser)?.alive
+      if (loserAlive) {
+        expect(state.currentTurnPlayerId).toBe(loser)
+      }
+    }
+    // At least verify reseat ran (ids still map to unique seats)
+    expect(new Set(Object.values(seatsR1)).size).toBe(3)
+    expect(new Set(Object.values(seatsR2)).size).toBe(3)
   })
 
   it('rejects invalid player counts', () => {
@@ -46,6 +91,8 @@ describe('startGame / bidding', () => {
   it('opening bid must be >= minOpeningBid (1); then strictly increasing', () => {
     const rng = seedRandom(1)
     let state = startGame({ playerIds: ['a', 'b'] }, rng)
+    const first = state.currentTurnPlayerId!
+    const second = state.players.find((p) => p.id !== first)!.id
 
     expect(() => applyAction(state, { type: 'PLACE_BID', value: 0 }, rng)).toThrow(
       GameError,
@@ -56,8 +103,8 @@ describe('startGame / bidding', () => {
 
     state = applyAction(state, { type: 'PLACE_BID', value: 1 }, rng)
     expect(state.currentBid).toBe(1)
-    expect(state.currentBidderId).toBe('a')
-    expect(state.currentTurnPlayerId).toBe('b')
+    expect(state.currentBidderId).toBe(first)
+    expect(state.currentTurnPlayerId).toBe(second)
 
     expect(() => applyAction(state, { type: 'PLACE_BID', value: 1 }, rng)).toThrow(
       GameError,
@@ -65,7 +112,7 @@ describe('startGame / bidding', () => {
 
     state = applyAction(state, { type: 'PLACE_BID', value: 2 }, rng)
     expect(state.currentBid).toBe(2)
-    expect(state.currentTurnPlayerId).toBe('a')
+    expect(state.currentTurnPlayerId).toBe(first)
   })
 
   it('first player cannot challenge without a bid', () => {

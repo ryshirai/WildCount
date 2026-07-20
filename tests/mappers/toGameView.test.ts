@@ -21,10 +21,31 @@ describe('computeTurnsUntilSelf', () => {
     expect(computeTurnsUntilSelf(['self', 'bot1', 'bot2'], 'self', 'self')).toBe(0)
   })
 
-  it('counts seats until self along the ring', () => {
+  it('counts seats until self along the forward ring', () => {
     expect(computeTurnsUntilSelf(['self', 'bot1', 'bot2', 'bot3'], 'bot1', 'self')).toBe(3)
     expect(computeTurnsUntilSelf(['self', 'bot1', 'bot2', 'bot3'], 'bot2', 'self')).toBe(2)
     expect(computeTurnsUntilSelf(['self', 'bot1', 'bot2', 'bot3'], 'bot3', 'self')).toBe(1)
+  })
+
+  it('counts seats until self along reverse direction', () => {
+    // alive: self, bot1, bot2, bot3 (seat order)
+    // reverse from bot1 → bot1 → self → bot3 → bot2 → bot1 …
+    // so from bot1 to self is 1 step reverse
+    expect(
+      computeTurnsUntilSelf(['self', 'bot1', 'bot2', 'bot3'], 'bot1', 'self', -1),
+    ).toBe(1)
+    // from bot2 reverse: bot2 → bot1 → self → … = 2
+    expect(
+      computeTurnsUntilSelf(['self', 'bot1', 'bot2', 'bot3'], 'bot2', 'self', -1),
+    ).toBe(2)
+    // from bot3 reverse: bot3 → bot2 → bot1 → self = 3
+    expect(
+      computeTurnsUntilSelf(['self', 'bot1', 'bot2', 'bot3'], 'bot3', 'self', -1),
+    ).toBe(3)
+  })
+
+  it('defaults to forward when direction omitted', () => {
+    expect(computeTurnsUntilSelf(['a', 'b', 'c'], 'b', 'a')).toBe(2)
   })
 })
 
@@ -40,23 +61,26 @@ describe('toGameView', () => {
     expect(vm.roomCode).toBe('TEST01')
     expect(vm.round).toBe(1)
     expect(vm.playerCount).toBe(4)
+    // 36 recipe − 4 dealt hands = 32 left in draw pile
+    expect(vm.deckRemaining).toBe(32)
     expect(vm.currentBid).toBeNull()
     expect(vm.players).toHaveLength(4)
-    expect(vm.players[0]!.id).toBe(SELF_ID)
-    expect(vm.players[0]!.isSelf).toBe(true)
-    expect(vm.players[0]!.lives).toBe(3)
-    expect(vm.players[0]!.seatIndex).toBe(1) // 1-based UI
+    // UI list is seat order (1-based badges), not join order
+    expect(vm.players.map((p) => p.seatIndex)).toEqual([1, 2, 3, 4])
+    const self = vm.players.find((p) => p.id === SELF_ID)!
+    expect(self.isSelf).toBe(true)
+    expect(self.lives).toBe(3)
     // B3: portrait src from profiles, emoji still present as fallback
-    expect(vm.players[0]!.avatarSrc).toMatch(/^\/avatars\/self\.webp\?v=/)
-    expect(vm.players[0]!.avatar).toBe('🐻')
+    expect(self.avatarSrc).toMatch(/^\/avatars\/self\.webp\?v=/)
+    expect(self.avatar).toBe('🐻')
     expect(vm.players.find((p) => p.id === 'bot1')?.avatarSrc).toMatch(
       /^\/avatars\/owl\.webp\?v=/,
     )
     // Indian poker: own card hidden, others face-up
-    expect(vm.players[0]!.handHidden).toBe(true)
-    expect(vm.players[0]!.handLabel).toBeTruthy() // label kept for result; UI uses handHidden
-    expect(vm.players[0]!.handCount).toBeGreaterThanOrEqual(1)
-    expect(vm.players[0]!.handLabels.length).toBe(vm.players[0]!.handCount)
+    expect(self.handHidden).toBe(true)
+    expect(self.handLabel).toBeTruthy() // label kept for result; UI uses handHidden
+    expect(self.handCount).toBeGreaterThanOrEqual(1)
+    expect(self.handLabels.length).toBe(self.handCount)
     const others = vm.players.filter((p) => !p.isSelf)
     expect(others.every((p) => p.handHidden === false)).toBe(true)
     expect(others.every((p) => p.handLabel != null && p.handLabel.length > 0)).toBe(true)
@@ -67,7 +91,7 @@ describe('toGameView', () => {
     expect(vm.phase).toBe('bidding')
     expect(vm.roundBidCount).toBe(0)
     expect(vm.lastBidderId).toBeNull()
-    expect(vm.currentTurnPlayerId).toBe(SELF_ID)
+    expect(vm.currentTurnPlayerId).toBeTruthy()
   })
 
   it('maps multi-card hands as separate labels (draw1)', () => {
@@ -112,8 +136,8 @@ describe('toGameView', () => {
 
   it('sets canDeclare / canChallenge only on self turn', () => {
     let state = freshState()
-    // Ensure self has the turn: self is seat 0 and starts first with seed lineup
-    expect(state.currentTurnPlayerId).toBe(SELF_ID)
+    // Force self's turn (starter is random after reseat)
+    state = { ...state, currentTurnPlayerId: SELF_ID }
 
     let vm = toGameView({ state, profiles: DEFAULT_PROFILES })
     expect(vm.isSelfTurn).toBe(true)

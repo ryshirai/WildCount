@@ -208,7 +208,7 @@ interface RoomState {
   lastActivityAt: number
   hostId: string | null
   revision: number
-  /** 参加順。seatIndex はゲーム開始時に確定（参加順 or 明示） */
+  /** 参加順。game.players の seatIndex は start / 各ラウンド開始時に domain がシャッフル */
   players: RoomPlayer[]
   /** resumeToken → playerId */
   resumeTokens: Record<string, string>
@@ -243,7 +243,7 @@ interface RoomPlayer {
 |------------|------------|------|
 | ルーム作成 | なし | meta のみ |
 | join（2 人目以降） | なし（lobby） / 観戦は非対応 MVP | ゲーム中 join は拒否 or 観戦（**MVP: 開始後の新規 join 拒否**） |
-| host `start` | `startGame({ playerIds, config: { deck: room.deck } })` | 参加者 id 順で seat。rng は DO 内 `seedRandom` or crypto。山札はロビー `set_deck` の結果 |
+| host `start` | `startGame({ playerIds, config: { deck: room.deck } })` | domain が **席シャッフル + ランダム先手**（参加順／ホスト固定ではない）。rng は DO 内 `seedRandom` or crypto。山札はロビー `set_deck` の結果 |
 | host `set_deck` | `room.deck` 更新 + view broadcast | ロビーのみ。10〜120 枚。`PlayerView.deck` で全員同期 |
 | 宣言 / コヨーテ | `applyAction(state, PLACE_BID \| CHALLENGE, rng)` | 事前に `getLegalMoves` / 手番検証 |
 | チャレンジ後 | `lastOutcome` + 直前 hands を `pendingResult` 化 | domain は既に次 R へ進んでいる点に注意（ローカルデモと同じ） |

@@ -4356,3 +4356,106 @@
 
 ### 次に考えられる作業
 1. 実機で縦の詰まり（帯＋カルーセル＋パネル）を確認し、必要なら帯を薄くする
+
+---
+
+## 2026-07-20 — リバース時「あと N 人」バグ修正
+
+### 背景・目的
+- リバース後、手番ヒントの「あなたまであと N 人」が席順 +1 固定で計算されており、実際の進行方向と食い違っていた
+
+### 実施内容
+1. `computeTurnsUntilSelf` に `turnDirection` を渡し、−1 のときは席順逆方向でステップ数を数える
+2. ローカル mapper（`toGameView`）と Worker masked view の両方を修正
+3. 正方向・逆方向のユニットテストを追加
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/mappers/toGameView.ts` | `turnDirection` 対応 |
+| `worker/maskedView.ts` | 同上 |
+| `tests/mappers/toGameView.test.ts` | reverse ケース |
+| `worker/maskedView.test.ts` | reverse ケース + payload 検証 |
+
+### 明示的にやっていないこと
+- ショット後の「指名で飛んだ次手番」以外の経路予測（現状どおり現在手番＋方向のみ）
+- UI 文言の変更
+
+### 確認結果
+- `npm test` 272 件パス
+
+### 次に考えられる作業
+1. 実プレイでリバース直後の帯・宣言パネルの「あと N 人」を確認
+
+---
+
+## 2026-07-20 — 毎ラウンド席替え + ランダム先手
+
+### 背景・目的
+- ホスト（参加順先頭）が常に先手になるのをやめたい
+- 毎ラウンド席を入れ替えて手番の並びを変える
+
+### 実施内容
+1. `doStartGame`: 席シャッフル後、生存席からランダムに先手
+2. `doStartRound`: 毎ラウンド席シャッフル。直前チャレンジの敗者（生存）が先手、いなければ生存者からランダム
+3. `docs/game-rules.md` / `phase1-multiplayer.md` / help 基本ルールを更新
+4. 席順前提のテストを `pinSeats` または動的先手参照に修正。席替え・ランダム先手の単体テストを追加
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/domain/game/engine.ts` | `reshuffleSeats`、開始・ラウンド開始のランダム／席替え |
+| `docs/game-rules.md` | 席替え・ランダム先手の確定表 |
+| `docs/phase1-multiplayer.md` | start 時の seat 説明 |
+| `src/data/helpContent.ts` | HELP_BASICS に一文 |
+| `tests/domain/game/engine.test.ts` | ランダム先手・席替えテスト |
+| `tests/domain/game/extraRules.test.ts` | `pinSeats` で固定リング |
+
+### 明示的にやっていないこと
+- ロビー一覧の表示順シャッフル（対戦中の game.seat のみ）
+- 席替えアニメーション UI
+- 敗者先手ルールの撤廃（席替え後も敗者から開始）
+
+### 確認結果
+- `npm test` 274 件パス
+
+### 次に考えられる作業
+1. ラウンド開始時に席が変わったことが分かる UI 演出
+2. 実プレイで先手偏りがないか確認
+
+---
+
+## 2026-07-20 — 山札残枚数の表示
+
+### 背景・目的
+- ゲーム中に山札の残り枚数を見せたい
+- ラウンド間で山がフルリセットされるなら不要だが、実装は **リセットしない**（手札→捨て札、切れ時に捨て札を戻す）ため残枚表示は意味がある
+
+### 実施内容
+1. `GameRoomMock.deckRemaining` を追加。local `toGameView` / online `MaskedGamePayload` から `state.deck.length` を公開
+2. ステータス帯に「山札 N」チップ（タップで `DeckInfoModal`）
+3. `DeckInfoModal` に「いまの山札・残り N 枚」を追加（構成合計と区別）
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/types/game.ts` | `deckRemaining` |
+| `src/mappers/toGameView.ts` / `onlineToGameView.ts` | マッピング |
+| `worker/maskedView.ts` / `src/online/protocol.ts` | wire に `deckRemaining` |
+| `src/components/game/Game*Layout.vue` | ステータス帯チップ |
+| `src/components/game/DeckInfoModal.vue` | 残枚ハイライト |
+| `src/data/mockGame.ts` | mock 値 |
+| tests | mapper / maskedView |
+
+### 明示的にやっていないこと
+- 捨て札枚数の表示
+- 山札切れ直前の警告演出
+- ヘルプ本文への追記
+
+### 確認結果
+- mapper / maskedView 単体テストパス
+- `npm run typecheck` パス
+
+### 次に考えられる作業
+1. 残枚が少ないときの視覚強調
+2. 捨て札枚数も出して「次シャッフルまで」感を出す

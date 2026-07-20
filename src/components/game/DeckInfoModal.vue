@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * In-game mountain deck info (recipe totals only — not remaining draw pile).
+ * In-game mountain deck info: recipe totals + optional live draw-pile remaining.
  */
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import BidCard from '@/components/game/BidCard.vue'
@@ -18,6 +18,8 @@ import type { WireDeckComposition } from '@/online/protocol'
 const props = defineProps<{
   open: boolean
   deck?: WireDeckComposition | DeckComposition | null
+  /** Live draw pile remaining (public). Omit when unknown. */
+  deckRemaining?: number | null
 }>()
 
 const emit = defineEmits<{
@@ -60,6 +62,11 @@ const composition = computed(() => toComposition(props.deck))
 const total = computed(() => countCards(composition.value))
 const summary = computed(() => deckSummaryLabel(composition.value))
 const isStandard = computed(() => isStandardDeckComposition(composition.value))
+const remaining = computed(() => {
+  const n = props.deckRemaining
+  if (typeof n !== 'number' || !Number.isFinite(n)) return null
+  return Math.max(0, Math.floor(n))
+})
 
 const numberCardTotal = computed(() =>
   composition.value.numbers.reduce((sum, n) => sum + n.count, 0),
@@ -201,14 +208,41 @@ onUnmounted(() => {
               <span class="text-xs text-sand-dim">{{ summary }}</span>
             </div>
 
+            <div
+              v-if="remaining != null"
+              class="mb-4 flex flex-wrap items-end gap-4 rounded-xl border border-gold-400/25 bg-gold-400/8 px-3 py-3"
+            >
+              <div class="min-w-0">
+                <p class="text-[10px] font-medium uppercase tracking-wider text-gold-300/90">
+                  いまの山札
+                </p>
+                <div class="mt-1 flex items-baseline gap-1.5">
+                  <span
+                    class="font-display text-4xl font-bold tabular-nums leading-none text-gold-100"
+                  >
+                    {{ remaining }}
+                  </span>
+                  <span class="pb-0.5 text-sm font-medium text-sand-dim">枚 残り</span>
+                </div>
+              </div>
+              <p class="max-w-[14rem] pb-1 text-[11px] leading-relaxed text-sand-dim">
+                ラウンドをまたいでも山はリセットしません。切れたら捨て札を戻してシャッフルします。
+              </p>
+            </div>
+
             <div class="mb-5 flex flex-wrap items-end gap-4">
-              <div class="flex items-baseline gap-1.5">
-                <span
-                  class="font-display text-5xl font-bold tabular-nums leading-none text-gold-100"
-                >
-                  {{ total }}
-                </span>
-                <span class="pb-1 text-base font-medium text-sand-dim">枚</span>
+              <div class="min-w-0">
+                <p class="text-[10px] font-medium uppercase tracking-wider text-sand-dim">
+                  構成（全部）
+                </p>
+                <div class="mt-1 flex items-baseline gap-1.5">
+                  <span
+                    class="font-display text-5xl font-bold tabular-nums leading-none text-gold-100"
+                  >
+                    {{ total }}
+                  </span>
+                  <span class="pb-1 text-base font-medium text-sand-dim">枚</span>
+                </div>
               </div>
               <div class="flex flex-wrap gap-2 pb-1">
                 <span
@@ -233,7 +267,7 @@ onUnmounted(() => {
             </div>
 
             <p class="mb-4 rounded-xl border border-gold-400/15 bg-night-900/50 px-3 py-2 text-[11px] leading-relaxed text-sand-dim">
-              ゲーム開始時に決めた<strong class="font-medium text-sand">山札の中身（全部で何枚か）</strong>です。いま山に何枚残っているかではありません。
+              下の一覧は<strong class="font-medium text-sand">開始時に決めた山札の中身</strong>です。残枚数は配札・ドロー・捨て札ミックスなどで減ります。
             </p>
 
             <p class="mb-2 text-[10px] font-medium uppercase tracking-[0.14em] text-sand-dim">

@@ -63,6 +63,12 @@ export interface GameRoomMock {
   roomCode: string
   playerCount: number
   round: number
+  /**
+   * Cards left in the draw pile (public).
+   * Not the recipe total — hands go to discard between rounds; pile is only
+   * reshuffled from discard when empty (or via zero_mix).
+   */
+  deckRemaining: number
   /** Current bid; null when no one has declared this round */
   currentBid: number | null
   /** How many seats until local player's turn */

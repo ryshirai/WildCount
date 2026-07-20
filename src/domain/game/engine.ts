@@ -6,6 +6,7 @@ import {
   validateDeckComposition,
 } from './deck'
 import type { RandomSource } from './random'
+import { randomInt } from './random'
 import {
   alivePlayers,
   allHandCards,
@@ -206,38 +207,51 @@ function doStartGame(state: GameState, rng: RandomSource): GameState {
   if (state.phase !== 'lobby') {
     throw new GameError('START_GAME only from lobby', 'INVALID_PHASE')
   }
+  // Seat order is join-order in lobby; randomize before first deal so the host
+  // (typically seat 0 / first joiner) is not always the opener.
+  const players = reshuffleSeats(state.players, rng)
+  const startSeat = randomInt(rng, 0, players.length - 1)
   const deck = shuffle(createDeck(state.config.deck), rng)
   const withDeck = resetRoundExtras({
     ...state,
+    players,
     deck,
     discard: [],
     revision: state.revision + 1,
   })
-  return dealAndEnterBidding(withDeck, rng, /* startSeat */ 0)
+  return dealAndEnterBidding(withDeck, rng, startSeat)
 }
 
 function doStartRound(state: GameState, rng: RandomSource): GameState {
   const err = describeIllegal(state, { type: 'START_ROUND' })
   if (err) throw new GameError(err, 'INVALID_ACTION')
 
-  // Next round starts with the next alive seat after previous starter,
-  // or the loser of the last challenge if available (Coyote-ish feel).
-  let startSeat = state.roundStartSeatIndex
+  // Prefer the last challenge loser as opener (by id — seats change below).
+  let starterId: PlayerId | null = null
   if (state.lastOutcome) {
     const loser = state.players.find((p) => p.id === state.lastOutcome!.loserId)
-    if (loser && loser.alive) {
-      startSeat = loser.seatIndex
-    } else {
-      startSeat = nextAliveSeatIndex(state.players, state.roundStartSeatIndex)
+    if (loser?.alive) {
+      starterId = loser.id
     }
+  }
+
+  // Reseat every round so turn order around the table changes.
+  const players = reshuffleSeats(state.players, rng)
+
+  let startSeat: number
+  if (starterId != null) {
+    startSeat = players.find((p) => p.id === starterId)!.seatIndex
   } else {
-    startSeat = nextAliveSeatIndex(state.players, state.roundStartSeatIndex)
+    // Loser already out (or no outcome): random living opener.
+    const living = alivePlayers(players)
+    startSeat = living[randomInt(rng, 0, living.length - 1)]!.seatIndex
   }
 
   // Move previous hands to discard before re-deal (no-op if already cleared)
   const prevCards = allHandCards(state.hands)
   const withDiscard = resetRoundExtras({
     ...state,
+    players,
     discard: [...state.discard, ...prevCards],
     hands: {},
     // Keep lastOutcome until the next challenge overwrites it
@@ -699,6 +713,20 @@ function ensureDeckHasCards(
 // Seat helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * Reassign seatIndex 0..n-1 by shuffling player order.
+ * Used at game start and at every new round (席替え).
+ */
+function reshuffleSeats(
+  players: readonly Player[],
+  rng: RandomSource,
+): Player[] {
+  return shuffle(players, rng).map((p, seatIndex) => ({
+    ...p,
+    seatIndex,
+  }))
+}
+
 export function nextAlivePlayerId(
   players: readonly Player[],
   afterId: PlayerId,
@@ -715,14 +743,4 @@ export function nextAlivePlayerId(
   const n = living.length
   const step = direction === 1 ? 1 : -1
   return living[(idx + step + n) % n]!.id
-}
-
-function nextAliveSeatIndex(
-  players: readonly Player[],
-  afterSeat: number,
-): number {
-  const living = alivePlayers(players).sort((a, b) => a.seatIndex - b.seatIndex)
-  const higher = living.find((p) => p.seatIndex > afterSeat)
-  if (higher) return higher.seatIndex
-  return living[0]!.seatIndex
 }

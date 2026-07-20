@@ -287,6 +287,7 @@ const isLgUp = useIsLgUp()
     <DeckInfoModal
       :open="s.deckInfoOpen"
       :deck="s.roomDeck"
+      :deck-remaining="s.room?.deckRemaining ?? null"
       @close="s.deckInfoOpen = false"
     />
 

@@ -41,10 +41,16 @@ export function onlineToGameView(
       ? Math.max(0, Math.floor(game.roundBidCount))
       : seats.filter((s) => s.hasDeclared).length
 
+  const deckRemaining =
+    typeof game.deckRemaining === 'number' && Number.isFinite(game.deckRemaining)
+      ? Math.max(0, Math.floor(game.deckRemaining))
+      : 0
+
   return {
     roomCode: view.roomCode,
     playerCount: view.playerCount,
     round: game.round,
+    deckRemaining,
     currentBid: game.currentBid,
     turnsUntilSelf: game.turnsUntilSelf,
     players: seats,

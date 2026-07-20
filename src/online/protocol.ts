@@ -215,6 +215,11 @@ export interface MaskedGamePayload {
   extraActionUsedThisRound?: readonly string[]
   /** Confirmed PLACE_BID count this round (HEAT / RALLY). Optional for older servers. */
   roundBidCount?: number
+  /**
+   * Draw pile remaining (public). Not recipe total.
+   * Optional for older servers — client may fall back to 0.
+   */
+  deckRemaining?: number
 }
 
 export interface PendingResultSnapshot {

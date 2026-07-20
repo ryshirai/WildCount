@@ -83,6 +83,11 @@ export interface MaskedGamePayload {
    * Does not include SAME (value unchanged) — only PLACE_BID history length.
    */
   roundBidCount: number
+  /**
+   * Draw pile remaining (public). Not recipe total; persists across rounds
+   * until discard reshuffle / zero_mix.
+   */
+  deckRemaining: number
 }
 
 export interface PendingResultSnapshot {
@@ -167,6 +172,7 @@ export function buildMaskedGame(
     aliveOrdered,
     game.currentTurnPlayerId,
     selfPlayerId,
+    game.turnDirection,
   )
 
   const minBid = minBidValue(game)
@@ -202,6 +208,7 @@ export function buildMaskedGame(
     draw1UsedThisRound: game.draw1UsedThisRound,
     extraActionUsedThisRound: game.extraActionUsedThisRound,
     roundBidCount: currentRoundBids.length,
+    deckRemaining: game.deck.length,
   }
 }
 
@@ -240,10 +247,15 @@ export function assertNoSelfHandLeak(
   }
 }
 
+/**
+ * Seats from current turn to self along turnDirection.
+ * Must honor reverse (−1) so “あと N 人” matches actual turn order.
+ */
 export function computeTurnsUntilSelf(
   aliveIdsInSeatOrder: readonly string[],
   currentTurnPlayerId: string | null,
   selfId: string | null,
+  turnDirection: 1 | -1 = 1,
 ): number {
   if (
     currentTurnPlayerId == null ||
@@ -257,7 +269,9 @@ export function computeTurnsUntilSelf(
   const start = aliveIdsInSeatOrder.indexOf(currentTurnPlayerId)
   const selfIdx = aliveIdsInSeatOrder.indexOf(selfId)
   if (start < 0 || selfIdx < 0) return 0
-  return (selfIdx - start + n) % n
+  return turnDirection === 1
+    ? (selfIdx - start + n) % n
+    : (start - selfIdx + n) % n
 }
 
 export function viewPhase(

@@ -99,6 +99,7 @@ function sampleView(): PlayerView {
       legalMoves: [],
       isGameOver: false,
       roundBidCount: 1,
+      deckRemaining: 28,
     },
   }
 }
@@ -112,6 +113,7 @@ describe('onlineToGameView', () => {
     expect(vm!.canChallenge).toBe(true)
     expect(vm!.minBid).toBe(4)
     expect(vm!.roundBidCount).toBe(1)
+    expect(vm!.deckRemaining).toBe(28)
     expect(vm!.lastBidderId).toBe('b')
     expect(vm!.currentTurnPlayerId).toBe('a')
 

@@ -5,6 +5,7 @@ import {
   buildMaskedGame,
   buildPendingResultSnapshot,
   cardToWire,
+  computeTurnsUntilSelf,
 } from './maskedView'
 import type { RoomPlayer } from './roomLogic'
 
@@ -49,6 +50,9 @@ describe('maskedView', () => {
     expect(json).not.toContain(selfCard.id)
     expect(json).toContain(game.hands['b']![0]!.id)
     expect(payload.roundBidCount).toBe(0)
+    // Public draw pile size (recipe − dealt hands)
+    expect(payload.deckRemaining).toBe(game.deck.length)
+    expect(payload.deckRemaining).toBeGreaterThan(0)
   })
 
   it('exposes roundBidCount from public bid history', () => {
@@ -104,5 +108,39 @@ describe('maskedView', () => {
 
   it('cardToWire preserves kind/value', () => {
     expect(cardToWire({ id: 'x', kind: 'number', value: -1 }).value).toBe(-1)
+  })
+
+  it('turnsUntilSelf follows reverse turnDirection', () => {
+    const ids = ['a', 'b', 'c', 'd']
+    // Forward: from b to a = 3; reverse: from b to a = 1
+    expect(computeTurnsUntilSelf(ids, 'b', 'a', 1)).toBe(3)
+    expect(computeTurnsUntilSelf(ids, 'b', 'a', -1)).toBe(1)
+
+    let game = startGame(
+      { playerIds: ids, config: { extraRules: { reverse: true } } },
+      seedRandom(1),
+    )
+    // Pin seats a,b,c,d so reverse from b → a is 1 step
+    game = {
+      ...game,
+      players: ids.map((id, seatIndex) => {
+        const p = game.players.find((x) => x.id === id)!
+        return { ...p, seatIndex }
+      }),
+      turnDirection: -1,
+      currentTurnPlayerId: 'b',
+      currentBid: 3,
+      currentBidderId: 'b',
+      roundStartSeatIndex: 1,
+    }
+    const payload = buildMaskedGame(
+      game,
+      'a',
+      roomPlayers(ids),
+      [{ playerId: 'b', value: 3, round: 1 }],
+      'a',
+    )
+    expect(payload.turnDirection).toBe(-1)
+    expect(payload.turnsUntilSelf).toBe(1)
   })
 })

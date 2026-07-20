@@ -117,9 +117,9 @@ const emit = defineEmits<{
       @leave="emit('leave')"
     />
 
-    <!-- Status under header: always names whose turn during bidding -->
+    <!-- Status under header: turn line + deck remaining chip -->
     <div
-      v-if="paceHint"
+      v-if="paceHint || (!coyoteBanner && !awaitingResultView)"
       class="flex shrink-0 items-center justify-center gap-2.5 border-b px-3 py-2.5 text-center text-sm font-medium backdrop-blur-md"
       :class="[
         awaitingResultView
@@ -136,27 +136,39 @@ const emit = defineEmits<{
       role="status"
       aria-live="polite"
     >
-      <span
-        v-if="botsRunning"
-        class="inline-flex h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-gold-300 shadow-[0_0_8px_rgba(201,168,76,0.7)]"
-        aria-hidden="true"
-      />
-      <span
-        v-else-if="awaitingResultView"
-        class="inline-flex h-2.5 w-2.5 shrink-0 rounded-full bg-teal-soft shadow-[0_0_8px_rgba(42,138,138,0.6)]"
-        aria-hidden="true"
-      />
-      <span
-        v-else-if="gameView?.isSelfTurn"
-        class="inline-flex h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-gold-300 shadow-[0_0_10px_rgba(201,168,76,0.75)]"
-        aria-hidden="true"
-      />
-      <span
-        v-else
-        class="inline-flex h-2.5 w-2.5 shrink-0 rounded-full bg-gold-400/70"
-        aria-hidden="true"
-      />
-      <span class="min-w-0 truncate">{{ paceHint }}</span>
+      <template v-if="paceHint">
+        <span
+          v-if="botsRunning"
+          class="inline-flex h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-gold-300 shadow-[0_0_8px_rgba(201,168,76,0.7)]"
+          aria-hidden="true"
+        />
+        <span
+          v-else-if="awaitingResultView"
+          class="inline-flex h-2.5 w-2.5 shrink-0 rounded-full bg-teal-soft shadow-[0_0_8px_rgba(42,138,138,0.6)]"
+          aria-hidden="true"
+        />
+        <span
+          v-else-if="gameView?.isSelfTurn"
+          class="inline-flex h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-gold-300 shadow-[0_0_10px_rgba(201,168,76,0.75)]"
+          aria-hidden="true"
+        />
+        <span
+          v-else
+          class="inline-flex h-2.5 w-2.5 shrink-0 rounded-full bg-gold-400/70"
+          aria-hidden="true"
+        />
+        <span class="min-w-0 truncate">{{ paceHint }}</span>
+      </template>
+      <button
+        v-if="!awaitingResultView && !coyoteBanner"
+        type="button"
+        class="shrink-0 rounded-full border border-gold-400/25 bg-night-950/50 px-2.5 py-0.5 text-[11px] font-medium tabular-nums text-sand-dim transition hover:border-gold-400/45 hover:text-gold-100"
+        :aria-label="`山札 残り${room.deckRemaining}枚。内容を見る`"
+        @click="emit('deck')"
+      >
+        山札
+        <span class="font-semibold text-gold-200">{{ room.deckRemaining }}</span>
+      </button>
     </div>
 
     <!-- Card reveal (main body under header) -->

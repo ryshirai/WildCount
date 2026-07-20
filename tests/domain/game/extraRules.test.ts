@@ -33,6 +33,31 @@ function withHands(
   return { ...state, hands: normalized }
 }
 
+/**
+ * Pin seats after startGame (which reseats randomly) so turn-order assertions
+ * can use a fixed ring. Default starter is order[0].
+ */
+function pinSeats(
+  state: GameState,
+  order: readonly PlayerId[],
+  starterId?: PlayerId,
+): GameState {
+  const byId = new Map(state.players.map((p) => [p.id, p]))
+  const players = order.map((id, seatIndex) => {
+    const p = byId.get(id)
+    if (!p) throw new Error(`pinSeats: missing ${id}`)
+    return { ...p, seatIndex }
+  })
+  const startId = starterId ?? order[0]!
+  const startSeat = players.find((p) => p.id === startId)!.seatIndex
+  return {
+    ...state,
+    players,
+    currentTurnPlayerId: startId,
+    roundStartSeatIndex: startSeat,
+  }
+}
+
 function n(value: number, id: string): Card {
   return { id, kind: 'number', value }
 }
@@ -51,7 +76,7 @@ describe('ExtraRulesConfig defaults', () => {
 
   it('OFF: legal moves are only PLACE_BID / CHALLENGE (no SAME/CHANGE)', () => {
     const rng = seedRandom(1)
-    let state = startGame({ playerIds: ['a', 'b'] }, rng)
+    let state = pinSeats(startGame({ playerIds: ['a', 'b'] }, rng), ['a', 'b'])
     expect(getLegalMoves(state).map((m) => m.type)).toEqual(['PLACE_BID'])
     state = applyAction(state, { type: 'PLACE_BID', value: 1 }, rng)
     const types = getLegalMoves(state).map((m) => m.type).sort()
@@ -60,7 +85,7 @@ describe('ExtraRulesConfig defaults', () => {
 
   it('OFF: attaching reverse is illegal', () => {
     const rng = seedRandom(2)
-    const state = startGame({ playerIds: ['a', 'b'] }, rng)
+    const state = pinSeats(startGame({ playerIds: ['a', 'b'] }, rng), ['a', 'b'])
     expect(() =>
       applyAction(
         state,
@@ -102,12 +127,15 @@ describe('half card via deck composition (not extra toggle)', () => {
 describe('ER-2 same', () => {
   it('keeps bid, advances turn, forbids consecutive same', () => {
     const rng = seedRandom(4)
-    let state = startGame(
-      {
-        playerIds: ['a', 'b', 'c'],
-        config: { extraRules: { same: true } },
-      },
-      rng,
+    let state = pinSeats(
+      startGame(
+        {
+          playerIds: ['a', 'b', 'c'],
+          config: { extraRules: { same: true } },
+        },
+        rng,
+      ),
+      ['a', 'b', 'c'],
     )
     state = applyAction(state, { type: 'PLACE_BID', value: 5 }, rng)
     expect(state.currentTurnPlayerId).toBe('b')
@@ -128,19 +156,21 @@ describe('ER-2 same', () => {
 
   it('consumes personal action slot (cannot same again later this round)', () => {
     const rng = seedRandom(41)
-    let state = startGame(
-      {
-        playerIds: ['a', 'b', 'c'],
-        config: { extraRules: { same: true, reverse: true } },
-      },
-      rng,
+    let state = pinSeats(
+      startGame(
+        {
+          playerIds: ['a', 'b', 'c'],
+          config: { extraRules: { same: true, reverse: true } },
+        },
+        rng,
+      ),
+      ['a', 'b', 'c'],
     )
     // a bids, b sames (uses slot), c bids, a cannot same again
     state = applyAction(state, { type: 'PLACE_BID', value: 2 }, rng)
     state = applyAction(state, { type: 'SAME' }, rng)
     expect(state.extraActionUsedThisRound).toContain('b')
     state = applyAction(state, { type: 'PLACE_BID', value: 3 }, rng)
-    // b's turn again after a... wait: after c bids next is a, then b
     // From b same → c, c bids 3 → a, a bids 4 → b
     state = applyAction(state, { type: 'PLACE_BID', value: 4 }, rng)
     expect(state.currentTurnPlayerId).toBe('b')
@@ -160,9 +190,12 @@ describe('ER-2 same', () => {
 
   it('cannot same on opening (no bid)', () => {
     const rng = seedRandom(5)
-    const state = startGame(
-      { playerIds: ['a', 'b'], config: { extraRules: { same: true } } },
-      rng,
+    const state = pinSeats(
+      startGame(
+        { playerIds: ['a', 'b'], config: { extraRules: { same: true } } },
+        rng,
+      ),
+      ['a', 'b'],
     )
     expect(() => applyAction(state, { type: 'SAME' }, rng)).toThrow()
   })
@@ -171,12 +204,15 @@ describe('ER-2 same', () => {
 describe('ER-3 reverse + personal action frame', () => {
   it('reverses direction and consumes personal slot', () => {
     const rng = seedRandom(6)
-    let state = startGame(
-      {
-        playerIds: ['a', 'b', 'c'],
-        config: { extraRules: { reverse: true } },
-      },
-      rng,
+    let state = pinSeats(
+      startGame(
+        {
+          playerIds: ['a', 'b', 'c'],
+          config: { extraRules: { reverse: true } },
+        },
+        rng,
+      ),
+      ['a', 'b', 'c'],
     )
     // a seats 0, b 1, c 2; reverse → next is c (direction -1)
     state = applyAction(
@@ -198,12 +234,15 @@ describe('ER-3 reverse + personal action frame', () => {
 describe('ER-3b change', () => {
   it('7→9→change allows 8 and 10+, forbids 9 and ≤7', () => {
     const rng = seedRandom(7)
-    let state = startGame(
-      {
-        playerIds: ['a', 'b', 'c'],
-        config: { extraRules: { change: true } },
-      },
-      rng,
+    let state = pinSeats(
+      startGame(
+        {
+          playerIds: ['a', 'b', 'c'],
+          config: { extraRules: { change: true } },
+        },
+        rng,
+      ),
+      ['a', 'b', 'c'],
     )
     // a=7, b=9, c change
     state = applyAction(state, { type: 'PLACE_BID', value: 7 }, rng)
@@ -240,12 +279,15 @@ describe('ER-3b change', () => {
 
   it('opening-only change: rebid ≠ B and ≥ minOpeningBid', () => {
     const rng = seedRandom(8)
-    let state = startGame(
-      {
-        playerIds: ['a', 'b'],
-        config: { extraRules: { change: true } },
-      },
-      rng,
+    let state = pinSeats(
+      startGame(
+        {
+          playerIds: ['a', 'b'],
+          config: { extraRules: { change: true } },
+        },
+        rng,
+      ),
+      ['a', 'b'],
     )
     state = applyAction(state, { type: 'PLACE_BID', value: 3 }, rng)
     state = applyAction(state, { type: 'CHANGE' }, rng)
@@ -266,12 +308,15 @@ describe('ER-3b change', () => {
 describe('ER-4 shot', () => {
   it('names next turn player (not self)', () => {
     const rng = seedRandom(9)
-    let state = startGame(
-      {
-        playerIds: ['a', 'b', 'c'],
-        config: { extraRules: { shot: true } },
-      },
-      rng,
+    let state = pinSeats(
+      startGame(
+        {
+          playerIds: ['a', 'b', 'c'],
+          config: { extraRules: { shot: true } },
+        },
+        rng,
+      ),
+      ['a', 'b', 'c'],
     )
     state = applyAction(
       state,
@@ -290,12 +335,15 @@ describe('ER-4 shot', () => {
 
   it('cannot shot self', () => {
     const rng = seedRandom(10)
-    const state = startGame(
-      {
-        playerIds: ['a', 'b'],
-        config: { extraRules: { shot: true } },
-      },
-      rng,
+    const state = pinSeats(
+      startGame(
+        {
+          playerIds: ['a', 'b'],
+          config: { extraRules: { shot: true } },
+        },
+        rng,
+      ),
+      ['a', 'b'],
     )
     expect(() =>
       applyAction(
@@ -310,15 +358,18 @@ describe('ER-4 shot', () => {
 describe('ER-5 life double', () => {
   it('next challenge loses 2 lives; raise clears the flag', () => {
     const rng = seedRandom(11)
-    let state = startGame(
-      {
-        playerIds: ['a', 'b'],
-        config: {
-          initialLives: 3,
-          extraRules: { lifeDouble: true },
+    let state = pinSeats(
+      startGame(
+        {
+          playerIds: ['a', 'b'],
+          config: {
+            initialLives: 3,
+            extraRules: { lifeDouble: true },
+          },
         },
-      },
-      rng,
+        rng,
+      ),
+      ['a', 'b'],
     )
     state = withHands(state, {
       a: n(1, 'ha'),
@@ -338,15 +389,18 @@ describe('ER-5 life double', () => {
 
   it('challenge after life_double applies −2', () => {
     const rng = seedRandom(12)
-    let state = startGame(
-      {
-        playerIds: ['a', 'b'],
-        config: {
-          initialLives: 3,
-          extraRules: { lifeDouble: true },
+    let state = pinSeats(
+      startGame(
+        {
+          playerIds: ['a', 'b'],
+          config: {
+            initialLives: 3,
+            extraRules: { lifeDouble: true },
+          },
         },
-      },
-      rng,
+        rng,
+      ),
+      ['a', 'b'],
     )
     // Force low total so bidder loses on high challenge
     state = withHands(state, {
@@ -367,12 +421,15 @@ describe('ER-5 life double', () => {
 
   it('same clears pendingLifeDouble', () => {
     const rng = seedRandom(13)
-    let state = startGame(
-      {
-        playerIds: ['a', 'b', 'c'],
-        config: { extraRules: { lifeDouble: true, same: true } },
-      },
-      rng,
+    let state = pinSeats(
+      startGame(
+        {
+          playerIds: ['a', 'b', 'c'],
+          config: { extraRules: { lifeDouble: true, same: true } },
+        },
+        rng,
+      ),
+      ['a', 'b', 'c'],
     )
     state = applyAction(
       state,
@@ -388,12 +445,15 @@ describe('ER-5 life double', () => {
 describe('ER-6 draw1', () => {
   it('adds one card to target; once per round; not self', () => {
     const rng = seedRandom(14)
-    let state = startGame(
-      {
-        playerIds: ['a', 'b', 'c'],
-        config: { extraRules: { draw1: true } },
-      },
-      rng,
+    let state = pinSeats(
+      startGame(
+        {
+          playerIds: ['a', 'b', 'c'],
+          config: { extraRules: { draw1: true } },
+        },
+        rng,
+      ),
+      ['a', 'b', 'c'],
     )
     expect(state.hands.b).toHaveLength(1)
     state = applyAction(
@@ -421,12 +481,15 @@ describe('ER-6 draw1', () => {
 
   it('cannot draw1 self', () => {
     const rng = seedRandom(15)
-    const state = startGame(
-      {
-        playerIds: ['a', 'b'],
-        config: { extraRules: { draw1: true } },
-      },
-      rng,
+    const state = pinSeats(
+      startGame(
+        {
+          playerIds: ['a', 'b'],
+          config: { extraRules: { draw1: true } },
+        },
+        rng,
+      ),
+      ['a', 'b'],
     )
     expect(() =>
       applyAction(
@@ -441,12 +504,15 @@ describe('ER-6 draw1', () => {
 describe('personal action frame shared', () => {
   it('change and reverse share the same slot', () => {
     const rng = seedRandom(16)
-    let state = startGame(
-      {
-        playerIds: ['a', 'b', 'c'],
-        config: { extraRules: allExtrasOn() },
-      },
-      rng,
+    let state = pinSeats(
+      startGame(
+        {
+          playerIds: ['a', 'b', 'c'],
+          config: { extraRules: allExtrasOn() },
+        },
+        rng,
+      ),
+      ['a', 'b', 'c'],
     )
     state = applyAction(
       state,
@@ -468,12 +534,15 @@ describe('personal action frame shared', () => {
 
   it('same and change share the same slot', () => {
     const rng = seedRandom(17)
-    let state = startGame(
-      {
-        playerIds: ['a', 'b', 'c'],
-        config: { extraRules: { same: true, change: true } },
-      },
-      rng,
+    let state = pinSeats(
+      startGame(
+        {
+          playerIds: ['a', 'b', 'c'],
+          config: { extraRules: { same: true, change: true } },
+        },
+        rng,
+      ),
+      ['a', 'b', 'c'],
     )
     state = applyAction(state, { type: 'PLACE_BID', value: 1 }, rng)
     state = applyAction(state, { type: 'SAME' }, rng)
