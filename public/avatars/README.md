@@ -16,7 +16,7 @@ Phase **B0–B1** layout for player portrait assets. Spec: [`docs/design-polish-
 
 Code catalog: `src/localGame/avatarCatalog.ts`.
 
-## Full set (10)
+## Full set (15)
 
 | File | Character | Status |
 |------|-----------|--------|
@@ -30,3 +30,8 @@ Code catalog: `src/localGame/avatarCatalog.ts`.
 | `falcon.webp` | ハヤブサ | ✅ |
 | `squirrel.webp` | リス | ✅ |
 | `coyote.webp` | コヨーテ | ✅（ブランド寄り・任意） |
+| `koi.webp` | コイ（煽り） | ✅ |
+| `crow.webp` | カラス（煽り） | ✅ |
+| `peacock.webp` | クジャク（煽り） | ✅ |
+| `hyena.webp` | ハイエナ（煽り） | ✅ |
+| `cat.webp` | ネコ（煽り） | ✅ |

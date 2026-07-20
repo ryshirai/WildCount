@@ -16,9 +16,9 @@ public/stamps/{avatarId}/{stampId}.webp
 | Master | 1024 generate → downscale |
 | Fallback | Stamp emoji from `STAMP_CATALOG` |
 
-## Animals (10)
+## Animals (15)
 
-Same ids as `AVATAR_ASSETS`: `self`, `owl`, `kit`, `raccoon`, `wolf`, `fox`, `deer`, `falcon`, `squirrel`, `coyote`.
+Same ids as `AVATAR_ASSETS`: `self`, `owl`, `kit`, `raccoon`, `wolf`, `fox`, `deer`, `falcon`, `squirrel`, `coyote`, `koi`, `crow`, `peacock`, `hyena`, `cat`.
 
 ## Emotions (9)
 
@@ -40,7 +40,7 @@ Brand stamp `coyote` (🐺) stays **emoji-only** for every seat.
 
 ## Total
 
-**10 animals × 9 emotions = 90** WebP files.
+**15 animals × 9 emotions = 135** WebP files.
 
 ## Runtime
 

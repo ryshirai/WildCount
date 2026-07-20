@@ -2,7 +2,7 @@
  * Client stamp catalog (UX-7). Keep in sync with worker/types.ts STAMP_CATALOG.
  *
  * Character-skinned art: `public/stamps/{avatarId}/{stampId}.webp`
- * for the 9 emotion stamps × 10 avatar animals (not the brand `coyote` stamp).
+ * for the 9 emotion stamps × 15 avatar animals (not the brand `coyote` stamp).
  */
 
 import type { AvatarAssetId } from '@/localGame/avatarCatalog'

@@ -711,7 +711,7 @@ watch(
               @update:model-value="onAvatarPick"
             />
             <p class="mt-1.5 text-[11px] text-sand-dim">
-              タップですぐ反映。カタログ 10 種・他の人と被っても構いません
+              タップですぐ反映。カタログ 15 種・他の人と被っても構いません
             </p>
           </div>
         </section>

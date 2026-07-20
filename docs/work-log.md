@@ -3520,3 +3520,42 @@
 1. D0: 現在の FX 発火点を棚卸しし、共通分類と event identity を実装
 2. D1: HEAT / RALLY / RAISE と入力フィードバックを実装
 3. D2: 音量・ミュート対応の SFX 基盤を実装
+
+## 2026-07-20 — 煽り動物アバター 5 体追加（コイ含む）
+
+### 背景・目的
+- アバター選択肢を増やし、煽り高めのキャラクターで卓のノリを強化したい
+
+### 実施内容
+1. **カタログ** — `AvatarAssetId` / `AVATAR_ASSETS` に 5 体追加（`koi` / `crow` / `peacock` / `hyena` / `cat`）。`AVATAR_COUNT` = 15（ワイヤ index 0..14）
+2. **ポートレート** — 夜砂漠・金縁光スタイルで 5 体 WebP 生成 → `public/avatars/{id}.webp`（256×256）
+3. **スタンプ** — 各 9 感情 × 5 = 45 枚 → `public/stamps/{id}/`。合計 15×9=135
+4. **UI/docs** — Lobby 文言・README・backlog・design-polish-plan を 15 種に追随
+5. **テスト** — catalog / roomLogic avatarIndex 境界を 15 前提に更新
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/localGame/avatarCatalog.ts` | 5 id + メタ |
+| `public/avatars/{koi,crow,peacock,hyena,cat}.webp` | 新規ポートレート |
+| `public/stamps/{koi,crow,peacock,hyena,cat}/**` | 各 9 感情 |
+| `tests/localGame/avatarCatalog.test.ts` | COUNT=15 |
+| `worker/roomLogic.test.ts` | index 14 有効 / 15 無効 |
+| `src/views/LobbyView.vue` | カタログ 15 種 |
+| `public/avatars/README.md` / `public/stamps/README.md` | 件数更新 |
+| `docs/backlog.md` / `docs/design-polish-plan.md` | 15 種反映 |
+
+### 明示的にやっていないこと
+- デモ bot の差し替え（従来どおり owl/kit/wolf）
+- ブランド `coyote` スタンプの動物差分
+- ヘルプ本文のカタログ数更新
+- 本番デプロイ
+
+### 確認結果
+- 15 アバター + 135 スタンプ欠落なし（いずれも 256×256 WebP）
+- `avatarCatalog` / `stamps` / `roomLogic` テスト緑
+
+### 次に考えられる作業
+1. ヘルプに「アバター 15 種・スタンプは自分のキャラ姿」を追記
+2. 煽り系の表示名をさらに尖らせる案（例: コイ→「登竜門」など）は任意
+3. ローカルデモ bot に新キャラを混ぜる

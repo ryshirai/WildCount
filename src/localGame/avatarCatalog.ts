@@ -17,6 +17,11 @@ export type AvatarAssetId =
   | 'falcon'
   | 'squirrel'
   | 'coyote'
+  | 'koi'
+  | 'crow'
+  | 'peacock'
+  | 'hyena'
+  | 'cat'
 
 export interface AvatarAssetMeta {
   id: AvatarAssetId
@@ -33,7 +38,7 @@ export function avatarSrc(id: AvatarAssetId): string {
   return `/avatars/${id}.webp`
 }
 
-/** Full catalog — order is display / generation priority for the 10-set. */
+/** Full catalog — order is display order in AvatarPicker (stable wire indices). */
 export const AVATAR_ASSETS: readonly AvatarAssetMeta[] = [
   { id: 'self', name: 'あなた', emoji: '🐻', note: 'Local player; brown bear portrait' },
   { id: 'owl', name: 'フクロウ', emoji: '🦉', note: 'Cowboy hat OK (mock)' },
@@ -45,6 +50,12 @@ export const AVATAR_ASSETS: readonly AvatarAssetMeta[] = [
   { id: 'falcon', name: 'ハヤブサ', emoji: '🦅' },
   { id: 'squirrel', name: 'リス', emoji: '🐿️' },
   { id: 'coyote', name: 'コヨーテ', emoji: '🐺', note: 'Brand-leaning; optional' },
+  // Wave 2 — trash-talk / 煽り energy portraits
+  { id: 'koi', name: 'コイ', emoji: '🐟', note: 'Smug golden carp; ascending-dragon swagger' },
+  { id: 'crow', name: 'カラス', emoji: '🐦‍⬛', note: 'Mocking trash-talker' },
+  { id: 'peacock', name: 'クジャク', emoji: '🦚', note: 'Peak vanity / look-at-me' },
+  { id: 'hyena', name: 'ハイエナ', emoji: '😆', note: 'Laughing taunt energy' },
+  { id: 'cat', name: 'ネコ', emoji: '🐱', note: 'Classic smug stare' },
 ] as const
 
 /** Catalog length — wire `avatarIndex` is 0 .. AVATAR_COUNT-1. */

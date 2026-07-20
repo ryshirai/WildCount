@@ -8,13 +8,13 @@ import {
 
 describe('avatarCatalog', () => {
   it('has a fixed catalog size for wire indices', () => {
-    expect(AVATAR_COUNT).toBe(10)
+    expect(AVATAR_COUNT).toBe(15)
   })
 
   it('validates avatar indices strictly', () => {
     expect(isValidAvatarIndex(0)).toBe(true)
-    expect(isValidAvatarIndex(9)).toBe(true)
-    expect(isValidAvatarIndex(10)).toBe(false)
+    expect(isValidAvatarIndex(AVATAR_COUNT - 1)).toBe(true)
+    expect(isValidAvatarIndex(AVATAR_COUNT)).toBe(false)
     expect(isValidAvatarIndex(-1)).toBe(false)
     expect(isValidAvatarIndex(1.2)).toBe(false)
     expect(isValidAvatarIndex(NaN)).toBe(false)
@@ -35,6 +35,7 @@ describe('avatarCatalog', () => {
   it('avatarByIndex always resolves a catalog entry', () => {
     expect(avatarByIndex(0).id).toBe('self')
     expect(avatarByIndex(1).id).toBe('owl')
-    expect(avatarByIndex(99).id).toBe('coyote')
+    expect(avatarByIndex(10).id).toBe('koi')
+    expect(avatarByIndex(99).id).toBe('cat')
   })
 })

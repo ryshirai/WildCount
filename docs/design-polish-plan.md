@@ -101,6 +101,11 @@
 | `falcon` | ハヤブサ | 🦅 | |
 | `squirrel` | リス | 🐿️ | |
 | `coyote` | コヨーテ | 🐺 | ブランド寄り・任意（B2 と共有可） |
+| `koi` | コイ | 🐟 | 煽り波: ドヤ顔の錦鯉 |
+| `crow` | カラス | 🐦‍⬛ | 煽り波: あざ笑い |
+| `peacock` | クジャク | 🦚 | 煽り波: マウント虚栄 |
+| `hyena` | ハイエナ | 😆 | 煽り波: ゲラゲラ煽り |
+| `cat` | ネコ | 🐱 | 煽り波: ニヤニヤ上から目線 |
 
 補足:
 
@@ -216,6 +221,11 @@ Aspect ratio 1:1, high detail fur/feathers, readable at 48–64px icon size (cle
 | `bear` / `self` | A friendly brown bear, soft rounded snout, warm brown fur, calm reliable expression (local player feel). |
 | `squirrel` | A desert squirrel, tufted ears, alert eyes, sandy-brown fur, tiny energetic smile. |
 | `coyote` | A desert coyote, sandy coat, sly smile, moonlit gold eyes — brand mascot energy. |
+| `koi` | A smug Japanese koi carp, gold-orange and white scales, long barbels, cocky trash-talk smirk. |
+| `crow` | A glossy black crow, sharp eyes, mocking mid-caw sneer, blue-violet sheen on feathers. |
+| `peacock` | A peacock with iridescent blue-green neck and crest, arrogantly vain chin-up look. |
+| `hyena` | A spotted hyena, sandy coat, open-mouth laughing cackle, trash-talk energy. |
+| `cat` | A ginger tabby house cat, half-lidded eyes, classic smug superior smirk. |
 
 ### フルプロンプト例（フクロウ）
 
