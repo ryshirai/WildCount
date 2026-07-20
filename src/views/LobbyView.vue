@@ -427,7 +427,7 @@ function applyDisplayName() {
 function onAvatarPick(index: number) {
   if (!isOnline.value) return
   if (onlineGame.connection !== 'open') {
-    showToast('つながっているときだけ変更できます')
+    showToast('接続中のみ変更できます')
     return
   }
   const next = sanitizeAvatarIndex(index, 0)
@@ -448,7 +448,7 @@ function applyDeck(deck: WireDeckComposition) {
     return
   }
   if (onlineGame.connection !== 'open') {
-    showToast('つながっているときだけ変更できます')
+    showToast('接続中のみ変更できます')
     return
   }
   onlineGame.setDeck(deck)
@@ -460,7 +460,7 @@ function applyExtraRules(rules: WireExtraRules) {
     return
   }
   if (onlineGame.connection !== 'open') {
-    showToast('つながっているときだけ変更できます')
+    showToast('接続中のみ変更できます')
     return
   }
   onlineGame.setExtraRules(rules)
@@ -473,7 +473,7 @@ function applyTimeControl(tc: WireTimeControl | null) {
     return
   }
   if (onlineGame.connection !== 'open') {
-    showToast('つながっているときだけ変更できます')
+    showToast('接続中のみ変更できます')
     return
   }
   onlineGame.setTimeControl(tc)
@@ -490,7 +490,7 @@ function applyWinCondition(condition: WireWinCondition) {
     return
   }
   if (onlineGame.connection !== 'open') {
-    showToast('つながっているときだけ変更できます')
+    showToast('接続中のみ変更できます')
     return
   }
   onlineGame.setWinCondition(condition)
@@ -582,7 +582,7 @@ watch(
             {{
               onlineGame.reconnecting
                 ? `再接続中…（試行 ${onlineGame.reconnectAttempt}）`
-                : onlineGame.lastError ?? '接続が切断されました'
+                : onlineGame.lastError ?? '接続が切れました'
             }}
           </p>
           <button
@@ -761,9 +761,9 @@ watch(
                 <span v-if="isHost && readyCount < players.length">
                   · 全員の準備完了後に開始できます
                 </span>
-                <span v-else-if="!isHost"> · ホストの開始を待っています</span>
+                <span v-else-if="!isHost"> · ホストの開始待ちです</span>
               </template>
-              <span v-else-if="!isHost"> · ホストの開始を待っています</span>
+              <span v-else-if="!isHost"> · ホストの開始待ちです</span>
             </p>
           </section>
 
@@ -894,8 +894,8 @@ watch(
         >
           {{
             isOnline && readyCount < players.length
-              ? '全員の準備完了待ち…'
-              : 'ホストの開始待ち…'
+              ? '全員の準備完了を待っています…'
+              : 'ホストの開始を待っています…'
           }}
         </div>
 

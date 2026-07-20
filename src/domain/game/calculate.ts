@@ -65,7 +65,7 @@ export function calculateTotal(cards: readonly Card[]): CalculationResult {
     steps.push({
       id: 'max_to_zero',
       title: 'M→0',
-      detail: 'このラウンドには出ませんでした',
+      detail: 'このラウンドでは出ませんでした',
     })
   }
 
@@ -124,7 +124,7 @@ export function calculateTotal(cards: readonly Card[]): CalculationResult {
     steps.push({
       id: 'double',
       title: '×2（倍化）',
-      detail: 'このラウンドには出ませんでした',
+      detail: 'このラウンドでは出ませんでした',
       totalAfter: finalTotal,
     })
   }
@@ -133,7 +133,7 @@ export function calculateTotal(cards: readonly Card[]): CalculationResult {
   steps.push({
     id: 'final',
     title: '最終合計',
-    detail: `合計は ${finalTotal}`,
+    detail: `最終的な合計は ${finalTotal}`,
     totalAfter: finalTotal,
   })
 

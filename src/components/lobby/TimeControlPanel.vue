@@ -146,10 +146,10 @@ function apply() {
       <p
         class="rounded-xl border border-gold-400/10 bg-night-900/50 px-3 py-2 text-[11px] leading-relaxed text-sand-dim"
       >
-        <span class="text-sand">持ち時間 + 毎ターンの一時時間</span>
+        <span class="text-sand">持ち時間 + 毎ターンのターン時間</span>
         です。手番では
-        <span class="text-sand">一時時間が先に減り</span>、尽きたら持ち時間が減ります。
-        使い切らなかった一時時間は持ち越しません。
+        <span class="text-sand">ターン時間が先に減り</span>、尽きたら持ち時間が減ります。
+        使い切らなかったターン時間は持ち越しません。
       </p>
 
       <div class="flex flex-wrap gap-2">

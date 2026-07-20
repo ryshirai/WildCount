@@ -245,7 +245,7 @@ onUnmounted(() => {
               <p class="text-xs text-sand-dim">
                 スタンダードの山札は全部で
                 <span class="font-semibold text-gold-200">{{ HELP_DECK_SIZE }}枚</span>
-                （数字と特殊札）。カードの見た目はゲーム盤面と同じです。
+                （数字と特殊札）です。カードの見た目はゲーム盤面と同じです。
               </p>
 
               <ul class="space-y-3">

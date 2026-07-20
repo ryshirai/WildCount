@@ -112,7 +112,7 @@ const skillOptions = computed((): SkillOption[] => {
       id: 'reverse',
       emoji: '🔄',
       label: 'リバース',
-      hint: '進行方向を逆転',
+      hint: '手番の向きを逆にする',
     })
   }
   if (props.allowShot) {
@@ -120,7 +120,7 @@ const skillOptions = computed((): SkillOption[] => {
       id: 'shot',
       emoji: '🎯',
       label: 'ショット',
-      hint: '次の手番を指名',
+      hint: '次の手番を指名する',
     })
   }
   if (props.allowDraw1) {
@@ -128,7 +128,7 @@ const skillOptions = computed((): SkillOption[] => {
       id: 'draw1',
       emoji: '🃏',
       label: 'ドロー',
-      hint: '誰かに札+1（R1回）',
+      hint: '誰かに札を1枚足す（ラウンド1回）',
     })
   }
   if (props.allowLifeDouble) {
@@ -136,7 +136,7 @@ const skillOptions = computed((): SkillOption[] => {
       id: 'life_double',
       emoji: '⚡',
       label: 'ダブル',
-      hint: '次チャレンジは −2',
+      hint: '次のコヨーテはライフ −2',
     })
   }
   return list
@@ -170,12 +170,12 @@ const selectedSkill = computed(() =>
 )
 
 const declareLabel = computed(() => {
-  if (props.mini) return `${bid.value} 宣言`
+  if (props.mini) return `${bid.value} を宣言`
   if (props.mobile) {
     if (extraChoice.value === 'none') return '宣言する'
     return `${bid.value} + ${selectedSkill.value?.label ?? ''}`
   }
-  if (extraChoice.value === 'none') return `${bid.value}を宣言`
+  if (extraChoice.value === 'none') return `${bid.value} を宣言`
   return `${bid.value} + ${selectedSkill.value?.label ?? ''} で宣言`
 })
 
@@ -389,13 +389,13 @@ function toggleSkills() {
     <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
       <p v-if="!mobile" class="mb-1.5 text-xs text-sand-dim sm:mb-2">
         <template v-if="forbiddenValue != null">
-          付け直し: {{ forbiddenValue }} は使えません
+          付け直し中：{{ forbiddenValue }} は選べません
         </template>
         <template v-else>宣言する数字を選んでください</template>
       </p>
       <p v-else class="mb-1 text-center text-[10px] text-sand-dim">
         <template v-if="forbiddenValue != null">
-          付け直し（{{ forbiddenValue }} 不可）
+          付け直し（{{ forbiddenValue }} は不可）
         </template>
         <template v-else>宣言する数字</template>
       </p>
@@ -433,7 +433,7 @@ function toggleSkills() {
           class="text-xs font-medium text-gold-200/90"
         >
           特殊能力
-          <span class="font-normal text-sand-dim">（このラウンドで1回まで）</span>
+          <span class="font-normal text-sand-dim">（1ラウンドに1回まで）</span>
         </p>
 
         <div
@@ -474,7 +474,7 @@ function toggleSkills() {
             class="text-sand-dim"
             :class="mobile ? 'text-[10px]' : 'text-[11px]'"
           >
-            宣言に乗せる
+            宣言と一緒に使う
           </p>
         </div>
         <div

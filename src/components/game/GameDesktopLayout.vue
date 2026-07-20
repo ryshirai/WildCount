@@ -96,7 +96,7 @@ const emit = defineEmits<{
         {{
           reconnecting
             ? `再接続中…（試行 ${reconnectAttempt}）`
-            : lastError ?? '接続が切断されました'
+            : lastError ?? '接続が切れました'
         }}
       </span>
       <button
@@ -217,7 +217,7 @@ const emit = defineEmits<{
               ルームがロビーに戻りました
             </p>
             <p class="mt-1 text-xs leading-relaxed text-sand-dim">
-              誰かが「もう一度遊ぶ」を押しました。準備ができたらロビーへ。
+              誰かが「もう一度遊ぶ」を押しました。準備ができたらロビーへどうぞ。
             </p>
             <div class="mt-3 flex flex-col gap-2 sm:flex-row sm:justify-center">
               <button

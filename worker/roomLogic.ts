@@ -703,12 +703,12 @@ export function parseWireTimeControl(
   }
   if (main < MIN_MAIN_SECONDS || main > MAX_MAIN_SECONDS) {
     return {
-      error: `持ち時間は ${MIN_MAIN_SECONDS}〜${MAX_MAIN_SECONDS} 秒で指定してください`,
+      error: `持ち時間は ${MIN_MAIN_SECONDS}〜${MAX_MAIN_SECONDS} 秒の範囲で指定してください`,
     }
   }
   if (turn < MIN_TURN_SECONDS || turn > MAX_TURN_SECONDS) {
     return {
-      error: `ターン時間は ${MIN_TURN_SECONDS}〜${MAX_TURN_SECONDS} 秒で指定してください`,
+      error: `ターン時間は ${MIN_TURN_SECONDS}〜${MAX_TURN_SECONDS} 秒の範囲で指定してください`,
     }
   }
   return { timeControl: { mainSeconds: main, turnSeconds: turn } }
@@ -892,9 +892,9 @@ export function parseWireDeck(
       if (m.includes('at least 1')) {
         return { error: '山札に1枚以上入れてください' }
       }
-      return { error: '山札の内容を確認してください' }
+      return { error: '山札の内容をもう一度確認してください' }
     }
-    return { error: '山札の内容を確認してください' }
+    return { error: '山札の内容をもう一度確認してください' }
   }
 
   return {

@@ -291,6 +291,8 @@ export function verdictDetailFor(opts: {
       : `あなたが${loss}`
   } else if (eliminated) {
     who = `${lifeLostName} が脱落します`
+  } else if (lifeLostName) {
+    who = `${lifeLostName} が${loss}`
   } else if (bidderWins) {
     who = `チャレンジした人が${loss}`
   } else {

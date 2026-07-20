@@ -125,7 +125,7 @@ export function useGameSession() {
       if (onlineGame.lastEvent) return onlineGame.lastEvent
       if (onlineGame.gameView?.isSelfTurn) return 'あなたの手番です'
       if (onlineGame.connection === 'closed' || onlineGame.connection === 'error') {
-        return onlineGame.lastError ?? 'つながりが不安定です'
+        return onlineGame.lastError ?? '接続が不安定です'
       }
       return null
     }
@@ -517,7 +517,7 @@ export function useGameSession() {
       return 'ほかの人が退出・切断したため、あなたが生き残りました'
     }
     if (w) {
-      return '退出や切断で対戦が終わりました（コヨーテの結果画面はありません）'
+      return '退出や切断で対戦が終わりました（コヨーテ結果の画面はありません）'
     }
     return '退出や切断で対戦が終わりました'
   })

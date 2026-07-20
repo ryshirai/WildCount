@@ -151,7 +151,7 @@ function onVolumeInput(e: Event) {
               <div class="min-w-0">
                 <p class="text-xs font-medium text-gold-200">触覚</p>
                 <p class="text-[10px] text-sand-dim">
-                  {{ hapticSupported ? 'バイブ（任意）' : 'この端末は非対応' }}
+                  {{ hapticSupported ? 'バイブ（お好みで）' : 'この端末は非対応' }}
                 </p>
               </div>
               <button

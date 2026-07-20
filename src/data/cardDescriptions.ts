@@ -26,15 +26,15 @@ const SPECIALS: Readonly<Record<string, CardFaceDescription>> = {
   },
   '1/2': {
     name: '半減（1/2）',
-    effect: '合計を半分にする（端数は0方向に切り捨て）。×2と同時なら打ち消し合う。',
+    effect: '合計を半分にする（端数は0に近い方へ切り捨て）。×2と同時なら打ち消し合う。',
   },
   'M→0': {
     name: '最大値ゼロ（M→0）',
-    effect: '場のいちばん大きいプラスの数字を、同じ値ごとまとめて0にする。',
+    effect: '場でいちばん大きいプラスの数字を、同じ値ごとまとめて0にする。',
   },
   'MAX→0': {
     name: '最大値ゼロ（M→0）',
-    effect: '場のいちばん大きいプラスの数字を、同じ値ごとまとめて0にする。',
+    effect: '場でいちばん大きいプラスの数字を、同じ値ごとまとめて0にする。',
   },
   '?': {
     name: '引き直し',
@@ -45,7 +45,7 @@ const SPECIALS: Readonly<Record<string, CardFaceDescription>> = {
     effect: '配られた瞬間に捨てて、山札から別の1枚を引き直す。',
   },
   '0*': {
-    name: '捨て札→山札IN（0）',
+    name: '山に戻す（0）',
     effect: '合計では0。配ったあと、捨て札を山に戻してシャッフルする。',
   },
 }
@@ -96,6 +96,6 @@ export function describeCardFace(
 
   return {
     name: t,
-    effect: 'この札の効果はヘルプ「特殊札」を参照。',
+    effect: '効果はヘルプの「特殊札」で確認できます。',
   }
 }

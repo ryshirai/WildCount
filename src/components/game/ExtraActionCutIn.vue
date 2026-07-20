@@ -46,7 +46,7 @@ const meta = computed(() => {
       return {
         emoji: '🔄',
         title: 'リバース！',
-        line: '進行が逆回りになった',
+        line: '手番が逆回りになった',
         tone: 'cyan' as const,
       }
     case 'shot':
@@ -71,7 +71,7 @@ const meta = computed(() => {
       return {
         emoji: '⚡',
         title: 'ダブル！',
-        line: '次のチャレンジはライフ −2',
+        line: '次のコヨーテはライフ −2',
         tone: 'red' as const,
       }
     case 'same':
@@ -81,14 +81,14 @@ const meta = computed(() => {
         line:
           props.bidValue != null
             ? `宣言 ${props.bidValue} のままパス`
-            : '宣言を維持してパス',
+            : '宣言そのままでパス',
         tone: 'sand' as const,
       }
     case 'change':
       return {
         emoji: '🔀',
         title: 'チェンジ！',
-        line: '直前の宣言者に付け直し！',
+        line: '直前の宣言を付け直し！',
         tone: 'amber' as const,
       }
     default:

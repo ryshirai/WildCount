@@ -354,7 +354,7 @@ const sparkleDensity = computed(() => {
           :class="compact ? 'text-[10px]' : 'text-xs'"
         >
           あなたまであと
-          <span class="font-semibold text-gold-200">{{ turnsUntilSelf }}人</span>
+          <span class="font-semibold text-gold-200">{{ turnsUntilSelf }} 人</span>
         </p>
       </div>
     </div>

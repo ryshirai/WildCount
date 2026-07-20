@@ -22,13 +22,13 @@ const ROWS: Array<{
     key: 'same',
     label: 'セイム',
     emoji: '✋',
-    hint: '数字を上げずに「その宣言のまま」次の人へパス',
+    hint: '数字を上げずに、いまの宣言のまま次の人へパス',
   },
   {
     key: 'change',
     label: 'チェンジ',
     emoji: '🔀',
-    hint: '直前に宣言した人に、別の数字へ付け直しさせる',
+    hint: '直前に宣言した人に、別の数字へ付け直させる',
   },
   {
     key: 'reverse',
@@ -121,7 +121,7 @@ function resetAll() {
       <div class="min-w-0">
         <p class="text-sm font-semibold text-gold-200">エクストラルール</p>
         <p class="mt-0.5 text-[11px] text-sand-dim">
-          <template v-if="enabledCount === 0">オフ＝ふつうの遊び方</template>
+          <template v-if="enabledCount === 0">オフ（ふつうの遊び方）</template>
           <template v-else>{{ enabledCount }} 個オン</template>
           · ホストが変更可
         </p>
@@ -139,7 +139,7 @@ function resetAll() {
         class="rounded-xl border border-gold-400/10 bg-night-900/50 px-3 py-2 text-[11px] leading-relaxed text-sand-dim"
       >
         足したいものだけオンにしてください。オンにした能力は
-        <span class="text-sand">1人・1ラウンドで1回まで</span>
+        <span class="text-sand">1人あたり、1ラウンドに1回まで</span>
         （どれか1つ使ったら、そのラウンドは他も使えません）。
       </p>
       <label

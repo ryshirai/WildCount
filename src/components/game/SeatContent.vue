@@ -35,7 +35,7 @@ const status = computed((): {
     }
   }
   if (p.isCurrentTurn) return { kind: 'turn', label: '手番' }
-  if (p.hasDeclared) return { kind: 'declared', label: '済' }
+  if (p.hasDeclared) return { kind: 'declared', label: '宣言済' }
   if (p.isSelf) return { kind: 'self', label: 'あなた' }
   return { kind: 'wait', label: '待機' }
 })

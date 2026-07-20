@@ -357,7 +357,7 @@ export class GameRoom {
         this.broadcast(room, {
           type: 'event',
           level: 'info',
-          message: `${name} が切断タイムアウトで脱落しました`,
+          message: `${name} が切断のまま時間切れで脱落しました`,
           code: 'PLAYER_FORFEIT',
         })
       }
@@ -1218,13 +1218,13 @@ export class GameRoom {
           action.extra == null
             ? ''
             : action.extra.type === 'reverse'
-              ? ' + リバース'
+              ? '（リバース）'
               : action.extra.type === 'shot'
-                ? ` + ショット${targetName ? `→${targetName}` : ''}`
+                ? `（ショット${targetName ? `→${targetName}` : ''}）`
                 : action.extra.type === 'draw1'
-                  ? ` + ドロー${targetName ? `→${targetName}` : ''}`
+                  ? `（ドロー${targetName ? `→${targetName}` : ''}）`
                   : action.extra.type === 'life_double'
-                    ? ' + ダブル'
+                    ? '（ダブル）'
                     : ''
         const fx =
           action.extra == null
@@ -1238,7 +1238,7 @@ export class GameRoom {
         this.broadcast(room, {
           type: 'event',
           level: 'info',
-          message: `${name} が ${action.value} を宣言${skillLabel}`,
+          message: `${name} が${action.value}を宣言${skillLabel}`,
           code: 'BID',
           fx,
         })
@@ -1270,7 +1270,7 @@ export class GameRoom {
         this.broadcast(room, {
           type: 'event',
           level: 'info',
-          message: `${name} がセイム`,
+          message: `${name} がセイムした`,
           code: 'SAME',
           fx: {
             kind: 'same',
@@ -1305,7 +1305,7 @@ export class GameRoom {
         this.broadcast(room, {
           type: 'event',
           level: 'info',
-          message: `${name} がチェンジ`,
+          message: `${name} がチェンジした`,
           code: 'CHANGE',
           fx: { kind: 'change', actorName: name },
         })
@@ -1493,7 +1493,7 @@ export class GameRoom {
     this.broadcast(room, {
       type: 'event',
       level: 'info',
-      message: `${who} が再戦を希望しました。各自ロビーへ戻って準備完了してください`,
+      message: `${who} が再戦を希望しました。ロビーに戻って準備完了してください`,
       code: 'REMATCH',
     })
     this.broadcastView(room)
@@ -1667,7 +1667,7 @@ export class GameRoom {
         this.broadcast(room, {
           type: 'event',
           level: 'warn',
-          message: `${name} が時間切れ — 自動で ${decision.value} を宣言`,
+          message: `${name} が時間切れで${decision.value}を自動宣言`,
           code: 'TURN_TIMEOUT_BID',
         })
         this.broadcastView(room)
@@ -1704,7 +1704,7 @@ export class GameRoom {
         this.broadcast(room, {
           type: 'event',
           level: 'warn',
-          message: `${name} が時間切れ — 自動でコヨーテ！`,
+          message: `${name} が時間切れでコヨーテ！`,
           code: 'TURN_TIMEOUT_CHALLENGE',
         })
         if (room.game.phase === 'game_over') {

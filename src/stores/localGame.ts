@@ -264,7 +264,7 @@ export const useLocalGameStore = defineStore('localGame', () => {
       throw new Error('Challenge resolved without lastOutcome')
     }
 
-    pushLog(actorId, 'コヨーテ！（チャレンジ）')
+    pushLog(actorId, 'コヨーテ！')
     if (bidderId != null && bid != null) {
       const loserName = getProfile(outcome.loserId, profiles.value).name
       const bidderName = getProfile(bidderId, profiles.value).name

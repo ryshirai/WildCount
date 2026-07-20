@@ -40,11 +40,11 @@ const CODE_MESSAGES: Record<OnlineErrorCode, string> = {
   ILLEGAL_ACTION: 'いまはその操作はできません',
   INVALID_TOKEN:
     'ルームに戻れませんでした。ホームからコードを入力して再参加してください',
-  BAD_REQUEST: '入力内容を確認してもう一度お試しください',
+  BAD_REQUEST: '入力内容を確認して、もう一度お試しください',
   NOT_IMPLEMENTED: 'この機能はまだ使えません',
   INTERNAL: 'サーバーで問題が起きました。しばらくしてからもう一度お試しください',
   NOT_FOUND: '見つかりませんでした',
-  RATE_LIMITED: '送信が少し早すぎます。間をあけてもう一度',
+  RATE_LIMITED: '送信が少し早すぎます。少し間をあけてもう一度',
   CHAT_REJECTED: 'メッセージを送れませんでした',
 }
 
@@ -75,7 +75,7 @@ function refineIllegalAction(serverMessage?: string): string {
   if (m.includes('game is over')) return 'ゲームはすでに終了しています'
   if (m.includes('not in progress')) return 'ゲームはまだ始まっていません'
   if (m.includes('bid must be') || m.includes('invalid bid')) {
-    return 'その宣言の数字は選べません。いまの下限を確認してください'
+    return 'その数字では宣言できません。いまの下限を確認してください'
   }
   if (m.includes('cannot challenge') || m.includes('no bid')) {
     return 'いまはコヨーテ！できません（先に誰かが宣言する必要があります）'

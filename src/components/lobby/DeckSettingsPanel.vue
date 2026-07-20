@@ -33,10 +33,10 @@ const SPECIAL_ROWS: Array<{
   hint: string
 }> = [
   { key: 'double', label: '×2', hint: '合計を2倍にする' },
-  { key: 'half', label: '1/2', hint: '合計を半分にする（0方向切り捨て）' },
-  { key: 'max_to_zero', label: 'M→0', hint: '最大のプラスを0に' },
-  { key: 'redraw', label: '?', hint: '配ったら引き直し' },
-  { key: 'zero_mix', label: '0*', hint: '0扱いで捨て札を山に戻す（山IN）' },
+  { key: 'half', label: '1/2', hint: '合計を半分にする（端数切り捨て）' },
+  { key: 'max_to_zero', label: 'M→0', hint: 'いちばん大きいプラスを0に' },
+  { key: 'redraw', label: '?', hint: '配られたら引き直し' },
+  { key: 'zero_mix', label: '0*', hint: '0扱いで、捨て札を山に戻す' },
 ]
 
 function wireToComposition(wire: WireDeckComposition | null | undefined): DeckComposition {

@@ -39,12 +39,12 @@ export const CHAT_COOLDOWN_MS = 800
  */
 export const STAMP_CATALOG = [
   { id: 'thumbs', emoji: '👍', label: 'いいね' },
-  { id: 'laugh', emoji: '😂', label: '笑う' },
-  { id: 'fire', emoji: '🔥', label: '燃える' },
+  { id: 'laugh', emoji: '😂', label: 'ウケる' },
+  { id: 'fire', emoji: '🔥', label: 'アツい' },
   { id: 'shock', emoji: '😱', label: 'びっくり' },
   { id: 'clap', emoji: '👏', label: '拍手' },
-  { id: 'cry', emoji: '😢', label: '悲しい' },
-  { id: 'think', emoji: '🤔', label: '考える' },
+  { id: 'cry', emoji: '😢', label: 'かなしい' },
+  { id: 'think', emoji: '🤔', label: 'うーん' },
   { id: 'party', emoji: '🎉', label: 'やった' },
   { id: 'skull', emoji: '💀', label: '詰んだ' },
   { id: 'coyote', emoji: '🐺', label: 'コヨーテ' },

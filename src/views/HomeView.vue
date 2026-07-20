@@ -260,7 +260,7 @@ watch(
       <header class="mb-8 flex flex-col items-center text-center sm:mb-10">
         <AppLogo size="lg" />
         <p class="mt-3 max-w-sm text-sm text-sand-dim sm:text-base">
-          見えている札だけで合計を読み合う、リアルタイム推理ゲーム
+          見えている札だけで合計を読み合う、リアルタイムの推理ゲーム
         </p>
         <button
           type="button"
@@ -284,7 +284,7 @@ watch(
         <p class="mb-3 text-xs text-sand-dim">
           ルーム
           <span class="font-mono tracking-wider text-gold-100">{{ resumableCode }}</span>
-          に、この端末からまた入れます（ページを閉じたあともOK）
+          に、この端末からまた入れます（ページを閉じたあとも大丈夫）
         </p>
         <div class="flex flex-col gap-2 sm:flex-row">
           <button
@@ -314,7 +314,7 @@ watch(
           <StatusChip variant="muted" class="text-[10px]" label="最大10人" />
         </div>
         <p class="mb-4 text-xs text-sand-dim">
-          表示名とアイコンは席とチャットに出ます。空欄のときは「プレイヤー」になります
+          表示名とアイコンは席とチャットに表示されます。空欄のときは「プレイヤー」になります
         </p>
         <label class="mb-4 block">
           <span class="field-label">表示名</span>
@@ -388,7 +388,7 @@ watch(
                   ? hapticEnabled
                     ? '触覚オン'
                     : '触覚オフ'
-                  : 'この端末では振動に対応していません'
+                  : 'この端末は振動に対応していません'
               "
               @click="setHapticEnabled(!hapticEnabled)"
             >

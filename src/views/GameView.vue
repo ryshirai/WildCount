@@ -257,7 +257,7 @@ const isLgUp = useIsLgUp()
     >
       <template v-if="s.canHostEndRoom">
         <strong class="text-sand">自分だけ退出</strong>すると、あなたは脱落してほかの人はそのまま続けます。
-        <strong class="text-sand">ルームを解散</strong>すると、みんなの対戦が終わりルームが閉じます。
+        <strong class="text-sand">ルームを解散</strong>すると、みんなの対戦が終わり、ルームが閉じます。
       </template>
       <template v-else-if="s.isOnline">
         退出するとこの対戦から<strong class="text-sand">脱落</strong>し、ホームに戻ります。

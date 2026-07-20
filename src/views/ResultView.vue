@@ -615,7 +615,7 @@ async function playAgain() {
             {{
               localMeta.winnerName
                 ? '最後の1人が生き残りました。下の「もう一度遊ぶ」から再戦できます。'
-                : '誰かがライフを失い切ったため試合が終わりました。下の「もう一度遊ぶ」から再戦できます。'
+                : '誰かがライフをすべて失ったため、試合が終わりました。下の「もう一度遊ぶ」から再戦できます。'
             }}
           </p>
           <div class="my-4 h-px w-full bg-gold-400/15" />
@@ -817,7 +817,7 @@ async function playAgain() {
         <h3 class="mb-1 text-sm font-semibold text-gold-200">合計の出し方</h3>
         <p class="mb-3 text-[11px] text-sand-dim sm:mb-4">
           特殊札の効果を、決まった順番で適用した結果です
-          <span v-if="hasWildReversal" class="text-violet-300"> · 特殊札で勝敗が逆転</span>
+          <span v-if="hasWildReversal" class="text-violet-300"> · 特殊札で勝敗が逆転しました</span>
         </p>
         <ol class="space-y-2.5 sm:space-y-3">
           <li
@@ -884,7 +884,7 @@ async function playAgain() {
             : ''
         "
       >
-        <h3 class="mb-3 text-sm font-semibold text-gold-200">みんなの札（もう一度）</h3>
+        <h3 class="mb-3 text-sm font-semibold text-gold-200">みんなの札</h3>
         <ul class="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
           <li
             v-for="(card, ci) in result.cards"

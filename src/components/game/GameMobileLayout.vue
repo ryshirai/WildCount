@@ -116,7 +116,7 @@ const showDock = computed(
         {{
           reconnecting
             ? `再接続中…（${reconnectAttempt}）`
-            : lastError ?? '切断されました'
+            : lastError ?? '接続が切れました'
         }}
       </span>
       <button
