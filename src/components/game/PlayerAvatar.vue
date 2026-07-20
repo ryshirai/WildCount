@@ -91,6 +91,15 @@ function onImgError() {
           aria-hidden="true"
         >{{ avatar }}</span>
       </div>
+      <!-- Turn badge: scannable "whose turn" without reading seat chips -->
+      <div
+        v-if="highlighted"
+        class="avatar-turn-badge"
+        :class="size === 'sm' ? 'avatar-turn-badge--sm' : ''"
+        aria-hidden="true"
+      >
+        番
+      </div>
     </div>
     <div
       v-if="!hideName"

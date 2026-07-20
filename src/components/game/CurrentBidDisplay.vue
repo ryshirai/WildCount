@@ -28,6 +28,13 @@ const props = withDefaults(
     turnsUntilSelf?: number
     compact?: boolean
     showTurnsHint?: boolean
+    /**
+     * Whose turn (e.g. "🦊 キツネ" / "あなた").
+     * Mobile puts this above the bid number so the eye hits it first.
+     */
+    turnCaption?: string | null
+    /** Gold emphasis when it is the local player's turn */
+    isSelfTurn?: boolean
     /** Confirmed bids this round (HEAT / RALLY). */
     bidCount?: number
     heat?: HeatLevel
@@ -36,6 +43,8 @@ const props = withDefaults(
     showTurnsHint: true,
     bidCount: 0,
     heat: 'none',
+    turnCaption: null,
+    isSelfTurn: false,
   },
 )
 
@@ -221,8 +230,33 @@ const sparkleDensity = computed(() => {
       {{ heatLabel }}
     </div>
 
-    <!-- Frame content only: label + number + turns hint -->
+    <!-- Frame content only: turn (optional) + label + number + turns hint -->
     <div class="relative flex w-full flex-col items-center">
+      <!-- SP / compact: whose turn sits above the bid so it is not missed -->
+      <div
+        v-if="turnCaption"
+        class="mb-1 flex max-w-full items-center justify-center gap-1 rounded-full border px-2.5 py-0.5"
+        :class="[
+          compact ? 'text-[11px]' : 'text-xs',
+          isSelfTurn
+            ? 'border-gold-400/55 bg-gold-400/20 font-bold text-gold-50 shadow-[0_0_12px_rgba(201,168,76,0.35)]'
+            : 'border-gold-400/30 bg-night-800/85 font-semibold text-gold-100',
+        ]"
+        role="status"
+      >
+        <span
+          class="inline-flex h-1.5 w-1.5 shrink-0 rounded-full"
+          :class="isSelfTurn ? 'animate-pulse bg-gold-300' : 'bg-gold-400/70'"
+          aria-hidden="true"
+        />
+        <span class="min-w-0 truncate">
+          <template v-if="isSelfTurn">あなたの手番</template>
+          <template v-else
+            ><span class="text-sand-dim">いま </span>{{ turnCaption }}</template
+          >
+        </span>
+      </div>
+
       <p
         class="font-medium tracking-[0.12em] text-gold-300/90"
         :class="compact ? 'text-[10px]' : 'text-xs'"
@@ -350,11 +384,19 @@ const sparkleDensity = computed(() => {
         class="relative mt-2 flex min-h-[1.5rem] items-center justify-center sm:min-h-[1.75rem]"
       >
         <p
-          class="rounded-full border border-gold-400/25 bg-night-800/70 px-2.5 py-0.5 text-sand-dim shadow-sm backdrop-blur-sm"
-          :class="compact ? 'text-[10px]' : 'text-xs'"
+          class="rounded-full border px-2.5 py-0.5 shadow-sm backdrop-blur-sm"
+          :class="[
+            compact ? 'text-[10px]' : 'text-xs',
+            turnsUntilSelf === 0
+              ? 'border-gold-400/45 bg-gold-400/15 font-semibold text-gold-100'
+              : 'border-gold-400/25 bg-night-800/70 text-sand-dim',
+          ]"
         >
-          あなたまであと
-          <span class="font-semibold text-gold-200">{{ turnsUntilSelf }} 人</span>
+          <template v-if="turnsUntilSelf === 0">あなたの手番</template>
+          <template v-else>
+            あなたまであと
+            <span class="font-semibold text-gold-200">{{ turnsUntilSelf }} 人</span>
+          </template>
         </p>
       </div>
     </div>

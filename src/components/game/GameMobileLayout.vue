@@ -104,6 +104,22 @@ const showDock = computed(
     !props.showForfeitEnd &&
     !props.pendingLobbyReturn,
 )
+
+/** Current-turn seat for SP chrome (bid panel caption, mini dock). */
+const turnPlayer = computed(
+  () => props.room.players.find((p) => p.isCurrentTurn && p.lives > 0) ?? null,
+)
+
+const turnCaption = computed(() => {
+  const p = turnPlayer.value
+  if (!p) return null
+  if (p.isSelf) return 'あなた'
+  return `${p.avatar} ${p.name}`
+})
+
+const isSelfTurn = computed(
+  () => !!props.gameView?.isSelfTurn || !!turnPlayer.value?.isSelf,
+)
 </script>
 
 <template>
@@ -138,30 +154,40 @@ const showDock = computed(
       @leave="emit('leave')"
     />
 
-    <!-- Pace + declared (timer sits above the bid panel) -->
+    <!-- Pace strip: slightly taller on SP; turn line is primary -->
     <div
       v-if="paceHint || (!coyoteBanner && !awaitingResultView)"
-      class="flex shrink-0 items-center justify-center gap-2 border-b px-3 py-1.5 text-center text-xs font-medium backdrop-blur-md"
+      class="flex shrink-0 flex-col items-center justify-center gap-0.5 border-b px-3 py-2 text-center backdrop-blur-md"
       :class="[
         awaitingResultView
           ? 'border-teal-soft/35 bg-teal-deep/40 text-teal-soft'
           : botsRunning
             ? 'border-gold-400/30 bg-night-800/90 text-gold-200'
-            : 'border-gold-400/20 bg-night-900/90 text-teal-soft',
-        gameView?.isSelfTurn && !awaitingResultView && !botsRunning
-          ? 'turn-arrive'
-          : '',
+            : isSelfTurn
+              ? 'border-gold-400/45 bg-gold-400/12 text-gold-100'
+              : 'border-gold-400/20 bg-night-900/90 text-sand',
+        isSelfTurn && !awaitingResultView && !botsRunning ? 'turn-arrive' : '',
       ]"
       role="status"
       aria-live="polite"
     >
+      <div class="flex w-full max-w-md items-center justify-center gap-2">
+        <span
+          v-if="isSelfTurn && !awaitingResultView && !botsRunning"
+          class="inline-flex h-2 w-2 shrink-0 animate-pulse rounded-full bg-gold-300 shadow-[0_0_8px_rgba(201,168,76,0.7)]"
+          aria-hidden="true"
+        />
+        <span
+          v-if="paceHint"
+          class="min-w-0 truncate text-sm font-bold leading-tight"
+        >{{ paceHint }}</span>
+      </div>
       <span
         v-if="!coyoteBanner && !awaitingResultView"
-        class="chip !px-1.5 !py-0.5 !text-[10px] font-normal text-sand-dim"
+        class="text-[10px] font-normal text-sand-dim"
       >
-        {{ declaredCount }}/{{ room.playerCount }} 宣言
+        宣言 {{ declaredCount }}/{{ room.playerCount }}
       </span>
-      <span v-if="paceHint" class="min-w-0 truncate">{{ paceHint }}</span>
     </div>
 
     <!-- Card reveal under header -->
@@ -191,20 +217,27 @@ const showDock = computed(
           "
         >
           <div
-            class="panel relative z-[6] flex w-full max-w-[13rem] flex-col items-center overflow-visible px-4 py-3 shadow-panel transition-transform duration-300"
+            class="panel relative z-[6] flex w-full max-w-[16rem] flex-col items-center overflow-visible px-4 py-3 shadow-panel transition-transform duration-300"
             :class="sheetOpen ? 'scale-90 opacity-90' : ''"
           >
             <TurnClockDisplay
               v-if="turnClock && !awaitingResultView"
               :clock="turnClock"
-              :is-self-turn="!!gameView?.isSelfTurn"
+              :is-self-turn="isSelfTurn"
               compact
               prominent
               class="mb-1.5"
             />
             <CurrentBidDisplay
               compact
-              :show-turns-hint="false"
+              :show-turns-hint="!isSelfTurn"
+              :turns-until-self="room.turnsUntilSelf"
+              :turn-caption="
+                awaitingResultView || showForfeitEnd || pendingLobbyReturn
+                  ? null
+                  : turnCaption
+              "
+              :is-self-turn="isSelfTurn && !awaitingResultView"
               :current-bid="room.currentBid"
               :bid-count="tableDrama?.bidCount ?? 0"
               :heat="tableDrama?.heat ?? 'none'"
@@ -407,6 +440,24 @@ const showDock = computed(
         v-if="sheetOpen && showDock"
         class="relative z-30 shrink-0"
       >
+        <!-- Keep turn visible when chat/log covers the table -->
+        <div
+          v-if="turnPlayer"
+          class="flex items-center justify-center gap-1.5 border-t border-gold-400/15 px-2 py-1 text-[11px] font-semibold"
+          :class="
+            isSelfTurn
+              ? 'bg-gold-400/15 text-gold-100'
+              : 'bg-night-900/95 text-sand'
+          "
+          role="status"
+        >
+          <span class="text-sand-dim">いまの番</span>
+          <span class="truncate">{{
+            turnPlayer.isSelf
+              ? 'あなた'
+              : `${turnPlayer.avatar} ${turnPlayer.name}`
+          }}</span>
+        </div>
         <BidControls
           v-model="draftBid"
           mini

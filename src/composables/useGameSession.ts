@@ -528,6 +528,11 @@ export function useGameSession() {
     return gameView.value?.phase === 'round_end'
   })
 
+  /**
+   * Status strip under the game header.
+   * During bidding, always name whose turn it is (not only "あと N 人") so
+   * players can scan the banner without hunting seat chips.
+   */
   const paceHint = computed(() => {
     if (useMock.value) return null
     if (showForfeitEnd.value) {
@@ -541,12 +546,21 @@ export function useGameSession() {
     if (waitingForResultPeers.value) {
       return 'ほかの人が結果を見終わるまでお待ちください'
     }
+    // Transient events (coyote shout, bot "考え中") win over the steady turn line
     if (statusMessage.value) return statusMessage.value
     if (botsRunning.value) return 'ボットが考えています…'
-    if (gameView.value?.isSelfTurn) return 'あなたの手番です'
-    if (isOnline.value && gameView.value) {
-      const n = gameView.value.turnsUntilSelf
-      if (n > 0) return `あなたまであと ${n} 人`
+
+    const turnPlayer = room.value?.players.find(
+      (p) => p.isCurrentTurn && p.lives > 0,
+    )
+    if (gameView.value?.isSelfTurn || turnPlayer?.isSelf) {
+      return 'あなたの手番です'
+    }
+    if (turnPlayer) {
+      const n = gameView.value?.turnsUntilSelf
+      const who = `${turnPlayer.avatar} ${turnPlayer.name} の手番`
+      if (n != null && n > 0) return `${who}（あと ${n} 人）`
+      return who
     }
     return null
   })

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import type { PlayerSeat } from '@/types/game'
 import LifeHearts from './LifeHearts.vue'
 import PlayerAvatar from './PlayerAvatar.vue'
@@ -8,6 +8,11 @@ import SeatContent from './SeatContent.vue'
 const props = defineProps<{
   players: PlayerSeat[]
 }>()
+
+/** Sticky "whose turn" line above the seat scroller (SP scan path). */
+const turnPlayer = computed(
+  () => props.players.find((p) => p.isCurrentTurn && p.lives > 0) ?? null,
+)
 
 const seatEls = ref<Record<string, HTMLElement | null>>({})
 
@@ -51,9 +56,54 @@ watch(
 </script>
 
 <template>
-  <div class="relative border-b border-gold-400/10 bg-night-950/40">
+  <div class="relative border-b border-gold-400/15 bg-night-950/50">
+    <!-- Fixed turn summary (does not scroll away with seats) -->
     <div
-      class="flex gap-2.5 overflow-x-auto px-3 py-2.5 scrollbar-none"
+      v-if="turnPlayer"
+      class="flex items-center gap-2 border-b border-gold-400/10 px-3 py-1.5"
+      :class="
+        turnPlayer.isSelf
+          ? 'bg-gold-400/12'
+          : 'bg-night-900/70'
+      "
+      role="status"
+      aria-live="polite"
+    >
+      <span
+        class="shrink-0 text-[10px] font-bold tracking-wide"
+        :class="turnPlayer.isSelf ? 'text-gold-200' : 'text-sand-dim'"
+      >
+        いまの番
+      </span>
+      <PlayerAvatar
+        :avatar="turnPlayer.avatar"
+        :avatar-src="turnPlayer.avatarSrc"
+        :name="turnPlayer.name"
+        :highlighted="true"
+        :self="turnPlayer.isSelf"
+        size="sm"
+        hide-name
+      />
+      <span
+        class="min-w-0 flex-1 truncate text-sm font-bold"
+        :class="turnPlayer.isSelf ? 'text-gold-50' : 'text-sand'"
+      >
+        {{ turnPlayer.isSelf ? 'あなた' : turnPlayer.name }}
+      </span>
+      <span
+        class="shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-bold"
+        :class="
+          turnPlayer.isSelf
+            ? 'border-gold-400/50 bg-gold-400/25 text-gold-100'
+            : 'border-gold-400/30 bg-night-800/80 text-gold-200'
+        "
+      >
+        {{ turnPlayer.isSelf ? 'あなたの番' : '番' }}
+      </span>
+    </div>
+
+    <div
+      class="flex gap-2.5 overflow-x-auto px-3 py-2 scrollbar-none"
       style="scrollbar-width: none"
     >
       <div
@@ -64,10 +114,10 @@ watch(
         :class="[
           player.handCount >= 2 ? 'w-[4.6rem]' : 'w-[3.85rem]',
           player.isCurrentTurn
-            ? 'scale-105 bg-gold-400/10 ring-1 ring-gold-400/35'
+            ? 'scale-105 bg-gold-400/15 ring-1 ring-gold-400/50 shadow-[0_0_14px_rgba(201,168,76,0.2)]'
             : player.isSelf
               ? 'bg-teal-deep/25 ring-1 ring-teal-soft/25'
-              : 'opacity-70',
+              : 'opacity-65',
           player.lives <= 0 ? 'opacity-40 grayscale' : '',
         ]"
       >
@@ -75,7 +125,7 @@ watch(
           class="max-w-full truncate text-[10px] font-medium"
           :class="
             player.isCurrentTurn
-              ? 'text-gold-200'
+              ? 'font-semibold text-gold-100'
               : player.isSelf
                 ? 'text-teal-soft'
                 : 'text-sand-dim'

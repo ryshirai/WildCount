@@ -117,7 +117,7 @@ const emit = defineEmits<{
       @leave="emit('leave')"
     />
 
-    <!-- Status under header (pace / bots / result wait — timer lives above the bid) -->
+    <!-- Status under header: always names whose turn during bidding -->
     <div
       v-if="paceHint"
       class="flex shrink-0 items-center justify-center gap-2.5 border-b px-3 py-2.5 text-center text-sm font-medium backdrop-blur-md"
@@ -126,7 +126,9 @@ const emit = defineEmits<{
           ? 'border-teal-soft/35 bg-teal-deep/40 text-teal-soft'
           : botsRunning
             ? 'border-gold-400/30 bg-night-800/90 text-gold-200'
-            : 'border-gold-400/20 bg-night-900/90 text-teal-soft',
+            : gameView?.isSelfTurn
+              ? 'border-gold-400/45 bg-gold-400/12 text-gold-100'
+              : 'border-gold-400/20 bg-night-900/90 text-sand',
         gameView?.isSelfTurn && !awaitingResultView && !botsRunning
           ? 'turn-arrive'
           : '',
@@ -145,11 +147,16 @@ const emit = defineEmits<{
         aria-hidden="true"
       />
       <span
-        v-else
-        class="inline-flex h-2.5 w-2.5 shrink-0 rounded-full bg-teal-soft/80"
+        v-else-if="gameView?.isSelfTurn"
+        class="inline-flex h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-gold-300 shadow-[0_0_10px_rgba(201,168,76,0.75)]"
         aria-hidden="true"
       />
-      <span>{{ paceHint }}</span>
+      <span
+        v-else
+        class="inline-flex h-2.5 w-2.5 shrink-0 rounded-full bg-gold-400/70"
+        aria-hidden="true"
+      />
+      <span class="min-w-0 truncate">{{ paceHint }}</span>
     </div>
 
     <!-- Card reveal (main body under header) -->

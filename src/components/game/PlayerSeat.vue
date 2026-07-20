@@ -11,9 +11,13 @@ defineProps<{
 
 <template>
   <div
-    class="flex max-w-[6.25rem] flex-col items-center gap-0.5 transition-transform duration-200 sm:max-w-[7rem]"
+    class="flex max-w-[6.25rem] flex-col items-center gap-0.5 rounded-xl px-0.5 py-0.5 transition duration-200 sm:max-w-[7rem]"
     :class="[
-      player.isCurrentTurn ? 'z-10 scale-[1.03]' : '',
+      player.isCurrentTurn
+        ? 'z-10 scale-[1.06] bg-gold-400/10 ring-1 ring-gold-400/40 shadow-[0_0_18px_rgba(201,168,76,0.22)]'
+        : player.lives > 0
+          ? 'opacity-80'
+          : '',
       player.lives <= 0 ? 'opacity-40 grayscale' : '',
     ]"
   >

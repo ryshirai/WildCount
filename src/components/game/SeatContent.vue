@@ -34,7 +34,7 @@ const status = computed((): {
         : '再接続待ち（しばらくすると脱落します）',
     }
   }
-  if (p.isCurrentTurn) return { kind: 'turn', label: '手番' }
+  if (p.isCurrentTurn) return { kind: 'turn', label: 'いまの番' }
   if (p.hasDeclared) return { kind: 'declared', label: '宣言済' }
   if (p.isSelf) return { kind: 'self', label: 'あなた' }
   return { kind: 'wait', label: '待機' }

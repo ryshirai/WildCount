@@ -461,7 +461,8 @@
   }
 
   .seat-chip-turn {
-    @apply seat-chip border border-gold-400/50 bg-gold-400/15 text-gold-200;
+    @apply seat-chip border border-gold-400/65 bg-gold-400/25 font-bold text-gold-100
+      shadow-[0_0_8px_rgba(201,168,76,0.25)];
   }
 
   .seat-chip-self {
@@ -1028,6 +1029,7 @@
   .life-lost-panel--double,
   .life-lost-ko-label,
   .avatar-turn-ring,
+  .avatar-turn-badge,
   .round-slam,
   .round-slam-banner,
   .turn-edge-glow,
@@ -1258,6 +1260,60 @@
 
 .avatar-turn-ring {
   animation: turn-ring-pulse 2.2s ease-in-out infinite;
+}
+
+/* Floating "番" badge on the current-turn avatar */
+.avatar-turn-badge {
+  position: absolute;
+  right: -0.2rem;
+  bottom: -0.15rem;
+  z-index: 12;
+  display: flex;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 1px solid rgba(201, 168, 76, 0.65);
+  background: linear-gradient(
+    160deg,
+    rgba(201, 168, 76, 0.95),
+    rgba(140, 100, 30, 0.95)
+  );
+  padding: 0 0.25rem;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: #1a1208;
+  box-shadow:
+    0 0 0 1px rgba(26, 18, 8, 0.35),
+    0 0 10px rgba(201, 168, 76, 0.45);
+  animation: turn-badge-pop 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.avatar-turn-badge--sm {
+  min-width: 1rem;
+  height: 1rem;
+  font-size: 8px;
+  right: -0.15rem;
+  bottom: -0.1rem;
+  padding: 0 0.2rem;
+}
+
+@keyframes turn-badge-pop {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 /* ========== Dopamine micro-fx (bid / result / turn) ========== */

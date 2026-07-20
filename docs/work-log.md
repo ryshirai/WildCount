@@ -4290,3 +4290,69 @@
 1. Pages へデプロイして iPhone / Android 実機でホーム・ロビー・ゲームを確認
 2. まだ黒なら Safari リモートデバッグで JS エラー有無を確認
 3. 必要なら PWA の自動リロードにクールダウンを追加
+
+---
+
+## 2026-07-20 — 手番表示を分かりやすく
+
+### 背景・目的
+- 「今誰の番か」が席チップや相対表示（あと N 人）だけでは拾いにくい、という UX 要望
+
+### 実施内容
+1. **ヘッダ直下の status 帯（`paceHint`）** — 入札中は常に手番者を名指し（`🦉 名前 の手番（あと N 人）` / `あなたの手番です`）。オンラインで「あと N 人」だけだった穴を埋める
+2. **アバター** — 手番中に金色の「番」バッジ + 既存のターンリング
+3. **席** — PC 席・SP カルーセルの手番ハイライト強化。ステータスチップ文言を「いまの番」に変更
+4. **自分手番の帯** — 金系の強調色 + パルスドット（PC/SP 共通）
+5. **中央宣言パネル** — `turnsUntilSelf === 0` のとき「あなたの手番」と明示
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/composables/useGameSession.ts` | `paceHint` が手番者名を常時出す |
+| `src/components/game/PlayerAvatar.vue` | 「番」バッジ |
+| `src/components/game/PlayerSeat.vue` / `MobilePlayerCarousel.vue` | 席ハイライト |
+| `src/components/game/SeatContent.vue` | チップ文言 |
+| `src/components/game/GameDesktopLayout.vue` / `GameMobileLayout.vue` | 帯の色分け |
+| `src/components/game/CurrentBidDisplay.vue` | 自分手番ヒント |
+| `src/styles/main.css` | バッジ CSS・reduced-motion |
+
+### 明示的にやっていないこと
+- 手番変更時のフルスクリーン cut-in
+- 時計（ターンタイマー）UI の変更
+
+### 確認結果
+- `npm test` 269 件パス
+
+### 次に考えられる作業
+1. 実プレイで帯の文言が長すぎないか（長い表示名）を確認
+2. 必要なら手番変更時に短い SFX 以外の視覚 flash を足す
+
+---
+
+## 2026-07-20 — SP 手番表示の強化
+
+### 背景・目的
+- PC 向け手番 UX のあと、「スマホでもわかりやすいとうれしい」という追加要望
+
+### 実施内容
+1. **席カルーセル上に固定「いまの番」行** — アバター＋名前＋チップ（スクロールで席が流れても残る）
+2. **中央宣言パネル** — `turnCaption`（いま / あなた）を数字の上に表示。自分手番以外は「あと N 人」も併用
+3. **ヘッダ直下帯** — SP は 2 段（手番文言を太字 + 宣言数はサブ行）
+4. **チャット/ログ開閉時** — ミニ操作バー上にも「いまの番」を残す
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/components/game/GameMobileLayout.vue` | turnPlayer / turnCaption・帯・ミニドック |
+| `src/components/game/MobilePlayerCarousel.vue` | 固定手番サマリー |
+| `src/components/game/CurrentBidDisplay.vue` | turnCaption / isSelfTurn |
+
+### 明示的にやっていないこと
+- PC レイアウトの追加変更（前回分で十分）
+- 手番 cut-in 演出
+
+### 確認結果
+- `npm run typecheck` / `npm test`（269）成功
+
+### 次に考えられる作業
+1. 実機で縦の詰まり（帯＋カルーセル＋パネル）を確認し、必要なら帯を薄くする
