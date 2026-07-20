@@ -111,9 +111,6 @@ const emit = defineEmits<{
     </div>
     <GameHeader
       class="shrink-0"
-      :room-code="room.roomCode"
-      :player-count="room.playerCount"
-      :round="room.round"
       :safe-top="!showOnlineDisconnect"
       @help="emit('help')"
       @deck="emit('deck')"

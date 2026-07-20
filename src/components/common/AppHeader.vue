@@ -16,7 +16,7 @@ withDefaults(
 
 <template>
   <header
-    class="z-30 shrink-0 border-b border-gold-400/15 bg-night-900/90 backdrop-blur-md"
+    class="z-30 shrink-0 border-b border-gold-400/15 bg-night-900"
     :class="[
       sticky ? 'sticky top-0' : '',
       safeTop ? 'safe-top' : '',

@@ -551,12 +551,6 @@ async function playAgain() {
 <template>
   <div class="page-fixed desert-bg safe-x">
     <AppHeader :sticky="false">
-      <template #chips>
-        <template v-if="result">
-          <StatusChip class="font-mono tracking-wider" :label="result.roomCode" />
-          <StatusChip :label="`ラウンド ${result.round}`" />
-        </template>
-      </template>
       <template #actions>
         <button
           v-if="result && !calcDone"

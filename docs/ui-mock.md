@@ -18,16 +18,16 @@ npm run dev
 |------|------|
 | トップ（作成 / 参加） | **本番**: オンライン作成/参加のみ。**DEV**: ローカル対戦 + 開発用 mock 導線（`src/config/runtime.ts`） |
 | 待機ロビー | オンライン: WS 同期・host 開始・sticky CTA・設定折りたたみ・2 カラム（R2） |
-| ゲーム画面（PC） | 楕円席 + 中央宣言 + 操作バー + 右レール（ログ/チャット）。`AppHeader` + テーブル felt（R5） |
-| ゲーム画面（モバイル） | ヘッダ 1 本・カルーセル・特殊能力折りたたみ・ミニドック・チャット中も操作可（R4） |
-| 結果・カード公開 | スタッガー公開・特殊札・計算ステップ + 合計カウントアップ / 紙吹雪。`AppHeader` シェル（R1） |
+| ゲーム画面（PC） | 楕円席 + 中央宣言 + 操作バー + 右レール（ログ/チャット）。`AppHeader` + テーブル felt（R5）。ヘッダは 設定/説明/退出 |
+| ゲーム画面（モバイル） | ヘッダ 1 本（設定/説明/退出）・カルーセル・特殊能力折りたたみ・ミニドック・チャット中も操作可（R4） |
+| 結果・カード公開 | スタッガー公開・特殊札・計算ステップ + 合計カウントアップ / 紙吹雪。`AppHeader` シェル（ルーム/ラウンドチップなし） |
 | デザインシステム | `.field` / `btn-sm` / `chip-*` / `AppHeader` / `AppToast` / `AppConfirmDialog` / `StatusChip`（R0） |
 | マイクロ演出 | 宣言 FX・Coyote・Extra・ROUND・confetti・stamp float 等（CSS、`prefers-reduced-motion` 対応）+ SFX（D2）+ 触覚（D4、初期 OFF） |
 | ドラマ差（第3波） | 結果マージン（ジャスト/ギリギリ/大差）・脱落・自己視点コピー・札強調（self/特殊/極端）・初手/+5 宣言 cut-in |
 | データ | Pinia `localGame` / `onlineGame` + mapper。固定モックは `?mock=1`（DEV） |
 | ゲームエンジン | ローカル + オンライン（Worker / DO / WS）。再接続・ホスト移譲・再戦・途中抜け込み |
 | チャット / スタンプ | オンラインのみ。ルーム履歴 + キャラ別スタンプ WebP |
-| ヘルプ | モーダル（遊び方 / 特殊札 / 合計計算 / 操作）。Home・Lobby・Game ヘッダ `?` |
+| ヘルプ | モーダル（遊び方 / 特殊札 / 合計計算 / 操作）。Home は CTA、Lobby は「説明」、Game はヘッダ「説明」メニュー |
 | 背景 | `.desert-bg` 夜砂漠 |
 | PWA | `vite-plugin-pwa` + `public/icons` |
 
@@ -100,7 +100,7 @@ src/
 |------|----------|
 | Home | `AppLogo` / `AvatarPicker` / `StatusChip` / `AppToast` / `HelpModal` |
 | Lobby | `AppHeader` + sticky CTA / `DeckSettingsPanel` / `ExtraRulesPanel` / `TimeControlPanel` / `ChatPanel` |
-| Game | `GameHeader`（→ AppHeader）/ `PlayerCircle`+`PlayerSeat`+`SeatContent` / `MobilePlayerCarousel` / `CurrentBidDisplay` / `BidControls` / `EventLog` / `ChatPanel` / cut-ins |
+| Game | `GameHeader`（設定・説明メニュー + 退出）/ `PlayerCircle`+`PlayerSeat`+`SeatContent` / `MobilePlayerCarousel` / `CurrentBidDisplay` / `BidControls` / `EventLog` / `ChatPanel` / cut-ins |
 | Result | `AppHeader` / `RevealCardTile` / `FxConfetti` / 計算ステップ |
 
 席表示の hand / status / bid は **`SeatContent`** に集約（PC 席と SP カルーセルで共有）。

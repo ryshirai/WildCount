@@ -8,7 +8,6 @@ import AvatarPicker from '@/components/common/AvatarPicker.vue'
 import FxSparkleBurst from '@/components/common/FxSparkleBurst.vue'
 import HelpModal from '@/components/common/HelpModal.vue'
 import MockBadge from '@/components/common/MockBadge.vue'
-import StatusChip from '@/components/common/StatusChip.vue'
 import ChatPanel from '@/components/game/ChatPanel.vue'
 import FloatingReactionsHost from '@/components/game/FloatingReactionsHost.vue'
 import PlayerAvatar from '@/components/game/PlayerAvatar.vue'
@@ -115,35 +114,6 @@ const readyCount = computed(() => players.value.filter((p) => p.isReady).length)
 const canStart = computed(() => {
   if (isOnline.value) return onlineGame.canStart
   return isHost.value && players.value.length >= 2
-})
-
-const connectionLabel = computed(() => {
-  if (onlineGame.reconnecting) return '再接続中…'
-  switch (onlineGame.connection) {
-    case 'open':
-      return '接続中'
-    case 'connecting':
-      return '接続中…'
-    case 'closed':
-      return '切断'
-    case 'error':
-      return 'エラー'
-    default:
-      return ''
-  }
-})
-
-/** good=teal / reconnect=gold / offline=danger (ui-redesign R0) */
-const connectionChipVariant = computed(() => {
-  if (onlineGame.reconnecting) return 'gold' as const
-  if (onlineGame.connection === 'open') return 'teal' as const
-  if (
-    onlineGame.connection === 'closed' ||
-    onlineGame.connection === 'error'
-  ) {
-    return 'danger' as const
-  }
-  return 'muted' as const
 })
 
 const showDisconnectBanner = computed(
@@ -583,23 +553,15 @@ watch(
   -->
   <div class="page-fixed desert-bg safe-x">
     <AppHeader :sticky="false">
-      <template #chips>
-        <StatusChip
-          v-if="isOnline && connectionLabel"
-          class="text-[10px]"
-          :variant="connectionChipVariant"
-          :label="connectionLabel"
-        />
-      </template>
       <template #actions>
         <button
           type="button"
-          class="btn-ghost btn-icon text-sm font-bold"
+          class="btn-ghost btn-sm"
           title="遊び方・ルール"
           aria-label="遊び方・ルール"
           @click="helpOpen = true"
         >
-          ?
+          説明
         </button>
         <button type="button" class="btn-ghost btn-sm" @click="leaveLobby">
           退出

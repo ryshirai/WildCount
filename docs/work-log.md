@@ -3881,3 +3881,46 @@
 
 ### 確認結果
 - typecheck / lint 成功
+
+## 2026-07-20 — ヘッダ整理（設定 / 説明）
+
+### 背景・目的
+- ゲームヘッダがアイコン連打でごちゃついていた
+- 接続・ルーム番号・ラウンド数は常時表示不要
+
+### 実施内容
+1. **GameHeader** — 左はロゴのみ。右は「設定」「説明」「退出」
+   - 設定: 効果音 ON/OFF + 音量、触覚 ON/OFF
+   - 説明: 遊び方・ルール / この対戦の山札
+2. **Lobby** — 接続チップをヘッダから削除（切断バナーは維持）。ヘルプを「説明」ラベルに
+3. **Result** — ルーム番号・ラウンドのヘッダチップを削除
+4. `docs/ui-mock.md` をヘッダ契約に合わせて更新
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/components/game/GameHeader.vue` | メニュー化・メタチップ削除 |
+| `src/components/game/GameDesktopLayout.vue` | 不要 props 削除 |
+| `src/components/game/GameMobileLayout.vue` | 同上 |
+| `src/views/LobbyView.vue` / `ResultView.vue` | ヘッダ簡略化 |
+| `docs/ui-mock.md` / `docs/work-log.md` | 文書 |
+
+### 明示的にやっていないこと
+- ホーム画面の効果音 UI のメニュー化
+- 切断バナー自体の削除（切断時のみ表示）
+
+### 確認結果
+- typecheck / lint / build 成功
+
+### 次に考えられる作業
+1. 実機でドロップダウンのタップターゲット・見切れを確認
+2. ホームの効果音/触覚も同様の「設定」まとまりに寄せるか検討
+
+## 2026-07-20 — ヘッダ背景を不透明に
+
+### 実施内容
+- `AppHeader`: `bg-night-900/90 backdrop-blur` → ソリッド `bg-night-900`
+- `GameHeader` 設定/説明メニューも同様に不透明化
+
+### 確認結果
+- 見た目の透過・ぼかしをヘッダ周りから外した

@@ -132,10 +132,6 @@ const showDock = computed(
     <GameHeader
       class="shrink-0"
       mobile
-      :room-code="room.roomCode"
-      :player-count="room.playerCount"
-      :round="room.round"
-      :connection-status="room.connectionStatus"
       :safe-top="!showOnlineDisconnect"
       @help="emit('help')"
       @deck="emit('deck')"
