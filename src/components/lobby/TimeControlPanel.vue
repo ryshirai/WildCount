@@ -121,25 +121,28 @@ function apply() {
 </script>
 
 <template>
-  <section
-    class="rounded-2xl border border-gold-400/20 bg-night-900/60 px-3 py-3 sm:px-4"
-    aria-label="制限時間"
-  >
+  <section class="panel p-0" aria-label="制限時間">
     <button
       type="button"
-      class="flex w-full items-center justify-between gap-2 text-left"
+      class="flex w-full items-center justify-between gap-2 px-3 py-3 text-left sm:px-4"
+      :aria-expanded="expanded"
       @click="expanded = !expanded"
     >
-      <div>
-        <p class="text-sm font-semibold text-gold-100">制限時間</p>
+      <div class="min-w-0">
+        <p class="text-sm font-semibold text-gold-200">制限時間</p>
         <p class="mt-0.5 text-[11px] text-sand-dim">
           {{ formatControl(server) }} · ホストが変更可
         </p>
       </div>
-      <span class="text-xs text-sand-dim">{{ expanded ? '閉じる' : '開く' }}</span>
+      <span class="shrink-0 text-xs text-sand-dim">{{
+        expanded ? '閉じる' : '開く'
+      }}</span>
     </button>
 
-    <div v-if="expanded" class="mt-3 space-y-3 border-t border-gold-400/10 pt-3">
+    <div
+      v-if="expanded"
+      class="space-y-3 border-t border-gold-400/15 px-3 pb-3 pt-3 sm:px-4"
+    >
       <p
         class="rounded-xl border border-gold-400/10 bg-night-900/50 px-3 py-2 text-[11px] leading-relaxed text-sand-dim"
       >
@@ -170,38 +173,38 @@ function apply() {
 
       <div
         v-if="editable"
-        class="rounded-xl border border-gold-400/10 bg-night-800/40 px-3 py-2"
+        class="rounded-xl border border-gold-400/10 bg-night-900/50 px-3 py-2"
       >
         <p class="mb-2 text-[11px] font-medium text-gold-200">カスタム（秒）</p>
         <div class="flex flex-wrap items-end gap-3">
-          <label class="flex flex-col gap-1 text-[11px] text-sand-dim">
-            持ち時間
+          <label class="flex flex-col gap-1">
+            <span class="field-label !mb-0">持ち時間</span>
             <input
               v-model.number="customMain"
               type="number"
               min="0"
               max="3600"
               step="10"
-              class="w-24 rounded-lg border border-gold-400/20 bg-night-900 px-2 py-1.5 text-sm text-sand"
+              class="field w-24 !px-2 !py-1.5"
               :disabled="disabled"
             />
           </label>
           <span class="pb-2 text-sand-dim">+</span>
-          <label class="flex flex-col gap-1 text-[11px] text-sand-dim">
-            毎ターン
+          <label class="flex flex-col gap-1">
+            <span class="field-label !mb-0">毎ターン</span>
             <input
               v-model.number="customTurn"
               type="number"
               min="5"
               max="300"
               step="5"
-              class="w-24 rounded-lg border border-gold-400/20 bg-night-900 px-2 py-1.5 text-sm text-sand"
+              class="field w-24 !px-2 !py-1.5"
               :disabled="disabled"
             />
           </label>
           <button
             type="button"
-            class="btn-ghost !px-3 !py-1.5 text-xs"
+            class="btn-ghost btn-sm"
             :disabled="disabled"
             @click="applyCustom"
           >
@@ -221,7 +224,7 @@ function apply() {
       >
         <button
           type="button"
-          class="btn-teal !px-3 !py-1.5 text-xs"
+          class="btn-teal btn-sm"
           :disabled="disabled || !dirty"
           @click="apply"
         >

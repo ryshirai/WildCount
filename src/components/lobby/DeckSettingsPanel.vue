@@ -405,7 +405,7 @@ function closeEditor() {
           <button
             type="button"
             class="w-full sm:w-auto"
-            :class="editable ? 'btn-teal !px-4 !py-2.5 text-sm' : 'btn-ghost text-xs'"
+            :class="editable ? 'btn-teal' : 'btn-ghost btn-sm'"
             :disabled="disabled"
             @click="openEditor"
           >
@@ -618,7 +618,7 @@ function closeEditor() {
           </button>
           <button
             type="button"
-            class="btn-teal !px-3 !py-2 text-xs"
+            class="btn-teal btn-sm"
             :disabled="disabled || !isDirty || !totalOk"
             @click="apply"
           >

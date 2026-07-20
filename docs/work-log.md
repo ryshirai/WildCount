@@ -3072,3 +3072,45 @@
 1. **R2** Lobby 情報設計
 2. **R3** GameView 構造分割（並列可）
 3. 詳細は `docs/ui-redesign.md`
+
+---
+
+## 2026-07-20 — R2 Lobby 情報設計
+
+### 背景・目的
+- 全面 UI リデザイン（`docs/ui-redesign.md`）Phase R2
+- ロビーを「集まる・始める」主役にし、設定を二次化。ホストが設定を開かずに sticky から開始できること
+
+### 実施内容
+1. **シェル**: `page-fixed` + 本文スクロール + 底 CTA 常時表示（ヘッダは sticky 不要）
+2. **退出一本化**: ヘッダのみ。底の「ロビーを退出」削除
+3. **sticky CTA**: 準備（未=btn-teal / 済=ghost）・開始（btn-gold）・解散（btn-danger）。確認ダイアログは既存 danger
+4. **lg 2 カラム**: 左=参加者グリッド、右=ルーム設定アコーディオン + チャット
+5. **ルーム設定 1 アコーディオン**（既定折りたたみ）: ヘッダ 1 行サマリ（山札・エクストラ・制限時間）+ 山札 / Extra / Time
+6. ExtraRules / TimeControl を `.panel` 言語に。Deck の `!px` を `btn-sm` へ
+7. SP 重複スタンプ入口を削除（ChatPanel 内に一本化）
+8. プロフィール入力を `.field` / `.field-label` に統一
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/views/LobbyView.vue` | IA 再設計・sticky CTA・2 カラム・設定アコーディオン |
+| `src/components/lobby/ExtraRulesPanel.vue` | panel 言語 |
+| `src/components/lobby/TimeControlPanel.vue` | panel + field |
+| `src/components/lobby/DeckSettingsPanel.vue` | btn-sm 寄せ |
+| `docs/backlog.md` | R2 done、着手順更新 |
+| `docs/work-log.md` | 本エントリ |
+
+### 明示的にやっていないこと
+- GameView 分割・モバイルクロム圧縮（R3–R4）
+- ルール・Worker・演出の変更
+- 本番デプロイ（HOLD-5）
+
+### 確認結果
+- `npm test` 167 passed
+- `npm run typecheck` / `lint` / `build` 成功
+
+### 次に考えられる作業
+1. **R3** GameView 構造分割（見た目同一リファクタ）
+2. **R4** Game モバイル UX
+3. 詳細は `docs/ui-redesign.md`

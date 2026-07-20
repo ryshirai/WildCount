@@ -111,28 +111,33 @@ function resetAll() {
 </script>
 
 <template>
-  <section
-    class="rounded-2xl border border-gold-400/20 bg-night-900/60 px-3 py-3 sm:px-4"
-    aria-label="エクストラルール"
-  >
+  <section class="panel p-0" aria-label="エクストラルール">
     <button
       type="button"
-      class="flex w-full items-center justify-between gap-2 text-left"
+      class="flex w-full items-center justify-between gap-2 px-3 py-3 text-left sm:px-4"
+      :aria-expanded="expanded"
       @click="expanded = !expanded"
     >
-      <div>
-        <p class="text-sm font-semibold text-gold-100">エクストラルール</p>
+      <div class="min-w-0">
+        <p class="text-sm font-semibold text-gold-200">エクストラルール</p>
         <p class="mt-0.5 text-[11px] text-sand-dim">
           <template v-if="enabledCount === 0">オフ＝ふつうの遊び方</template>
           <template v-else>{{ enabledCount }} 個オン</template>
           · ホストが変更可
         </p>
       </div>
-      <span class="text-xs text-sand-dim">{{ expanded ? '閉じる' : '開く' }}</span>
+      <span class="shrink-0 text-xs text-sand-dim">{{
+        expanded ? '閉じる' : '開く'
+      }}</span>
     </button>
 
-    <div v-if="expanded" class="mt-3 space-y-2 border-t border-gold-400/10 pt-3">
-      <p class="rounded-xl border border-gold-400/10 bg-night-900/50 px-3 py-2 text-[11px] leading-relaxed text-sand-dim">
+    <div
+      v-if="expanded"
+      class="space-y-2 border-t border-gold-400/15 px-3 pb-3 pt-3 sm:px-4"
+    >
+      <p
+        class="rounded-xl border border-gold-400/10 bg-night-900/50 px-3 py-2 text-[11px] leading-relaxed text-sand-dim"
+      >
         足したいものだけオンにしてください。オンにした能力は
         <span class="text-sand">1人・1ラウンドで1回まで</span>
         （どれか1つ使ったら、そのラウンドは他も使えません）。
@@ -140,7 +145,7 @@ function resetAll() {
       <label
         v-for="row in ROWS"
         :key="row.key"
-        class="flex cursor-pointer items-start gap-3 rounded-xl border border-gold-400/10 bg-night-800/50 px-3 py-2"
+        class="flex cursor-pointer items-start gap-3 rounded-xl border border-gold-400/10 bg-night-900/50 px-3 py-2"
         :class="
           !editable || disabled
             ? 'cursor-default opacity-80'
@@ -171,7 +176,7 @@ function resetAll() {
       >
         <button
           type="button"
-          class="btn-ghost !px-3 !py-1.5 text-xs"
+          class="btn-ghost btn-sm"
           :disabled="disabled"
           @click="resetAll"
         >
@@ -179,7 +184,7 @@ function resetAll() {
         </button>
         <button
           type="button"
-          class="btn-teal !px-3 !py-1.5 text-xs"
+          class="btn-teal btn-sm"
           :disabled="disabled || !dirty"
           @click="apply"
         >
