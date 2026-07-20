@@ -4,6 +4,7 @@
  * Content from src/data/helpContent.ts — specs in docs/game-rules.md / card-design.md.
  */
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import BidCard from '@/components/game/BidCard.vue'
 import {
   HELP_BASICS,
   HELP_CALC_STEPS,
@@ -11,6 +12,7 @@ import {
   HELP_CONTROLS,
   HELP_DECK_SIZE,
   HELP_EXTRA_RULES,
+  HELP_NUMBER_SAMPLES,
   HELP_NUMBER_SUMMARY,
   HELP_SPECIALS,
   HELP_TABS,
@@ -80,15 +82,6 @@ onUnmounted(() => {
   window.removeEventListener('keydown', onKeydown)
   document.documentElement.style.overflow = ''
 })
-
-const specialKindClass: Record<string, string> = {
-  double: 'help-face help-face--double',
-  half: 'help-face help-face--half',
-  max_to_zero: 'help-face help-face--max0',
-  redraw: 'help-face help-face--redraw',
-  zero_mix: 'help-face help-face--zeromix',
-  number: 'help-face help-face--number',
-}
 </script>
 
 <template>
@@ -252,7 +245,7 @@ const specialKindClass: Record<string, string> = {
               <p class="text-xs text-sand-dim">
                 スタンダードの山札は全部で
                 <span class="font-semibold text-gold-200">{{ HELP_DECK_SIZE }}枚</span>
-                （数字と特殊札）。特殊札の見た目は結果画面と同じです。
+                （数字と特殊札）。カードの見た目はゲーム盤面と同じです。
               </p>
 
               <ul class="space-y-3">
@@ -261,12 +254,8 @@ const specialKindClass: Record<string, string> = {
                   :key="card.kind"
                   class="flex gap-3 rounded-xl border border-gold-400/15 bg-night-900/50 p-3"
                 >
-                  <div
-                    class="shrink-0"
-                    :class="specialKindClass[card.kind]"
-                    aria-hidden="true"
-                  >
-                    {{ card.face }}
+                  <div class="shrink-0" aria-hidden="true">
+                    <BidCard :label="card.face" compact />
                   </div>
                   <div class="min-w-0 flex-1">
                     <div class="mb-0.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
@@ -310,6 +299,15 @@ const specialKindClass: Record<string, string> = {
 
               <div class="rounded-xl border border-gold-400/12 bg-night-900/40 px-3 py-3">
                 <h3 class="mb-2 text-xs font-semibold text-gold-200">数字カード</h3>
+                <div class="mb-3 flex flex-wrap items-start gap-x-2 gap-y-2" aria-hidden="true">
+                  <div
+                    v-for="sample in HELP_NUMBER_SAMPLES"
+                    :key="sample"
+                    class="flex flex-col items-center"
+                  >
+                    <BidCard :label="sample" compact />
+                  </div>
+                </div>
                 <ul class="space-y-1.5">
                   <li
                     v-for="row in HELP_NUMBER_SUMMARY"
@@ -422,71 +420,3 @@ const specialKindClass: Record<string, string> = {
     </Transition>
   </Teleport>
 </template>
-
-<style scoped>
-.help-face {
-  display: flex;
-  height: 2.75rem;
-  width: 2.25rem;
-  align-items: center;
-  justify-content: center;
-  border-radius: 0.5rem;
-  font-family: var(--font-display, ui-sans-serif), system-ui, sans-serif;
-  font-size: 0.7rem;
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: -0.02em;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
-}
-
-.help-face--double {
-  border: 1px solid rgba(42, 138, 138, 0.55);
-  background: linear-gradient(
-    to bottom,
-    rgba(20, 80, 80, 0.95),
-    #0c1220 70%
-  );
-  color: #5ec8c8;
-  box-shadow: 0 0 12px rgba(42, 138, 138, 0.25);
-}
-
-.help-face--half {
-  border: 1px solid rgba(167, 139, 250, 0.55);
-  background: linear-gradient(
-    to bottom,
-    rgba(76, 29, 149, 0.55),
-    #0c1220 70%
-  );
-  color: #c4b5fd;
-  font-size: 0.65rem;
-  box-shadow: 0 0 12px rgba(167, 139, 250, 0.2);
-}
-
-.help-face--max0 {
-  border: 1px solid rgba(245, 158, 11, 0.5);
-  background: linear-gradient(to bottom, rgba(120, 70, 10, 0.55), #0c1220);
-  color: #fcd34d;
-  font-size: 0.55rem;
-  box-shadow: 0 0 12px rgba(245, 158, 11, 0.18);
-}
-
-.help-face--redraw {
-  border: 1px solid rgba(201, 168, 76, 0.45);
-  background: linear-gradient(to bottom, #2a3148, #0c1220);
-  color: #e8d48b;
-  font-size: 1.1rem;
-}
-
-.help-face--zeromix {
-  border: 1px solid rgba(251, 191, 36, 0.55);
-  background: linear-gradient(to bottom, #fef3c7, #fcd34d);
-  color: #1a1520;
-  font-size: 0.85rem;
-}
-
-.help-face--number {
-  border: 1px solid rgba(201, 168, 76, 0.55);
-  background: linear-gradient(to bottom, #faf6eb, #c9a84c);
-  color: #1a1520;
-}
-</style>

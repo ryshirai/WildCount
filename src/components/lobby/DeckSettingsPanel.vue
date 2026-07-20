@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import BidCard from '@/components/game/BidCard.vue'
 import {
   cloneDeckComposition,
   countCards,
@@ -35,7 +36,7 @@ const SPECIAL_ROWS: Array<{
   { key: 'half', label: '1/2', hint: '合計を半分にする（0方向切り捨て）' },
   { key: 'max_to_zero', label: 'M→0', hint: '最大のプラスを0に' },
   { key: 'redraw', label: '?', hint: '配ったら引き直し' },
-  { key: 'zero_mix', label: '0*', hint: '0扱いで捨て札を混ぜる' },
+  { key: 'zero_mix', label: '0*', hint: '0扱いで捨て札を山に戻す（山IN）' },
 ]
 
 function wireToComposition(wire: WireDeckComposition | null | undefined): DeckComposition {
@@ -207,12 +208,6 @@ function formatValue(v: number): string {
   return String(v)
 }
 
-function numberToneClass(value: number): string {
-  if (value > 0) return 'text-night-900'
-  if (value < 0) return 'text-red-800'
-  return 'text-night-800'
-}
-
 function bumpNumber(value: number, delta: number) {
   if (!props.editable || props.disabled) return
   const next = toEditorDeckComposition(draft.value)
@@ -291,48 +286,37 @@ function closeEditor() {
     <!-- ========== Collapsed: polished summary ========== -->
     <div v-if="!expanded" class="relative">
       <div class="flex flex-col gap-4 p-4 sm:flex-row sm:items-stretch sm:gap-5 sm:p-5">
-        <!-- Card stack preview -->
+        <!-- Card stack preview (same BidCard tiles as the board) -->
         <div
           class="relative mx-auto flex h-[7.5rem] w-[6.5rem] shrink-0 items-end justify-center sm:mx-0 sm:h-32 sm:w-28"
           aria-hidden="true"
         >
-          <!-- Back layers -->
+          <!-- Back layers (mystery face, same as board) -->
           <div
-            class="absolute bottom-1 left-1/2 h-[4.75rem] w-[3.25rem] -translate-x-1/2 rotate-[-14deg] rounded-lg border border-gold-400/30 bg-gradient-to-b from-night-700 to-night-900 shadow-md ring-1 ring-gold-400/10"
-          />
+            class="absolute bottom-1 left-1/2 origin-bottom -translate-x-1/2 rotate-[-14deg] scale-90 opacity-55"
+          >
+            <BidCard mystery />
+          </div>
           <div
-            class="absolute bottom-1.5 left-1/2 h-[5rem] w-[3.4rem] -translate-x-[42%] rotate-[-6deg] rounded-lg border border-gold-400/35 bg-gradient-to-b from-night-600 to-night-800 shadow-md"
-          />
+            class="absolute bottom-1.5 left-1/2 origin-bottom -translate-x-[42%] rotate-[-6deg] scale-95 opacity-75"
+          >
+            <BidCard mystery />
+          </div>
           <!-- Face cards fanned -->
           <div
             v-for="(face, i) in previewFaces"
             :key="face.key"
-            class="absolute bottom-0 flex h-[5.25rem] w-[3.5rem] items-center justify-center rounded-lg border shadow-lg ring-1 ring-inset transition-transform"
-            :class="[
-              face.kind === 'number'
-                ? 'border-gold-400/55 bg-gradient-to-b from-gold-50 via-gold-100 to-gold-300 ring-white/30'
-                : face.kind === 'special'
-                  ? 'border-teal-soft/50 bg-gradient-to-b from-teal-soft/30 via-night-800 to-night-900 ring-teal-soft/20'
-                  : 'border-gold-400/60 bg-gradient-to-b from-night-700 to-night-950 ring-gold-400/25',
-            ]"
+            class="absolute bottom-0 origin-bottom"
             :style="{
               transform: `translateX(calc(-50% + ${(i - (previewFaces.length - 1) / 2) * 14}px)) rotate(${(i - (previewFaces.length - 1) / 2) * 7}deg)`,
               left: '50%',
               zIndex: i + 2,
             }"
           >
-            <span
-              class="font-display text-sm font-bold leading-none tracking-tight sm:text-base"
-              :class="
-                face.kind === 'number'
-                  ? numberToneClass(face.value ?? 0)
-                  : face.kind === 'special'
-                    ? 'text-teal-soft'
-                    : 'text-gold-300'
-              "
-            >
-              {{ face.label }}
-            </span>
+            <BidCard
+              :label="face.kind === 'mystery' ? null : face.label"
+              :mystery="face.kind === 'mystery'"
+            />
           </div>
         </div>
 
@@ -429,12 +413,7 @@ function closeEditor() {
             :key="`sum-n-${n.value}`"
             class="flex flex-col items-center"
           >
-            <div
-              class="flex h-11 w-9 items-center justify-center rounded-md border border-gold-400/50 bg-gradient-to-b from-gold-50 via-gold-100 to-gold-300 font-display text-[11px] font-bold leading-none shadow-md ring-1 ring-inset ring-white/25 sm:h-12 sm:w-10 sm:text-xs"
-              :class="numberToneClass(n.value)"
-            >
-              {{ formatValue(n.value) }}
-            </div>
+            <BidCard :label="formatValue(n.value)" compact />
             <span
               class="mt-1 rounded-full border border-gold-400/20 bg-night-900/80 px-1.5 py-px font-mono text-[10px] tabular-nums text-sand-dim"
             >
@@ -455,11 +434,7 @@ function closeEditor() {
             class="flex flex-col items-center"
             :title="s.hint"
           >
-            <div
-              class="flex h-11 w-9 items-center justify-center rounded-md border border-teal-soft/45 bg-gradient-to-b from-teal-soft/25 via-night-800 to-night-900 font-display text-[11px] font-bold leading-none text-teal-soft shadow-md ring-1 ring-inset ring-teal-soft/20 sm:h-12 sm:w-10 sm:text-xs"
-            >
-              {{ s.label }}
-            </div>
+            <BidCard :label="s.label" compact />
             <span
               class="mt-1 rounded-full border border-teal-soft/20 bg-night-900/80 px-1.5 py-px font-mono text-[10px] tabular-nums text-teal-soft/90"
             >
@@ -502,12 +477,7 @@ function closeEditor() {
             :key="value"
             class="flex items-center justify-between gap-2 rounded-xl border border-gold-400/15 bg-night-900/50 px-3 py-2"
           >
-            <span
-              class="inline-flex h-9 w-8 items-center justify-center rounded-md border border-gold-400/45 bg-gradient-to-b from-gold-50 via-gold-100 to-gold-300 font-display text-xs font-bold shadow-sm"
-              :class="numberToneClass(value)"
-            >
-              {{ formatValue(value) }}
-            </span>
+            <BidCard :label="formatValue(value)" compact />
             <div class="flex items-center gap-2">
               <button
                 v-if="editable"
@@ -549,11 +519,7 @@ function closeEditor() {
             class="flex items-center justify-between gap-2 rounded-xl border border-teal-soft/20 bg-night-900/50 px-3 py-2"
           >
             <div class="flex min-w-0 items-center gap-2">
-              <span
-                class="inline-flex h-9 w-8 shrink-0 items-center justify-center rounded-md border border-teal-soft/40 bg-gradient-to-b from-teal-soft/25 via-night-800 to-night-900 font-display text-[10px] font-bold text-teal-soft shadow-sm"
-              >
-                {{ row.label }}
-              </span>
+              <BidCard :label="row.label" compact class="shrink-0" />
               <span class="text-[11px] text-sand-dim">{{ row.hint }}</span>
             </div>
             <div class="flex items-center gap-2">

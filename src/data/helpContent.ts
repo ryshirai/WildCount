@@ -69,7 +69,7 @@ export const HELP_SPECIALS: readonly HelpSpecialCard[] = [
   {
     face: '0*',
     kind: 'zero_mix',
-    name: '捨て札ミックス（0*）',
+    name: '捨て札→山札IN（0）',
     effect:
       '合計では0として数えます。配ったあと、捨て札を山に戻してシャッフルします。',
     count: 1,
@@ -81,6 +81,9 @@ export const HELP_NUMBER_SUMMARY: readonly HelpNumberRange[] = [
   { label: '0', detail: 'スタンダードでは3枚（無難な札）' },
   { label: 'マイナス', detail: '−5が2枚、−10が1枚' },
 ] as const
+
+/** Sample faces for help UI (same BidCard tiles as the board). */
+export const HELP_NUMBER_SAMPLES = ['+20', '+5', '0', '-5', '-10'] as const
 
 /** Default deck size (STANDARD_DECK). */
 export const HELP_DECK_SIZE = 36

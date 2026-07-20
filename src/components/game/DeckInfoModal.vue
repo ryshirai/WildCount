@@ -3,6 +3,7 @@
  * In-game mountain deck info (recipe totals only — not remaining draw pile).
  */
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import BidCard from '@/components/game/BidCard.vue'
 import {
   cloneDeckComposition,
   countCards,
@@ -31,9 +32,10 @@ const SPECIAL_ROWS: Array<{
   hint: string
 }> = [
   { key: 'double', label: '×2', hint: '合計を2倍にする' },
+  { key: 'half', label: '1/2', hint: '合計を半分にする（0方向切り捨て）' },
   { key: 'max_to_zero', label: 'M→0', hint: '最大のプラスを0に' },
   { key: 'redraw', label: '?', hint: '配ったら引き直し' },
-  { key: 'zero_mix', label: '0*', hint: '0扱いで捨て札を混ぜる' },
+  { key: 'zero_mix', label: '0*', hint: '0扱いで捨て札を山に戻す（山IN）' },
 ]
 
 function toComposition(
@@ -44,7 +46,13 @@ function toComposition(
     id: source.id,
     label: source.label,
     numbers: source.numbers.map((n) => ({ value: n.value, count: n.count })),
-    specials: { ...source.specials },
+    specials: {
+      double: source.specials.double,
+      half: source.specials.half ?? 0,
+      max_to_zero: source.specials.max_to_zero,
+      redraw: source.specials.redraw,
+      zero_mix: source.specials.zero_mix,
+    },
   }
 }
 
@@ -59,7 +67,7 @@ const numberCardTotal = computed(() =>
 
 const specialCardTotal = computed(() => {
   const s = composition.value.specials
-  return s.double + s.max_to_zero + s.redraw + s.zero_mix
+  return s.double + (s.half ?? 0) + s.max_to_zero + s.redraw + s.zero_mix
 })
 
 const summaryNumbers = computed(() =>
@@ -80,12 +88,6 @@ const summarySpecials = computed(() =>
 function formatValue(v: number): string {
   if (v > 0) return `+${v}`
   return String(v)
-}
-
-function numberToneClass(value: number): string {
-  if (value > 0) return 'text-night-900'
-  if (value < 0) return 'text-red-800'
-  return 'text-night-800'
 }
 
 function close() {
@@ -243,12 +245,7 @@ onUnmounted(() => {
                 :key="`n-${n.value}`"
                 class="flex flex-col items-center"
               >
-                <div
-                  class="flex h-11 w-9 items-center justify-center rounded-md border border-gold-400/50 bg-gradient-to-b from-gold-50 via-gold-100 to-gold-300 font-display text-[11px] font-bold leading-none shadow-md ring-1 ring-inset ring-white/25 sm:h-12 sm:w-10 sm:text-xs"
-                  :class="numberToneClass(n.value)"
-                >
-                  {{ formatValue(n.value) }}
-                </div>
+                <BidCard :label="formatValue(n.value)" compact />
                 <span
                   class="mt-1 rounded-full border border-gold-400/20 bg-night-900/80 px-1.5 py-px font-mono text-[10px] tabular-nums text-sand-dim"
                 >
@@ -268,11 +265,7 @@ onUnmounted(() => {
                 class="flex flex-col items-center"
                 :title="s.hint"
               >
-                <div
-                  class="flex h-11 w-9 items-center justify-center rounded-md border border-teal-soft/45 bg-gradient-to-b from-teal-soft/25 via-night-800 to-night-900 font-display text-[11px] font-bold leading-none text-teal-soft shadow-md ring-1 ring-inset ring-teal-soft/20 sm:h-12 sm:w-10 sm:text-xs"
-                >
-                  {{ s.label }}
-                </div>
+                <BidCard :label="s.label" compact />
                 <span
                   class="mt-1 rounded-full border border-teal-soft/20 bg-night-900/80 px-1.5 py-px font-mono text-[10px] tabular-nums text-teal-soft/90"
                 >

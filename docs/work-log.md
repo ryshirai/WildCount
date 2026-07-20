@@ -3779,3 +3779,56 @@
 1. 実プレイで振動パターン・クールダウンを調整
 2. UX-16 席ごと持ち時間表示
 3. HOLD-5 本番デプロイ（ユーザー確認後）
+
+## 2026-07-20 — ヘルプ／山札 UI を盤面カード（BidCard）に統一
+
+### 背景・目的
+- ヘルプの特殊札・数字サンプルが独自 `.help-face` で、ゲーム盤面の `BidCard` と見た目がズレていた
+- ロビー山札設定・対局中の山札情報モーダルも簡易タイルのままだったので、盤面と同じカード表現に揃える
+
+### 実施内容
+1. **HelpModal** — 特殊札・数字サンプルを `BidCard`（compact）で表示。独自 CSS を削除
+2. **helpContent** — `HELP_NUMBER_SAMPLES` を追加（+20 / +5 / 0 / -5 / -10）
+3. **DeckSettingsPanel** — プレビュー扇・一覧・編集行の面をすべて `BidCard` に置換
+4. **DeckInfoModal** — 同様に `BidCard` 化。`half` 特殊を SPECIAL_ROWS / 合計に含める
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/components/common/HelpModal.vue` | BidCard 利用・help-face CSS 削除 |
+| `src/data/helpContent.ts` | 数字サンプル定数 |
+| `src/components/lobby/DeckSettingsPanel.vue` | BidCard 統一 |
+| `src/components/game/DeckInfoModal.vue` | BidCard 統一・half 対応 |
+
+### 明示的にやっていないこと
+- 結果画面の `RevealCardTile`（SVG 付き公開演出）の BidCard 化 — 結果専用のまま
+- カード寸法トークンの再設計（compact 既存サイズを利用）
+
+### 確認結果
+- `npm run typecheck` / `lint` / `build` 成功
+
+### 次に考えられる作業
+1. 結果公開タイルと盤面タイルのビジュアル差をどこまで寄せるか検討
+2. 実機でヘルプ／ロビーのカード密度を確認
+
+## 2026-07-20 — 0 捨て札→山札IN カード面の再デザイン
+
+### 背景・目的
+- 特殊0（捨て札ミックス）が通常の数字0と同じ薄いゴールド面で紛らわしかった
+- 「捨札混」表記も意味が伝わりにくかった
+
+### 実施内容
+1. **面デザイン** — 暗いカッパー枠 + 循環矢印グリフ + 大「0」+ バッジ「山IN」
+2. **BidCard / RevealCardTile / CSS** を同期（盤面・ヘルプ・山札・結果）
+3. ヘルプ名・山札ヒント文言を「捨て札→山札IN」寄りに調整
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/components/game/BidCard.vue` | zero_mix 面 |
+| `src/components/game/RevealCardTile.vue` | zero_mix 面 |
+| `src/styles/main.css` | zeromix 色・glyph・badge |
+| `src/data/helpContent.ts` ほか | 表示名ヒント |
+
+### 確認結果
+- build 成功

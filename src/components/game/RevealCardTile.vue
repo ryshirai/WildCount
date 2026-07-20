@@ -153,10 +153,28 @@ const resolvedEmphasis = computed<CardEmphasis>(() => {
       <span class="reveal-card__hero font-display">?</span>
     </template>
 
-    <!-- 0* 捨札ミックス（通常 0 は +0。ヒーローは 0 のみで幅を抑える） -->
+    <!-- 0 捨て札→山札IN（通常 0 と区別: 暗い特殊枠 + 循環矢印 + 山IN） -->
     <template v-else-if="kind === 'zero_mix'">
+      <svg class="reveal-card__glyph" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+        <path
+          d="M12 16c1.8-3.2 5.2-5.2 9-5.2 4.6 0 8.5 3 9.8 7.2"
+          stroke="currentColor"
+          stroke-width="1.75"
+          stroke-linecap="round"
+          opacity="0.55"
+        />
+        <path d="M28.5 14.2 L32.2 18.5 L26.5 19.2 Z" fill="currentColor" opacity="0.55" />
+        <path
+          d="M28 24c-1.8 3.2-5.2 5.2-9 5.2-4.6 0-8.5-3-9.8-7.2"
+          stroke="currentColor"
+          stroke-width="1.75"
+          stroke-linecap="round"
+          opacity="0.55"
+        />
+        <path d="M11.5 25.8 L7.8 21.5 L13.5 20.8 Z" fill="currentColor" opacity="0.55" />
+      </svg>
       <span class="reveal-card__hero font-display tabular-nums">0</span>
-      <span class="reveal-card__sub">捨札混</span>
+      <span class="reveal-card__badge reveal-card__badge--mix">山IN</span>
     </template>
 
     <!-- Number -->

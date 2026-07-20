@@ -107,9 +107,28 @@ const isStackedMax = computed(() => faceVariant.value === 'max0')
       </span>
     </template>
 
+    <!-- 0 捨て札→山札IN（通常 0 と区別: 暗い特殊枠 + 山IN） -->
     <template v-else-if="faceVariant === 'zeromix'">
+      <svg class="card-tile__glyph" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+        <path
+          d="M12 16c1.8-3.2 5.2-5.2 9-5.2 4.6 0 8.5 3 9.8 7.2"
+          stroke="currentColor"
+          stroke-width="1.75"
+          stroke-linecap="round"
+          opacity="0.55"
+        />
+        <path d="M28.5 14.2 L32.2 18.5 L26.5 19.2 Z" fill="currentColor" opacity="0.55" />
+        <path
+          d="M28 24c-1.8 3.2-5.2 5.2-9 5.2-4.6 0-8.5-3-9.8-7.2"
+          stroke="currentColor"
+          stroke-width="1.75"
+          stroke-linecap="round"
+          opacity="0.55"
+        />
+        <path d="M11.5 25.8 L7.8 21.5 L13.5 20.8 Z" fill="currentColor" opacity="0.55" />
+      </svg>
       <span class="card-tile__hero font-display tabular-nums">0</span>
-      <span class="card-tile__sub">捨札混</span>
+      <span class="card-tile__badge card-tile__badge--mix" aria-hidden="true">山IN</span>
     </template>
 
     <template v-else>

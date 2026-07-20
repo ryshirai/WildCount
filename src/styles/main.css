@@ -204,9 +204,13 @@
       text-gold-100 ring-gold-400/30;
   }
 
+  /* 0 捨て札→山札IN — special (dark copper), not light like normal 0 */
   .card-tile--zeromix {
-    @apply border-amber-500/60 bg-gradient-to-b from-amber-50 via-gold-100 to-amber-200
-      text-night-950 ring-amber-200/50;
+    @apply border-orange-400/65 bg-gradient-to-b from-orange-900/55 via-night-800 to-night-950
+      text-orange-100 ring-orange-400/30;
+    box-shadow:
+      0 0 14px rgba(251, 146, 60, 0.22),
+      0 6px 14px rgba(0, 0, 0, 0.4);
   }
 
   .card-tile--emphasized {
@@ -225,8 +229,7 @@
   }
 
   .card-tile--number .card-tile__hero,
-  .card-tile--negative .card-tile__hero,
-  .card-tile--zeromix .card-tile__hero {
+  .card-tile--negative .card-tile__hero {
     color: #0b1220;
     text-shadow: 0 1px 0 rgba(255, 255, 255, 0.55);
   }
@@ -235,8 +238,13 @@
   .card-tile--half .card-tile__hero,
   .card-tile--max0 .card-tile__hero,
   .card-tile--redraw .card-tile__hero,
+  .card-tile--zeromix .card-tile__hero,
   .card-tile--mystery .card-tile__hero {
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.65);
+  }
+
+  .card-tile--zeromix .card-tile__hero {
+    @apply text-orange-50;
   }
 
   /* +10 / +15 / +20 etc. — still readable, not micro-type */
@@ -263,6 +271,15 @@
   .card-tile__badge {
     @apply relative z-10 mt-0.5 text-[7px] font-semibold tracking-[0.12em]
       text-teal-soft/90 sm:text-[8px];
+  }
+
+  .card-tile__badge--mix {
+    @apply tracking-[0.08em] text-orange-200/95;
+  }
+
+  .card-tile__glyph {
+    @apply pointer-events-none absolute inset-0 z-0 m-auto h-8 w-8 opacity-40
+      text-orange-200/80 sm:h-9 sm:w-9;
   }
 
   .card-tile__sub {
@@ -449,9 +466,11 @@
       text-night-900 ring-white/30;
   }
 
+  /* 0 捨て札→山札IN — special (dark copper), not light like normal 0 */
   .reveal-card--zeromix {
-    @apply border-amber-400/55 bg-gradient-to-b from-amber-50 via-gold-100 to-amber-200
-      text-night-900 ring-amber-200/40;
+    @apply border-orange-400/60 bg-gradient-to-b from-orange-900/55 via-night-800 to-night-900
+      text-orange-100 ring-orange-400/25;
+    box-shadow: 0 0 16px rgba(251, 146, 60, 0.22);
   }
 
   .reveal-card--double {
@@ -502,6 +521,14 @@
 
   .reveal-card__badge {
     @apply relative z-[1] mt-0.5 text-[7px] font-semibold tracking-[0.14em] opacity-70 sm:text-[8px];
+  }
+
+  .reveal-card__badge--mix {
+    @apply tracking-[0.08em] text-orange-200/95 opacity-90;
+  }
+
+  .reveal-card--zeromix .reveal-card__hero {
+    @apply text-orange-50;
   }
 
   .reveal-card__sheen {
