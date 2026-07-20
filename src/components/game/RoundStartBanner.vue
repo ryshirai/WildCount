@@ -66,9 +66,9 @@ onUnmounted(clearTimers)
       :class="phase === 'out' ? 'round-slam-banner--out' : ''"
     >
       <p
-        class="text-[10px] font-semibold uppercase tracking-[0.35em] text-sand-dim sm:text-xs"
+        class="text-[10px] font-semibold tracking-[0.2em] text-sand-dim sm:text-xs"
       >
-        Round
+        ラウンド
       </p>
       <p
         class="round-slam mt-1 font-display text-5xl font-bold tabular-nums text-gold-100 sm:text-6xl"

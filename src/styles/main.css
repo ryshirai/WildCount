@@ -483,10 +483,6 @@
     @apply relative z-[1] text-xl font-bold leading-none tracking-tight sm:text-2xl;
   }
 
-  .reveal-card__hero--sm {
-    @apply text-[11px] sm:text-xs;
-  }
-
   /* Stacked special face (MAX / →0) — avoids single-line crush on narrow tiles */
   .reveal-card__stack {
     @apply relative z-[1] flex flex-col items-center justify-center leading-none;
@@ -921,7 +917,6 @@
   .life-lost-panel,
   .life-lost-avatar-wrap,
   .life-lost-name,
-  .life-lost-label,
   .avatar-turn-ring,
   .round-slam,
   .round-slam-banner,
@@ -1070,17 +1065,6 @@
   }
 }
 
-@keyframes life-lost-label-in {
-  0% {
-    opacity: 0;
-    transform: translateY(-6px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 .life-lost-panel {
   animation: life-lost-panel-in 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
@@ -1096,10 +1080,6 @@
 .life-lost-name {
   animation: life-lost-name-slam 0.55s 0.08s cubic-bezier(0.22, 1, 0.36, 1) both;
   text-shadow: 0 0 18px rgba(248, 113, 113, 0.35);
-}
-
-.life-lost-label {
-  animation: life-lost-label-in 0.4s ease-out both;
 }
 
 .life-lost-heart {
@@ -2108,19 +2088,6 @@
     opacity: 0.28;
     height: min(12vh, 88px);
   }
-}
-
-/* Circular seat positioning helpers (desktop) */
-.seat-circle {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 0;
-  height: 0;
-}
-
-.seat-circle > * {
-  transform: translate(-50%, -50%);
 }
 
 /* Mobile / notch safe areas */

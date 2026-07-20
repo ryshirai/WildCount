@@ -3239,3 +3239,44 @@
 1. **R6** docs / デッド CSS 掃除
 2. **HOLD-5** 本番デプロイ（ユーザー確認後）
 3. UX-2 / TEST-1 / OPS-1（任意）
+
+## 2026-07-20 — R6 docs 更新・デッド CSS 掃除
+
+### 背景・目的
+- 全面 UI リデザイン Phase R6（`docs/ui-redesign.md` §6 R6）
+- ドキュメントと実装の一致、未使用 CSS / 不要英語の掃除
+
+### 実施内容
+1. **デッド CSS 削除**: `.seat-circle`、`.life-lost-label` + keyframes、`.reveal-card__hero--sm`（参照なし）
+2. **ROUND バナー**: ラベル「Round」→「ラウンド」（ブランド英語 COYOTE 等は維持）
+3. **`docs/ui-mock.md`**: 現状表・シェル契約・コンポーネント構成を R0–R5 実装に合わせて全面更新
+4. **`docs/design-overview.md`**: 「PC グリッド」→「楕円席」。UI 正本リンク
+5. **`docs/ui-redesign.md`**: 状態 R0–R6 完了、シェル契約（Lobby=`page-fixed`）、受け入れチェックリスト完了
+6. **`docs/design-polish-plan.md`**: Phase R 正本へのポインタ
+7. **`docs/backlog.md`**: R6 done、idea UX-14/15/16（SFX・触覚・席ごと時計）
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/styles/main.css` | 未使用クラス削除 |
+| `src/components/game/RoundStartBanner.vue` | 日本語ラベル |
+| `docs/ui-mock.md` | 現状・シェル契約 |
+| `docs/design-overview.md` | 楕円席 |
+| `docs/ui-redesign.md` | 完了状態・チェックリスト |
+| `docs/design-polish-plan.md` | R への参照 |
+| `docs/backlog.md` | R6 done + idea |
+| `docs/work-log.md` | 本エントリ |
+
+### 明示的にやっていないこと
+- ルール / Worker / 演出 keyframe の機能変更
+- 効果音・触覚・席ごと時計の実装
+- 本番デプロイ（HOLD-5）
+
+### 確認結果
+- `npm test` 167 passed
+- `npm run typecheck` / `lint` / `build` 成功
+
+### 次に考えられる作業
+1. **HOLD-5** 本番デプロイ（ユーザー確認後）
+2. UX-2 / TEST-1 / OPS-1（任意）
+3. idea: UX-14 SFX / UX-15 触覚 / UX-16 席ごと時計

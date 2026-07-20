@@ -84,6 +84,9 @@
 | TEST-1 | idea | Playwright E2E（2 ブラウザ） | design-overview §7。手動 2 タブが当面の受け入れ |
 | OPS-1 | idea | Worker ヘルス表示（ホームに「Worker 未接続」） | create タイムアウト文言は済 |
 | **UX-13** | **done** | **制限時間（持ち時間 + 毎ターン一時時間）** | ロビー host 設定。`main + turn` 秒。一時時間から先に減る。DO alarm でタイムアウト（自動最小宣言 / コヨーテ / 脱落） |
+| UX-14 | idea | 効果音（宣言 / コヨーテ / 勝敗）+ 任意トグル | Phase R 非ゴール。CSS 演出のみ現状 |
+| UX-15 | idea | 触覚フィードバック（vibration） | モバイル。OFF デフォルト推奨 |
+| UX-16 | idea | 席ごと残り持ち時間の常時表示 | 中央時計は UX-13 済み。席 UI へのミラーは未 |
 
 ---
 
@@ -115,15 +118,17 @@
 | **R3** | done | GameView 構造分割（見た目同一リファクタ） | composables + Desktop/Mobile layout + CoyoteRevealPanel |
 | **R4** | done | Game モバイル（クロム圧縮・特殊能力折りたたみ・チャット中操作） | ヘッダ1本・BidControls fold・mini dock・カルーセル auto-focus |
 | **R5** | done | Game デスクトップ磨き + 席共通化 | AppHeader / SeatContent / table felt / rail |
-| **R6** | todo | docs 更新・デッド UI/CSS 掃除 | 仕上げ |
+| **R6** | done | docs 更新・デッド UI/CSS 掃除 | ui-mock / design-overview / 未使用 CSS |
+
+**Phase R は完了**（正本: `docs/ui-redesign.md`）。
 
 ---
 
 ## 直近のおすすめ着手順
 
-1. **R6** docs 更新・デッド UI/CSS 掃除（R5 完了済み）
-2. **HOLD-5** — `https://wildcount.rysh.dev`（Pages + Worker `/api/*`）。手順は `docs/deploy.md`。実行はユーザー確認後  
-3. UX-2（ホスト移譲カウントダウン）・TEST-1 / OPS-1 は任意
+1. **HOLD-5** — `https://wildcount.rysh.dev`（Pages + Worker `/api/*`）。手順は `docs/deploy.md`。実行はユーザー確認後  
+2. UX-2（ホスト移譲カウントダウン）・TEST-1 / OPS-1 は任意
+3. idea: SFX / 触覚・席ごと持ち時間（下表）
 
 ---
 
@@ -134,4 +139,4 @@
 3. Phase 1 スライスの ID（P1-x）は `phase1-multiplayer.md` §10 と揃える  
 4. エクストラルールの ID（ER-x）は `docs/extra-rules.md` §4 と揃える  
 
-最終更新: 2026-07-20（R5 Game デスクトップ + SeatContent 完了）
+最終更新: 2026-07-20（R6 docs + デッド CSS 掃除。Phase R 完了）

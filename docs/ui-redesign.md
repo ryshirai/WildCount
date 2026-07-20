@@ -2,7 +2,7 @@
 
 **方針**: 全画面（Home / Lobby / Game / Result）のレイアウト・情報設計・共通コンポーネントを作り直す。  
 **制約**: 宣言 FX・カットイン・紙吹雪などの**既存マイクロ演出は維持**（見た目の載せ先・タイミングは調整可）。  
-**本セッション**: 計画のみ。実装は別セッションで段階スライス実施。
+**状態**: **R0–R6 実装完了**（2026-07-20）。本ファイルは計画・受け入れの正本。実装メモは `docs/ui-mock.md`。
 
 参照監査: Home/Lobby/Result 探索 + Game 探索（2026-07-20）。  
 既存資産: `docs/画面イメージ.png` · `docs/ui-mock.md` · `docs/design-polish-plan.md` · `src/styles/main.css` · `tailwind.config.js`
@@ -105,11 +105,11 @@
 
 | シェル | 用途 | ルール |
 |--------|------|--------|
-| `page-scroll` | Home, Lobby | ルートがスクロール。ヘッダは sticky 可 |
-| `page-fixed` | Game, Result | 固定ビューポート。本文だけ内部スクロール |
-| ヘッダ | Lobby / Game / Result | `AppHeader` 同一高さ・同一 blur・同一 border |
+| `page-scroll` | Home | ルートがスクロール |
+| `page-fixed` | Lobby, Game, Result | 固定ビューポート。Lobby は本文スクロール + 底 sticky CTA。Game/Result は領域内スクロール |
+| ヘッダ | Lobby / Game / Result | `AppHeader` 同一 blur・同一 border（Game は `compact` 可） |
 | safe-area | `safe-top` はヘッダ or 切断バナーどちらか一方 | 二重 padding 禁止 |
-| max-width | Home `max-w-lg` / Lobby `max-w-2xl`（lg で 2 カラム可） / Result `max-w-3xl` / Game full | 据え置き＋ Lobby だけワイド活用 |
+| max-width | Home `max-w-lg` / Lobby 2 カラム / Result `max-w-3xl` / Game full | Lobby はワイド活用 |
 
 ### 4.4 アイコン方針
 
@@ -433,23 +433,23 @@ R0 デザインシステム
 
 ## 9. 受け入れチェックリスト（全面完了時）
 
-- [ ] Home / Lobby / Game / Result が同じヘッダ・ボタン・入力言語
-- [ ] ロビー: 設定を開かずに sticky から開始できる
-- [ ] ゲーム SP: 常時クロムが 4 層以内、チャット中も宣言可
-- [ ] 特殊能力は折りたたみ。未使用時は非表示
-- [ ] 宣言 FX・Coyote・Extra・ROUND・confetti・stamp float が従来どおり発火
-- [ ] 無効 `sand-100` なし。デッド「ログをすべて表示」なし
-- [ ] UI 英語の不必要混在を削減
-- [ ] `npm test` / `typecheck` / `lint` / `build` 緑
-- [ ] `docs/ui-mock.md` + work-log + backlog 更新
+- [x] Home / Lobby / Game / Result が同じヘッダ・ボタン・入力言語
+- [x] ロビー: 設定を開かずに sticky から開始できる
+- [x] ゲーム SP: 常時クロムが 4 層以内、チャット中も宣言可
+- [x] 特殊能力は折りたたみ。未使用時は非表示
+- [x] 宣言 FX・Coyote・Extra・ROUND・confetti・stamp float が従来どおり発火
+- [x] 無効 `sand-100` なし。デッド「ログをすべて表示」なし（R0 / R4）。R6 で未使用 CSS（`seat-circle` 等）掃除
+- [x] UI 英語の不必要混在を削減（ROUND バナー等。COYOTE カットイン等ブランド英語は維持）
+- [x] `npm test` / `typecheck` / `lint` / `build` 緑
+- [x] `docs/ui-mock.md` + work-log + backlog 更新
 
 ---
 
-## 10. 次セッションへの引き継ぎ
+## 10. 引き継ぎ（R6 完了後）
 
-1. 本計画を `docs/ui-redesign.md` にコピーして正本化してから R0 着手（推奨）
-2. R0 から実装。大きなビジュアル変更は R1/R2/R4 でユーザー確認ポイントを挟むと安全
-3. 実装時は **演出を壊していないか** を各 Game 系 PR の確認結果に明記
+1. **HOLD-5** 本番デプロイはユーザー確認後（`docs/deploy.md`）
+2. 任意 idea: 効果音 / 触覚、席ごと持ち時間表示（`docs/backlog.md`）
+3. 演出・ルール・Worker の変更は本計画の範囲外
 
 ---
 
