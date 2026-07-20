@@ -129,9 +129,14 @@ export function useChallengeReveal(options: UseChallengeRevealOptions) {
     return pendingResult.value?.cards ?? []
   })
 
+  /**
+   * Banner + reveal panel stay mounted for the whole challenge sequence,
+   * including under CoyoteCutIn. Returning null while cutInVisible used to
+   * flip the layout back to the live table (hands already cleared → empty
+   * board flash behind the cut-in).
+   */
   const coyoteBanner = computed<CoyoteBanner | null>(() => {
-    // Live challenge after cut-in, or mock card-reveal preview
-    if (cutInVisible.value) return null
+    // Mock card-reveal preview (DEV)
     if (mockRevealCards.value && mockResultMeta) {
       const m = mockResultMeta
       return {

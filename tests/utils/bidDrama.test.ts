@@ -166,8 +166,8 @@ describe('heatStageLabel', () => {
     expect(heatStageLabel('none')).toBeNull()
     expect(heatStageLabel('warm')).toBe('WARM UP')
     expect(heatStageLabel('heating')).toBe('HEATING')
-    expect(heatStageLabel('danger')).toBe('DANGER')
-    expect(heatStageLabel('wild')).toBe('WILD')
+    expect(heatStageLabel('danger')).toBe('BLAZING')
+    expect(heatStageLabel('wild')).toBe('OVERDRIVE')
   })
 })
 

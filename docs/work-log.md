@@ -3924,3 +3924,60 @@
 
 ### 確認結果
 - 見た目の透過・ぼかしをヘッダ周りから外した
+
+## 2026-07-20 — HEAT ラベルの助言感を除去（DANGER/WILD → BLAZING/OVERDRIVE）
+
+### 背景・目的
+- 中央宣言の HEAT chip「DANGER」「WILD」が、合計リスクのヒント／チャレンジ誘導に聞こえるとの指摘
+- 実態は宣言連続回数のみ（合計との比較なし）。文言を卓の盛り上がり寄りに直す
+
+### 実施内容
+1. `heatStageLabel`: danger → `BLAZING`、wild → `OVERDRIVE`
+2. 内部キー（`danger`/`wild`）と CSS クラスは据え置き（表示文言のみ変更）
+3. ユニットテスト・`docs/gameplay-dopamine-plan.md` を同期
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/utils/bidDrama.ts` | heatStageLabel 文言 |
+| `tests/utils/bidDrama.test.ts` | 期待値 |
+| `docs/gameplay-dopamine-plan.md` | HEAT 表と方針注記 |
+| `docs/work-log.md` | 本エントリ |
+
+### 明示的にやっていないこと
+- RAISE の `WILD CALL`（強気宣言の称賛ラベル。HEAT とは別）の改名
+- 色・卓縁 FX の閾値や内部 heat id のリネーム
+
+### 確認結果
+- `npx vitest run tests/utils/bidDrama.test.ts` — 23 passed
+
+### 次に考えられる作業
+1. WILD CALL も助言に聞こえるかプレイ感で確認
+2. 必要なら内部 id も blazing/overdrive に揃える
+
+## 2026-07-20 — コヨーテ中に卓盤面が切り替わるのを修正
+
+### 背景・目的
+- コヨーテ後、カットインの裏で盤面が切り替わって見える指摘
+- 原因: `coyoteBanner` が `cutInVisible` 中だけ null になり、手札クリア済みの通常卓に戻っていた
+
+### 実施内容
+1. `useChallengeReveal` の `coyoteBanner` をカットイン中も維持（公開パネルを下に固定）
+2. シーケンス: 通常卓 →（silence から）公開パネル固定 → カットインオーバーレイ → カードめくり
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/composables/useChallengeReveal.ts` | cutIn 中も coyoteBanner を返す |
+| `docs/work-log.md` | 本エントリ |
+
+### 明示的にやっていないこと
+- エンジン側の hands クリアタイミング変更
+- カットインの不透明度・演出調整
+
+### 確認結果
+- cutIn 中も coyoteBanner が維持されるよう修正。関連 unit は pass
+
+### 次に考えられる作業
+1. 実機でカットイン中に裏がチラつかないか確認
+2. silence 開始時の通常卓→公開パネル切替をクロスフェードにするか検討

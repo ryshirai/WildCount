@@ -182,7 +182,11 @@ export function raiseCutInTitle(
   }
 }
 
-/** HEAT stage label for UI chip (null when none). */
+/**
+ * HEAT stage label for UI chip (null when none).
+ * Wording is pure table-energy — avoid risk advice like "DANGER" that reads as a
+ * challenge hint (heat is bid-count only, not vs actual total).
+ */
 export function heatStageLabel(heat: HeatLevel): string | null {
   switch (heat) {
     case 'warm':
@@ -190,9 +194,9 @@ export function heatStageLabel(heat: HeatLevel): string | null {
     case 'heating':
       return 'HEATING'
     case 'danger':
-      return 'DANGER'
+      return 'BLAZING'
     case 'wild':
-      return 'WILD'
+      return 'OVERDRIVE'
     default:
       return null
   }
