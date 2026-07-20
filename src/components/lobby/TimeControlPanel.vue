@@ -158,7 +158,7 @@ function apply() {
           :class="
             selectedPresetId === p.id
               ? 'border-teal-soft/60 bg-teal-deep/40 text-teal-soft'
-              : 'border-gold-400/20 bg-night-800/60 text-sand-100 hover:border-gold-400/40'
+              : 'border-gold-400/20 bg-night-800/60 text-sand hover:border-gold-400/40'
           "
           :disabled="!editable || disabled"
           :title="p.hint"
@@ -182,7 +182,7 @@ function apply() {
               min="0"
               max="3600"
               step="10"
-              class="w-24 rounded-lg border border-gold-400/20 bg-night-900 px-2 py-1.5 text-sm text-sand-100"
+              class="w-24 rounded-lg border border-gold-400/20 bg-night-900 px-2 py-1.5 text-sm text-sand"
               :disabled="disabled"
             />
           </label>
@@ -195,7 +195,7 @@ function apply() {
               min="5"
               max="300"
               step="5"
-              class="w-24 rounded-lg border border-gold-400/20 bg-night-900 px-2 py-1.5 text-sm text-sand-100"
+              class="w-24 rounded-lg border border-gold-400/20 bg-night-900 px-2 py-1.5 text-sm text-sand"
               :disabled="disabled"
             />
           </label>
@@ -210,7 +210,7 @@ function apply() {
         </div>
       </div>
 
-      <p class="text-center text-xs text-sand-100">
+      <p class="text-center text-xs text-sand">
         選択中:
         <span class="font-medium text-gold-200">{{ formatControl(draft) }}</span>
       </p>

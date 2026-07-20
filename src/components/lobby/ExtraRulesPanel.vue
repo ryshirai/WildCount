@@ -155,7 +155,7 @@ function resetAll() {
           @change="toggle(row.key)"
         />
         <span class="min-w-0 flex-1">
-          <span class="block text-sm font-medium text-sand-100">
+          <span class="block text-sm font-medium text-sand">
             <span aria-hidden="true" class="mr-1">{{ row.emoji }}</span>
             {{ row.label }}
           </span>

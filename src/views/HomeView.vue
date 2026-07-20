@@ -2,9 +2,11 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import AppLogo from '@/components/common/AppLogo.vue'
+import AppToast from '@/components/common/AppToast.vue'
 import AvatarPicker from '@/components/common/AvatarPicker.vue'
 import HelpModal from '@/components/common/HelpModal.vue'
 import MockBadge from '@/components/common/MockBadge.vue'
+import StatusChip from '@/components/common/StatusChip.vue'
 import { allowLocalPlay, allowUiMock, isDevBuild } from '@/config/runtime'
 import {
   AVATAR_ASSETS,
@@ -71,9 +73,10 @@ const demoSeedParsed = computed(() => {
 
 function showToast(msg: string) {
   toast.value = msg
-  window.setTimeout(() => {
-    if (toast.value === msg) toast.value = null
-  }, 2800)
+}
+
+function dismissToast() {
+  toast.value = null
 }
 
 function normalizeCode(raw: string) {
@@ -248,7 +251,7 @@ watch(
         </p>
         <button
           type="button"
-          class="btn-ghost mt-4 !px-4 !py-2 text-xs"
+          class="btn-ghost btn-sm mt-4"
           @click="helpOpen = true"
         >
           <span class="font-bold text-gold-200" aria-hidden="true">?</span>
@@ -262,9 +265,7 @@ watch(
         class="panel mb-4 border border-teal-soft/25 p-4 ring-1 ring-teal-soft/20 sm:p-5"
       >
         <div class="mb-2 flex items-center gap-2">
-          <span class="chip !border-teal-soft/30 !text-teal-soft text-[10px]">
-            再接続
-          </span>
+          <StatusChip variant="teal" class="text-[10px]" label="再接続" />
           <h2 class="text-sm font-semibold text-gold-200">前回のルームに戻る</h2>
         </div>
         <p class="mb-3 text-xs text-sand-dim">
@@ -299,9 +300,7 @@ watch(
         class="panel mb-4 p-5 ring-1 ring-gold-400/25 sm:p-6"
       >
         <div class="mb-1 flex items-center justify-center gap-2">
-          <span class="chip !border-teal-soft/30 !bg-teal-deep/35 !text-teal-soft text-[10px]">
-            DEV · ローカル
-          </span>
+          <StatusChip variant="teal" class="!bg-teal-deep/35 text-[10px]" label="DEV · ローカル" />
         </div>
         <h2 class="mb-1 text-center text-sm font-semibold text-gold-200">
           ローカル対戦
@@ -311,13 +310,13 @@ watch(
         </p>
 
         <label class="mb-3 block">
-          <span class="mb-1.5 block text-xs text-sand-dim">表示名（任意）</span>
+          <span class="field-label">表示名（任意）</span>
           <input
             v-model="demoSelfName"
             type="text"
             maxlength="12"
             placeholder="あなた"
-            class="w-full rounded-xl border border-gold-400/25 bg-night-900/80 px-4 py-3 text-sm text-sand outline-none transition placeholder:text-sand-dim/50 focus:border-gold-400/50 focus:ring-1 focus:ring-gold-400/30"
+            class="field"
           />
         </label>
 
@@ -361,15 +360,13 @@ watch(
           {{ showDemoAdvanced ? '詳細を閉じる' : '詳細（シード）' }}
         </button>
         <label v-if="showDemoAdvanced" class="mb-4 block">
-          <span class="mb-1.5 block text-xs text-sand-dim">
-            乱数シード（任意・再現用の整数）
-          </span>
+          <span class="field-label">乱数シード（任意・再現用の整数）</span>
           <input
             v-model="demoSeed"
             type="text"
             inputmode="numeric"
             placeholder="空欄で毎回ランダム"
-            class="w-full rounded-xl border border-gold-400/25 bg-night-900/80 px-4 py-2.5 font-mono text-sm text-sand outline-none transition placeholder:font-sans placeholder:text-sand-dim/50 focus:border-gold-400/50 focus:ring-1 focus:ring-gold-400/30"
+            class="field font-mono"
           />
         </label>
 
@@ -394,14 +391,14 @@ watch(
           表示名とアイコンは席とチャットに出ます。空欄のときは「プレイヤー」になります
         </p>
         <label class="mb-4 block">
-          <span class="mb-1.5 block text-xs text-sand-dim">表示名</span>
+          <span class="field-label">表示名</span>
           <input
             v-model="playerName"
             type="text"
             maxlength="12"
             autocomplete="nickname"
             placeholder="例: コヨーテ"
-            class="w-full rounded-xl border border-gold-400/25 bg-night-900/80 px-4 py-3 text-sm text-sand outline-none transition placeholder:text-sand-dim/50 focus:border-gold-400/50 focus:ring-1 focus:ring-gold-400/30"
+            class="field"
           />
         </label>
         <div class="mb-5">
@@ -447,7 +444,7 @@ watch(
         </div>
         <p class="mb-3 text-xs text-sand-dim">ホストからもらった6文字のコードを入力してください</p>
         <label class="mb-3 block">
-          <span class="mb-1.5 block text-xs text-sand-dim">ルームコード</span>
+          <span class="field-label">ルームコード</span>
           <input
             :value="roomCode"
             type="text"
@@ -456,7 +453,7 @@ watch(
             spellcheck="false"
             placeholder="例: AB7KQ2"
             maxlength="6"
-            class="w-full rounded-xl border border-gold-400/25 bg-night-900/80 px-4 py-3 font-mono text-lg tracking-[0.2em] text-gold-100 outline-none transition placeholder:tracking-normal placeholder:text-sand-dim/50 focus:border-gold-400/50 focus:ring-1 focus:ring-gold-400/30"
+            class="field field-mono"
             @input="onCodeInput"
             @keydown.enter="joinRoom"
           />
@@ -501,21 +498,7 @@ watch(
       </details>
     </div>
 
-    <Transition
-      enter-active-class="transition duration-200 ease-out"
-      enter-from-class="translate-y-2 opacity-0"
-      enter-to-class="translate-y-0 opacity-100"
-      leave-active-class="transition duration-150 ease-in"
-      leave-from-class="opacity-100"
-      leave-to-class="opacity-0"
-    >
-      <div
-        v-if="toast"
-        class="pointer-events-none fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-full border border-gold-400/30 bg-night-800/95 px-4 py-2 text-sm text-gold-100 shadow-panel"
-      >
-        {{ toast }}
-      </div>
-    </Transition>
+    <AppToast :message="toast" @dismiss="dismissToast" />
 
     <HelpModal :open="helpOpen" @close="helpOpen = false" />
 

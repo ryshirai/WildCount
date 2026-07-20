@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import AppLogo from '@/components/common/AppLogo.vue'
+import AppConfirmDialog from '@/components/common/AppConfirmDialog.vue'
+import AppHeader from '@/components/common/AppHeader.vue'
+import AppToast from '@/components/common/AppToast.vue'
 import AvatarPicker from '@/components/common/AvatarPicker.vue'
 import FxSparkleBurst from '@/components/common/FxSparkleBurst.vue'
 import HelpModal from '@/components/common/HelpModal.vue'
 import MockBadge from '@/components/common/MockBadge.vue'
+import StatusChip from '@/components/common/StatusChip.vue'
 import ChatPanel from '@/components/game/ChatPanel.vue'
 import ReactionOverlay from '@/components/game/ReactionOverlay.vue'
 import StampPickerSheet from '@/components/game/StampPickerSheet.vue'
@@ -127,6 +130,19 @@ const connectionLabel = computed(() => {
   }
 })
 
+/** good=teal / reconnect=gold / offline=danger (ui-redesign R0) */
+const connectionChipVariant = computed(() => {
+  if (onlineGame.reconnecting) return 'gold' as const
+  if (onlineGame.connection === 'open') return 'teal' as const
+  if (
+    onlineGame.connection === 'closed' ||
+    onlineGame.connection === 'error'
+  ) {
+    return 'danger' as const
+  }
+  return 'muted' as const
+})
+
 const showDisconnectBanner = computed(
   () =>
     isOnline.value &&
@@ -143,9 +159,10 @@ const selfReady = computed(() => {
 
 function showToast(msg: string) {
   toast.value = msg
-  window.setTimeout(() => {
-    if (toast.value === msg) toast.value = null
-  }, 2200)
+}
+
+function dismissToast() {
+  toast.value = null
 }
 
 // Surface store errors / events (Japanese copy from errorMessages)
@@ -495,39 +512,28 @@ watch(
 
 <template>
   <div class="page-scroll desert-bg safe-x">
-    <!-- Header: safe-top on outer (notch), py-3 on inner so top padding is not wiped -->
-    <header
-      class="sticky top-0 z-30 shrink-0 border-b border-gold-400/15 bg-night-900/90 backdrop-blur-md safe-top"
-    >
-      <div
-        class="flex items-center justify-between gap-3 px-4 py-3 sm:px-6"
-      >
-        <AppLogo size="sm" />
-        <div class="flex items-center gap-2">
-          <span
-            v-if="isOnline"
-            class="chip text-[10px]"
-            :class="
-              onlineGame.connection === 'open'
-                ? '!border-teal-soft/30 !text-teal-soft'
-                : '!border-red-400/30 !text-red-200'
-            "
-          >
-            {{ connectionLabel }}
-          </span>
-          <button
-            type="button"
-            class="btn-ghost !p-2 text-sm font-bold"
-            title="遊び方・ルール"
-            aria-label="遊び方・ルール"
-            @click="helpOpen = true"
-          >
-            ?
-          </button>
-          <button type="button" class="btn-ghost text-xs" @click="leaveLobby">退出</button>
-        </div>
-      </div>
-    </header>
+    <AppHeader>
+      <template #chips>
+        <StatusChip
+          v-if="isOnline && connectionLabel"
+          class="text-[10px]"
+          :variant="connectionChipVariant"
+          :label="connectionLabel"
+        />
+      </template>
+      <template #actions>
+        <button
+          type="button"
+          class="btn-ghost btn-icon text-sm font-bold"
+          title="遊び方・ルール"
+          aria-label="遊び方・ルール"
+          @click="helpOpen = true"
+        >
+          ?
+        </button>
+        <button type="button" class="btn-ghost btn-sm" @click="leaveLobby">退出</button>
+      </template>
+    </AppHeader>
 
     <div
       class="relative mx-auto flex w-full max-w-2xl flex-1 flex-col px-4 py-6 safe-bottom sm:py-8"
@@ -823,62 +829,18 @@ watch(
       </div>
     </div>
 
-    <!-- Host dissolve confirm -->
-    <Teleport to="body">
-      <Transition
-        enter-active-class="transition duration-200 ease-out"
-        enter-from-class="opacity-0"
-        enter-to-class="opacity-100"
-        leave-active-class="transition duration-150 ease-in"
-        leave-from-class="opacity-100"
-        leave-to-class="opacity-0"
-      >
-        <div
-          v-if="dissolveConfirmOpen"
-          class="fixed inset-0 z-[60] flex items-center justify-center bg-night-950/75 p-4 backdrop-blur-sm"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="dissolve-confirm-title"
-          @click.self="cancelDissolveRoom"
-        >
-          <div class="panel w-full max-w-sm space-y-4 p-5 shadow-panel" @click.stop>
-            <h2
-              id="dissolve-confirm-title"
-              class="font-display text-lg font-bold text-gold-200"
-            >
-              ルームを解散しますか？
-            </h2>
-            <p class="text-sm leading-relaxed text-sand-dim">
-              全員がホームに戻され、このルームコードでは再参加できなくなります。
-            </p>
-            <div class="flex flex-col gap-2">
-              <button type="button" class="btn-gold w-full" @click="confirmDissolveRoom">
-                ルームを解散
-              </button>
-              <button type="button" class="btn-ghost w-full" @click="cancelDissolveRoom">
-                キャンセル
-              </button>
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
-
-    <Transition
-      enter-active-class="transition duration-200 ease-out"
-      enter-from-class="translate-y-2 opacity-0"
-      enter-to-class="translate-y-0 opacity-100"
-      leave-active-class="transition duration-150 ease-in"
-      leave-from-class="opacity-100"
-      leave-to-class="opacity-0"
+    <AppConfirmDialog
+      v-model:open="dissolveConfirmOpen"
+      title="ルームを解散しますか？"
+      confirm-label="ルームを解散"
+      danger
+      @confirm="confirmDissolveRoom"
+      @cancel="cancelDissolveRoom"
     >
-      <div
-        v-if="toast"
-        class="pointer-events-none fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-full border border-gold-400/30 bg-night-800/95 px-4 py-2 text-sm text-gold-100 shadow-panel"
-      >
-        {{ toast }}
-      </div>
-    </Transition>
+      全員がホームに戻され、このルームコードでは再参加できなくなります。
+    </AppConfirmDialog>
+
+    <AppToast :message="toast" @dismiss="dismissToast" />
 
     <HelpModal :open="helpOpen" @close="helpOpen = false" />
 

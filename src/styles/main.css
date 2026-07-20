@@ -59,10 +59,70 @@
       text-sm text-sand transition hover:border-gold-400/50 hover:bg-night-700;
   }
 
+  /*
+   * Size utilities — combine with btn-gold / btn-teal / btn-ghost / btn-danger.
+   * Prefer these over ad-hoc !px / !py overrides (ui-redesign R0).
+   */
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs;
+  }
+
+  .btn-icon {
+    @apply p-2;
+  }
+
+  /** Destructive primary (dissolve room, confirm leave as danger). */
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl
+      border border-red-400/40 bg-red-950/50 px-5 py-3
+      font-semibold text-red-100 shadow-panel
+      transition hover:border-red-400/55 hover:bg-red-950/70 hover:brightness-110
+      active:scale-[0.98]
+      disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
   .chip {
     @apply inline-flex items-center gap-1.5 rounded-full
       border border-gold-400/25 bg-night-800/70 px-3 py-1
       text-xs font-medium text-gold-200;
+  }
+
+  .chip-teal {
+    @apply border-teal-soft/30 text-teal-soft;
+  }
+
+  .chip-muted {
+    @apply border-gold-400/15 text-sand-dim;
+  }
+
+  .chip-danger {
+    @apply border-red-400/30 text-red-200;
+  }
+
+  .chip-gold {
+    @apply border-gold-400/40 text-gold-200;
+  }
+
+  /*
+   * Form fields (Home / Lobby). Use .field-label above the control.
+   * Spacing scale (document only): section mb-4 tight / mb-6 normal;
+   * panel p-5 sm:p-6; page horizontal px-4 + safe-x.
+   */
+  .field {
+    @apply w-full rounded-xl border border-gold-400/25 bg-night-900/80
+      px-4 py-3 text-sm text-sand outline-none transition
+      placeholder:text-sand-dim/50
+      focus:border-gold-400/50 focus:ring-1 focus:ring-gold-400/30;
+  }
+
+  .field-label {
+    @apply mb-1.5 block text-xs font-medium text-sand-dim;
+  }
+
+  /** Room code / mono numeric inputs */
+  .field-mono {
+    @apply font-mono text-lg tracking-[0.2em] text-gold-100
+      placeholder:tracking-normal placeholder:font-sans;
   }
 
   /* ---- Hand card tiles (seat / carousel) ---- */

@@ -2986,3 +2986,51 @@
 1. **R0** デザインシステム（`.field` / `btn-sm` / AppHeader / AppToast 等）
 2. R1 Home+Result → R2 Lobby → R3 Game 分割 → R4 モバイル UX
 3. 詳細は `docs/ui-redesign.md`
+
+---
+
+## 2026-07-20 — R0 デザインシステム土台
+
+### 背景・目的
+- 全面 UI リデザイン（`docs/ui-redesign.md`）の最初のスライス
+- 入力・ボタンサイズ・チップ・ヘッダ / トースト / 確認を共通化し、画面ごとの `!` 上書きを減らす
+
+### 実施内容
+1. `main.css` に `.field` / `.field-label` / `.field-mono` / `.btn-sm` / `.btn-icon` / `.btn-danger` / `.chip-teal|muted|danger|gold` を追加
+2. 共有コンポーネント新規: `AppHeader` / `AppToast` / `AppConfirmDialog` / `StatusChip`
+3. 無効トークン `text-sand-100` を `text-sand` に置換（ExtraRules / TimeControl）
+4. Home 入力を `.field` に統一、toast を `AppToast` 化
+5. Lobby ヘッダを `AppHeader` + `StatusChip`、解散確認を `AppConfirmDialog(danger)`、toast 共通化
+6. Game の toast / 退出確認を共通部品化（3 ボタンは `#actions` スロット）
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/styles/main.css` | デザインシステム トークン |
+| `src/components/common/AppHeader.vue` | 新規 |
+| `src/components/common/AppToast.vue` | 新規 |
+| `src/components/common/AppConfirmDialog.vue` | 新規 |
+| `src/components/common/StatusChip.vue` | 新規 |
+| `src/views/HomeView.vue` | field + AppToast + StatusChip |
+| `src/views/LobbyView.vue` | AppHeader / Toast / Confirm / StatusChip |
+| `src/views/GameView.vue` | AppToast + AppConfirmDialog |
+| `src/components/lobby/ExtraRulesPanel.vue` | sand-100 修正 |
+| `src/components/lobby/TimeControlPanel.vue` | sand-100 修正 |
+| `docs/backlog.md` | R0 done |
+| `docs/work-log.md` | 本エントリ |
+
+### 明示的にやっていないこと
+- Home IA 分離 / Result リデザイン（R1）
+- Lobby sticky CTA・設定アコーディオン（R2）
+- GameView 分割・モバイルクロム圧縮（R3–R4）
+- 演出クラス・ルール・Worker の変更
+
+### 確認結果
+- `npm test` 167 passed
+- `npm run typecheck` 成功
+- `npm run lint` / `npm run build` 成功
+
+### 次に考えられる作業
+1. **R1** Home + Result リデザイン
+2. R2 Lobby / R3 Game 分割（並列可）
+3. 詳細は `docs/ui-redesign.md`

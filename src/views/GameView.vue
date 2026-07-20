@@ -25,6 +25,8 @@ import ExtraActionCutIn, {
 import type { ClientBidExtra } from '@/online/protocol'
 import RevealCardTile from '@/components/game/RevealCardTile.vue'
 import PlayerAvatar from '@/components/game/PlayerAvatar.vue'
+import AppConfirmDialog from '@/components/common/AppConfirmDialog.vue'
+import AppToast from '@/components/common/AppToast.vue'
 import HelpModal from '@/components/common/HelpModal.vue'
 import DeckInfoModal from '@/components/game/DeckInfoModal.vue'
 import MockBadge from '@/components/common/MockBadge.vue'
@@ -533,9 +535,10 @@ watch(
 
 function showToast(msg: string) {
   toast.value = msg
-  window.setTimeout(() => {
-    if (toast.value === msg) toast.value = null
-  }, 2200)
+}
+
+function dismissToast() {
+  toast.value = null
 }
 
 function openResult() {
@@ -1742,99 +1745,53 @@ async function onChallenge() {
       @done="onExtraFxDone"
     />
 
-    <Transition
-      enter-active-class="transition duration-200 ease-out"
-      enter-from-class="translate-y-2 opacity-0"
-      enter-to-class="translate-y-0 opacity-100"
-      leave-active-class="transition duration-150 ease-in"
-      leave-from-class="opacity-100"
-      leave-to-class="opacity-0"
-    >
-      <div
-        v-if="toast"
-        class="pointer-events-none fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-full border border-gold-400/30 bg-night-800/95 px-4 py-2 text-sm text-gold-100 shadow-panel lg:bottom-28"
-      >
-        {{ toast }}
-      </div>
-    </Transition>
+    <AppToast :message="toast" @dismiss="dismissToast" />
 
     <nav
       v-if="allowUiMock"
       class="pointer-events-auto fixed bottom-3 right-3 z-30 hidden gap-1.5 lg:flex"
       aria-label="開発用画面リンク"
     >
-      <RouterLink to="/" class="btn-ghost !px-2 !py-1 text-[10px]">トップ</RouterLink>
-      <RouterLink to="/lobby" class="btn-ghost !px-2 !py-1 text-[10px]">ロビー</RouterLink>
+      <RouterLink to="/" class="btn-ghost btn-sm text-[10px]">トップ</RouterLink>
+      <RouterLink to="/lobby" class="btn-ghost btn-sm text-[10px]">ロビー</RouterLink>
     </nav>
 
-    <!-- Leave / end session / host dissolve confirm -->
-    <Teleport to="body">
-      <Transition
-        enter-active-class="transition duration-200 ease-out"
-        enter-from-class="opacity-0"
-        enter-to-class="opacity-100"
-        leave-active-class="transition duration-150 ease-in"
-        leave-from-class="opacity-100"
-        leave-to-class="opacity-0"
-      >
-        <div
-          v-if="leaveConfirmOpen"
-          class="fixed inset-0 z-[60] flex items-center justify-center bg-night-950/75 p-4 backdrop-blur-sm"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="leave-confirm-title"
-          @click.self="cancelLeaveGame"
+    <AppConfirmDialog
+      v-model:open="leaveConfirmOpen"
+      :title="
+        canHostEndRoom
+          ? '退出するか、ルームを解散しますか？'
+          : 'ゲームを終了しますか？'
+      "
+      @cancel="cancelLeaveGame"
+    >
+      <template v-if="canHostEndRoom">
+        <strong class="text-sand">自分だけ退出</strong>すると、あなたは脱落してほかの人はそのまま続けます。
+        <strong class="text-sand">ルームを解散</strong>すると、みんなの対戦が終わりルームが閉じます。
+      </template>
+      <template v-else-if="isOnline">
+        退出するとこの対戦から<strong class="text-sand">脱落</strong>し、ホームに戻ります。
+      </template>
+      <template v-else>
+        いまのゲームを終了して、ホームに戻ります。
+      </template>
+      <template #actions>
+        <button
+          v-if="canHostEndRoom"
+          type="button"
+          class="btn-danger w-full"
+          @click="confirmEndRoom"
         >
-          <div
-            class="panel w-full max-w-sm space-y-4 p-5 shadow-panel"
-            @click.stop
-          >
-            <h2
-              id="leave-confirm-title"
-              class="font-display text-lg font-bold text-gold-200"
-            >
-              {{ canHostEndRoom ? '退出するか、ルームを解散しますか？' : 'ゲームを終了しますか？' }}
-            </h2>
-            <p class="text-sm leading-relaxed text-sand-dim">
-              <template v-if="canHostEndRoom">
-                <strong class="text-sand">自分だけ退出</strong>すると、あなたは脱落してほかの人はそのまま続けます。
-                <strong class="text-sand">ルームを解散</strong>すると、みんなの対戦が終わりルームが閉じます。
-              </template>
-              <template v-else-if="isOnline">
-                退出するとこの対戦から<strong class="text-sand">脱落</strong>し、ホームに戻ります。
-              </template>
-              <template v-else>
-                いまのゲームを終了して、ホームに戻ります。
-              </template>
-            </p>
-            <div class="flex flex-col gap-2">
-              <button
-                v-if="canHostEndRoom"
-                type="button"
-                class="btn-gold w-full"
-                @click="confirmEndRoom"
-              >
-                ルームを解散
-              </button>
-              <button
-                type="button"
-                class="btn-teal w-full"
-                @click="confirmLeaveGame"
-              >
-                {{ canHostEndRoom ? '自分だけ退出' : '終了して退出' }}
-              </button>
-              <button
-                type="button"
-                class="btn-ghost w-full"
-                @click="cancelLeaveGame"
-              >
-                キャンセル
-              </button>
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
+          ルームを解散
+        </button>
+        <button type="button" class="btn-teal w-full" @click="confirmLeaveGame">
+          {{ canHostEndRoom ? '自分だけ退出' : '終了して退出' }}
+        </button>
+        <button type="button" class="btn-ghost w-full" @click="cancelLeaveGame">
+          キャンセル
+        </button>
+      </template>
+    </AppConfirmDialog>
 
     <HelpModal :open="helpOpen" @close="helpOpen = false" />
     <DeckInfoModal
