@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * Mobile game table layout (&lt; lg).
- * R3: extracted from GameView template — appearance unchanged.
+ * R4: compressed chrome, specials fold, mini dock while chat/log open.
  */
 import type { GameRoomMock, RevealedCard } from '@/types/game'
 import type { CoyoteBanner } from '@/composables/useChallengeReveal'
@@ -10,6 +10,7 @@ import type { StampId } from '@/online/stamps'
 import type { AvatarAssetId } from '@/localGame/avatarCatalog'
 import type { ChatMessage } from '@/online/protocol'
 import type { GameViewModel } from '@/mappers/toGameView'
+import { computed } from 'vue'
 import GameHeader from '@/components/game/GameHeader.vue'
 import TurnClockDisplay from '@/components/game/TurnClockDisplay.vue'
 import CurrentBidDisplay from '@/components/game/CurrentBidDisplay.vue'
@@ -25,7 +26,7 @@ const mobileTab = defineModel<'chat' | 'log' | null>('mobileTab', {
 })
 const stampSheetOpen = defineModel<boolean>('stampSheetOpen', { required: true })
 
-defineProps<{
+const props = defineProps<{
   room: GameRoomMock
   gameView: GameViewModel | null
   showOnlineDisconnect: boolean
@@ -85,6 +86,21 @@ const emit = defineEmits<{
   closeDrawer: []
   openStampSheet: []
 }>()
+
+const sheetOpen = computed(
+  () => mobileTab.value === 'chat' || mobileTab.value === 'log',
+)
+
+const declaredCount = computed(
+  () => props.room.players.filter((p) => p.hasDeclared).length,
+)
+
+const showDock = computed(
+  () =>
+    !props.awaitingResultView &&
+    !props.showForfeitEnd &&
+    !props.pendingLobbyReturn,
+)
 </script>
 
 <template>
@@ -123,9 +139,10 @@ const emit = defineEmits<{
       />
     </div>
 
+    <!-- Pace + clock + declared (merged; no separate meta strip) -->
     <div
-      v-if="paceHint || (turnClock && !awaitingResultView)"
-      class="flex shrink-0 items-center justify-center gap-2 border-b px-3 py-2 text-center text-xs font-medium backdrop-blur-md"
+      v-if="paceHint || (turnClock && !awaitingResultView) || !coyoteBanner"
+      class="flex shrink-0 items-center justify-center gap-2 border-b px-3 py-1.5 text-center text-xs font-medium backdrop-blur-md"
       :class="[
         awaitingResultView
           ? 'border-teal-soft/35 bg-teal-deep/40 text-teal-soft'
@@ -139,7 +156,13 @@ const emit = defineEmits<{
       role="status"
       aria-live="polite"
     >
-      <span v-if="paceHint">{{ paceHint }}</span>
+      <span
+        v-if="!coyoteBanner && !awaitingResultView"
+        class="chip !px-1.5 !py-0.5 !text-[10px] font-normal text-sand-dim"
+      >
+        {{ declaredCount }}/{{ room.playerCount }} 宣言
+      </span>
+      <span v-if="paceHint" class="min-w-0 truncate">{{ paceHint }}</span>
       <TurnClockDisplay
         v-if="turnClock && !awaitingResultView"
         :clock="turnClock"
@@ -162,44 +185,21 @@ const emit = defineEmits<{
 
     <!-- Normal mobile play -->
     <template v-else>
-      <!-- Play column: bid stays; chat/log slide up into its free space -->
+      <!-- Play column: bid stays; chat/log slide up into free space -->
       <div class="relative flex min-h-0 flex-1 flex-col overflow-hidden">
         <div class="shrink-0">
           <MobilePlayerCarousel :players="room.players" />
         </div>
 
-        <div
-          class="flex shrink-0 items-center justify-between gap-2 border-b border-gold-400/10 bg-night-950/30 px-4 py-1.5 text-xs text-sand-dim"
-        >
-          <span class="chip !px-2 !py-0.5 !text-[10px]">
-            {{ room.players.filter((p) => p.hasDeclared).length }}/{{
-              room.playerCount
-            }}
-            宣言
-          </span>
-          <span>
-            あなたまであと
-            <span class="font-semibold text-gold-200"
-              >{{ room.turnsUntilSelf }}人</span
-            >
-          </span>
-        </div>
-
         <main
           class="flex min-h-0 flex-1 flex-col items-center overflow-x-hidden overflow-y-visible px-3"
           :class="
-            mobileTab === 'chat' || mobileTab === 'log'
-              ? 'justify-start pt-2 pb-1'
-              : 'justify-center py-2'
+            sheetOpen ? 'justify-start pt-1.5 pb-1' : 'justify-center py-2'
           "
         >
           <div
             class="panel relative z-[6] w-full max-w-[13rem] overflow-visible px-4 py-3 shadow-panel transition-transform duration-300"
-            :class="
-              mobileTab === 'chat' || mobileTab === 'log'
-                ? 'scale-90 opacity-90'
-                : ''
-            "
+            :class="sheetOpen ? 'scale-90 opacity-90' : ''"
           >
             <CurrentBidDisplay
               compact
@@ -256,17 +256,12 @@ const emit = defineEmits<{
           </template>
         </div>
 
+        <!-- Full bid dock when no sheet -->
         <div
-          v-show="
-            mobileTab !== 'chat' &&
-            mobileTab !== 'log' &&
-            !showForfeitEnd &&
-            !pendingLobbyReturn
-          "
+          v-show="!sheetOpen && showDock"
           class="shrink-0"
         >
           <BidControls
-            v-if="!awaitingResultView"
             v-model="draftBid"
             mobile
             :min-bid="minBid"
@@ -288,7 +283,7 @@ const emit = defineEmits<{
           />
         </div>
 
-        <!-- Soft scrim (tap to close); bid still peeking above the sheet -->
+        <!-- Soft scrim (tap to close); mini dock still above nav -->
         <Transition
           enter-active-class="transition duration-200 ease-out"
           enter-from-class="opacity-0"
@@ -298,7 +293,7 @@ const emit = defineEmits<{
           leave-to-class="opacity-0"
         >
           <button
-            v-if="mobileTab === 'chat' || mobileTab === 'log'"
+            v-if="sheetOpen"
             type="button"
             class="absolute inset-0 z-[15] bg-night-950/25"
             aria-label="閉じる"
@@ -306,7 +301,7 @@ const emit = defineEmits<{
           />
         </Transition>
 
-        <!-- Chat: bottom sheet using bid-area free space -->
+        <!-- Chat: bottom sheet — shorter so mini dock + seats stay visible -->
         <Transition
           enter-active-class="transition duration-300 ease-out"
           enter-from-class="translate-y-full"
@@ -317,7 +312,7 @@ const emit = defineEmits<{
         >
           <div
             v-if="mobileTab === 'chat'"
-            class="absolute inset-x-0 bottom-0 z-20 flex h-[min(58%,22rem)] max-h-[24rem] flex-col overflow-hidden rounded-t-2xl border border-b-0 border-gold-400/30 bg-night-900/98 shadow-[0_-12px_40px_rgba(0,0,0,0.5)] backdrop-blur-md"
+            class="absolute inset-x-0 bottom-0 z-20 flex h-[min(45%,18rem)] max-h-[20rem] flex-col overflow-hidden rounded-t-2xl border border-b-0 border-gold-400/30 bg-night-900/98 shadow-[0_-12px_40px_rgba(0,0,0,0.5)] backdrop-blur-md"
             role="dialog"
             aria-label="チャット"
             @click.stop
@@ -343,6 +338,7 @@ const emit = defineEmits<{
               compact
               embedded
               hide-header
+              hide-stamp-picker
               :messages="isOnline ? chatMessages : []"
               :self-player-id="selfPlayerId"
               :avatar-for-player="avatarForPlayer"
@@ -365,7 +361,7 @@ const emit = defineEmits<{
         >
           <div
             v-if="mobileTab === 'log'"
-            class="absolute inset-x-0 bottom-0 z-20 flex h-[min(58%,22rem)] max-h-[24rem] flex-col overflow-hidden rounded-t-2xl border border-b-0 border-gold-400/30 bg-night-900/98 shadow-[0_-12px_40px_rgba(0,0,0,0.5)] backdrop-blur-md"
+            class="absolute inset-x-0 bottom-0 z-20 flex h-[min(45%,18rem)] max-h-[20rem] flex-col overflow-hidden rounded-t-2xl border border-b-0 border-gold-400/30 bg-night-900/98 shadow-[0_-12px_40px_rgba(0,0,0,0.5)] backdrop-blur-md"
             role="dialog"
             aria-label="対戦ログ"
             @click.stop
@@ -397,6 +393,23 @@ const emit = defineEmits<{
             />
           </div>
         </Transition>
+      </div>
+
+      <!-- Mini declare bar while chat/log open (above bottom nav) -->
+      <div
+        v-if="sheetOpen && showDock"
+        class="relative z-30 shrink-0"
+      >
+        <BidControls
+          v-model="draftBid"
+          mini
+          :min-bid="minBid"
+          :forbidden-value="forbiddenBidValue"
+          :can-declare="canDeclare"
+          :can-challenge="canChallenge"
+          @declare="(v, e) => emit('declare', v, e)"
+          @challenge="emit('challenge')"
+        />
       </div>
 
       <nav

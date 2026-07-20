@@ -25,7 +25,7 @@ withDefaults(
   >
     <div
       v-if="!hideHeader"
-      class="flex items-center justify-between border-b border-gold-400/15"
+      class="flex items-center border-b border-gold-400/15"
       :class="compact ? 'px-2.5 py-1.5' : 'px-4 py-3'"
     >
       <h2
@@ -34,7 +34,6 @@ withDefaults(
       >
         対戦ログ
       </h2>
-      <span class="text-sand-dim">▾</span>
     </div>
 
     <ul
@@ -84,12 +83,5 @@ withDefaults(
         </div>
       </li>
     </ul>
-
-    <button
-      type="button"
-      class="border-t border-gold-400/15 px-4 py-2.5 text-center text-xs text-gold-300 hover:bg-night-700/40"
-    >
-      ログをすべて表示
-    </button>
   </aside>
 </template>

@@ -35,6 +35,11 @@ const props = defineProps<{
   /** Targets for shot / draw1 (others only) */
   targetOptions?: readonly BidTargetOption[]
   mobile?: boolean
+  /**
+   * R4 chat-over mode: declare + coyote only (no stepper / specials).
+   * Mobile sheets keep primary actions reachable.
+   */
+  mini?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -53,6 +58,8 @@ let launchSeq = 0
 let launchTimer: ReturnType<typeof setTimeout> | null = null
 const extraChoice = ref<BidExtraChoice>('none')
 const targetId = ref<string>('')
+/** Mobile progressive disclosure for special abilities */
+const skillsExpanded = ref(false)
 
 watch(
   () => props.targetOptions,
@@ -73,6 +80,14 @@ watch(
   () => props.extrasAllowed,
   (ok) => {
     if (!ok) extraChoice.value = 'none'
+  },
+)
+
+// Collapse skills panel when nothing is usable
+watch(
+  () => [props.canSame, props.canChange, props.extrasAllowed] as const,
+  ([same, change, extras]) => {
+    if (!same && !change && !extras) skillsExpanded.value = false
   },
 )
 
@@ -129,6 +144,16 @@ const showSkillBar = computed(
       props.allowLifeDouble),
 )
 
+/** Any special ability UI may appear this turn */
+const hasSpecials = computed(
+  () => !!(props.canSame || props.canChange || showSkillBar.value),
+)
+
+/** Mobile: specials body visible; desktop always open when hasSpecials */
+const specialsOpen = computed(
+  () => hasSpecials.value && (!props.mobile || skillsExpanded.value),
+)
+
 const needsTarget = computed(
   () => extraChoice.value === 'shot' || extraChoice.value === 'draw1',
 )
@@ -138,12 +163,22 @@ const selectedSkill = computed(() =>
 )
 
 const declareLabel = computed(() => {
+  if (props.mini) return `${bid.value} 宣言`
   if (props.mobile) {
     if (extraChoice.value === 'none') return '宣言する'
     return `${bid.value} + ${selectedSkill.value?.label ?? ''}`
   }
   if (extraChoice.value === 'none') return `${bid.value}を宣言`
   return `${bid.value} + ${selectedSkill.value?.label ?? ''} で宣言`
+})
+
+const skillsToggleLabel = computed(() => {
+  if (extraChoice.value !== 'none') {
+    return selectedSkill.value?.label ?? '特殊能力'
+  }
+  if (props.canSame && !props.canChange && !showSkillBar.value) return 'セイム'
+  if (props.canChange && !props.canSame && !showSkillBar.value) return 'チェンジ'
+  return '特殊能力'
 })
 
 function floor() {
@@ -210,6 +245,7 @@ function onDeclare() {
   emit('declare', bid.value, buildExtra())
   // Reset skill after fire so next turn starts clean if same component stays
   extraChoice.value = 'none'
+  if (props.mobile) skillsExpanded.value = false
 }
 
 function onChallenge() {
@@ -230,10 +266,64 @@ function onChange() {
   if (!props.canChange) return
   emit('change')
 }
+
+function toggleSkills() {
+  skillsExpanded.value = !skillsExpanded.value
+}
 </script>
 
 <template>
+  <!-- Mini dock: declare + coyote only (chat / log open) -->
   <div
+    v-if="mini"
+    class="border-t border-gold-400/20 bg-night-900/95 px-2 py-1.5 backdrop-blur-md"
+  >
+    <div class="flex items-center gap-1.5">
+      <span
+        class="shrink-0 font-display text-lg font-bold tabular-nums text-gold-100"
+        aria-hidden="true"
+      >
+        {{ bid }}
+      </span>
+      <div class="relative flex min-w-0 flex-1 gap-1.5">
+        <span
+          v-if="launchFx"
+          :key="`launch-mini-${launchFx.key}`"
+          class="bid-declare-launch absolute left-1/4 top-0 z-10 -translate-x-1/2 font-display text-3xl font-bold tabular-nums text-gold-100"
+          style="
+            text-shadow:
+              0 0 16px rgba(201, 168, 76, 0.8),
+              0 0 32px rgba(201, 168, 76, 0.45);
+          "
+          aria-hidden="true"
+        >
+          {{ launchFx.value }}
+        </span>
+        <button
+          type="button"
+          class="btn-gold relative min-w-0 flex-1 !py-2 text-sm"
+          :class="declareFlash ? 'btn-fx-press' : ''"
+          :disabled="canDeclare === false"
+          @click="onDeclare"
+        >
+          {{ declareLabel }}
+        </button>
+        <button
+          type="button"
+          class="btn-teal min-w-0 flex-1 !py-2 text-sm"
+          :class="challengeFlash ? 'btn-fx-press' : ''"
+          :disabled="canChallenge === false"
+          @click="onChallenge"
+        >
+          <span aria-hidden="true">🐾</span>
+          コヨーテ
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div
+    v-else
     class="border-t border-gold-400/15 bg-night-900/85 backdrop-blur-md"
     :class="mobile ? 'px-2.5 py-1.5' : 'px-4 py-2.5 sm:py-3'"
   >
@@ -250,14 +340,37 @@ function onChange() {
       <template v-else>宣言する数字</template>
     </p>
 
+    <!-- Mobile: collapse specials behind a chip (R4 progressive disclosure) -->
+    <div
+      v-if="mobile && hasSpecials"
+      class="mb-1.5 flex justify-center"
+    >
+      <button
+        type="button"
+        class="skill-chip skill-chip--sm"
+        :class="[
+          skillsExpanded || extraChoice !== 'none' ? 'skill-chip--on' : '',
+          hasSpecials ? 'skill-chip--badge' : '',
+        ]"
+        :aria-expanded="skillsExpanded"
+        @click="toggleSkills"
+      >
+        <span aria-hidden="true">✨</span>
+        {{ skillsToggleLabel }}
+        <span class="text-sand-dim" aria-hidden="true">{{
+          skillsExpanded ? '▴' : '▾'
+        }}</span>
+      </button>
+    </div>
+
     <!-- Special abilities (solo + bid-ride share 1 slot / round) -->
     <div
-      v-if="canSame || canChange || showSkillBar"
+      v-if="specialsOpen && (canSame || canChange || showSkillBar)"
       class="mb-2 space-y-1.5"
     >
       <p
-        class="font-medium text-gold-200/90"
-        :class="mobile ? 'text-center text-[10px]' : 'text-xs'"
+        v-if="!mobile"
+        class="text-xs font-medium text-gold-200/90"
       >
         特殊能力
         <span class="font-normal text-sand-dim">（このラウンドで1回まで）</span>
@@ -292,7 +405,7 @@ function onChange() {
     </div>
 
     <!-- Bid-ride skills under same special-ability budget -->
-    <div v-if="showSkillBar" class="mb-2 space-y-1.5">
+    <div v-if="specialsOpen && showSkillBar" class="mb-2 space-y-1.5">
       <div
         class="flex items-baseline justify-between gap-2"
         :class="mobile ? 'justify-center' : ''"
@@ -497,6 +610,9 @@ function onChange() {
   );
   color: #e8f7f5;
   box-shadow: 0 0 0 1px rgba(94, 200, 200, 0.2), 0 0 14px rgba(45, 212, 191, 0.15);
+}
+.skill-chip--badge {
+  box-shadow: 0 0 10px rgba(201, 168, 76, 0.2);
 }
 .skill-chip--solo {
   border-color: rgba(214, 199, 168, 0.35);

@@ -25,6 +25,11 @@ const props = withDefaults(
     embedded?: boolean
     /** Hide the title row (parent sheet provides chrome) */
     hideHeader?: boolean
+    /**
+     * R4: hide in-panel stamp grid (mobile game uses StampPickerSheet only).
+     * Desktop chat keeps the picker.
+     */
+    hideStampPicker?: boolean
   }>(),
   {
     selfPlayerId: null,
@@ -35,6 +40,7 @@ const props = withDefaults(
     compact: false,
     embedded: false,
     hideHeader: false,
+    hideStampPicker: false,
   },
 )
 
@@ -216,9 +222,9 @@ watch(
       </div>
     </div>
 
-    <!-- Stamp palette -->
+    <!-- Stamp palette (desktop / when not hideStampPicker) -->
     <div
-      v-if="stampOpen && !disabled"
+      v-if="stampOpen && !disabled && !hideStampPicker"
       class="shrink-0 border-t border-gold-400/15 bg-night-950/80 px-1.5 py-1.5"
       role="listbox"
       aria-label="スタンプ"
@@ -255,6 +261,7 @@ watch(
       @submit.prevent="onSubmit"
     >
       <button
+        v-if="!hideStampPicker"
         type="button"
         class="btn-ghost shrink-0 leading-none"
         :class="[

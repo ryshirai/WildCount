@@ -3155,3 +3155,44 @@
 1. **R4** Game モバイル UX（`docs/ui-redesign.md` §5.3.3）
 2. **R5** Game デスクトップ + SeatContent
 3. **HOLD-5** 本番デプロイ（ユーザー確認後）
+
+## 2026-07-20 — R4 Game モバイル UX（操作ドック）
+
+### 背景・目的
+- 全面 UI リデザイン Phase R4（`docs/ui-redesign.md` §5.3.3）
+- 短い viewport で「席・宣言・宣言ボタン」を同時に見せ、チャット中も宣言可能にする
+
+### 実施内容
+1. **GameHeader モバイル 1 本化**: サブロウ削除。コード / R / 接続 StatusChip をヘッダ内へ。接続色 teal/gold/danger。PC も「N人」「ラウンド N」日本語化
+2. **BidControls progressive disclosure**: モバイルは特殊能力を折りたたみチップ。未使用時は行非表示。`mini` モード（宣言+コヨーテ）
+3. **GameMobileLayout**: メタストリップ削除（宣言数は pace 行へ統合）。チャット/ログ中は mini dock 常時。シート高 `min(45%,18rem)`
+4. **MobilePlayerCarousel**: 手番席 auto-scroll + 拡大、他 dim。ステータス最低 10px
+5. **ChatPanel**: `hideStampPicker` で SP チャット内スタンプ非表示（底ナビ StampPickerSheet 一本化）
+6. **EventLog**: デッド「ログをすべて表示」と装飾 ▾ 削除
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/components/game/GameHeader.vue` | モバイル 1 行・StatusChip・日本語 |
+| `src/components/game/BidControls.vue` | 特殊能力 fold + mini |
+| `src/components/game/GameMobileLayout.vue` | クロム圧縮・ミニ操作バー |
+| `src/components/game/MobilePlayerCarousel.vue` | auto-focus / 可読性 |
+| `src/components/game/ChatPanel.vue` | hideStampPicker |
+| `src/components/game/EventLog.vue` | デッド UI 削除 |
+| `docs/backlog.md` | R4 done |
+| `docs/work-log.md` | 本エントリ |
+
+### 明示的にやっていないこと
+- Game デスクトップ磨き・席共通化（R5）
+- AppHeader への Game ヘッダ完全置換（R5）
+- ルール / Worker / 演出 keyframe 変更
+- 本番デプロイ（HOLD-5）
+
+### 確認結果
+- `npm test` 167 passed
+- `npm run typecheck` / `lint` / `build` 成功
+
+### 次に考えられる作業
+1. **R5** Game デスクトップ + SeatContent
+2. **R6** docs / デッド CSS 掃除
+3. **HOLD-5** 本番デプロイ（ユーザー確認後）
