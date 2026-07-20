@@ -102,11 +102,29 @@
 
 ---
 
+## 全面 UI リデザイン（Phase R）
+
+正本: **`docs/ui-redesign.md`**  
+方針: 全画面リデザイン。宣言 FX・カットイン等のマイクロ演出は**維持**。ルール / Worker は非対象。
+
+| ID | 状態 | 内容 | メモ |
+|----|------|------|------|
+| **R0** | todo | デザインシステム（field / btn-sm / chip variants / AppHeader / AppToast / Confirm） | 最初に着手 |
+| **R1** | todo | Home + Result リデザイン | 依存 R0 |
+| **R2** | todo | Lobby 情報設計（sticky CTA・設定折りたたみ・2 カラム） | 依存 R0 |
+| **R3** | todo | GameView 構造分割（見た目同一リファクタ） | R0 と並列可 |
+| **R4** | todo | Game モバイル（クロム圧縮・特殊能力折りたたみ・チャット中操作） | 依存 R3 推奨・UX 本丸 |
+| **R5** | todo | Game デスクトップ磨き + 席共通化 | 依存 R3–R4 |
+| **R6** | todo | docs 更新・デッド UI/CSS 掃除 | 仕上げ |
+
+---
+
 ## 直近のおすすめ着手順
 
-1. **HOLD-5** — `https://wildcount.rysh.dev`（Pages + Worker `/api/*`）。手順は `docs/deploy.md`。実行はユーザー確認後  
-2. エクストラ磨き: 複数札 UI のタイル表示、ライフ −2 の結果文言、ローカルデモでの extras トグル  
-3. UX-2（ホスト移譲カウントダウン）・TEST-1 / OPS-1 は任意
+1. **R0** — UI リデザイン土台（`docs/ui-redesign.md`）
+2. **HOLD-5** — `https://wildcount.rysh.dev`（Pages + Worker `/api/*`）。手順は `docs/deploy.md`。実行はユーザー確認後  
+3. エクストラ磨き: 複数札 UI のタイル表示、ライフ −2 の結果文言、ローカルデモでの extras トグル  
+4. UX-2（ホスト移譲カウントダウン）・TEST-1 / OPS-1 は任意
 
 ---
 
@@ -117,4 +135,4 @@
 3. Phase 1 スライスの ID（P1-x）は `phase1-multiplayer.md` §10 と揃える  
 4. エクストラルールの ID（ER-x）は `docs/extra-rules.md` §4 と揃える  
 
-最終更新: 2026-07-20（UX-13 制限時間）
+最終更新: 2026-07-20（全面 UI リデザイン計画 R0–R6）
