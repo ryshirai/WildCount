@@ -2850,3 +2850,45 @@
 
 ### 次に考えられる作業
 1. 実プレイで 3 人以上のチェンジ後ターン順を確認
+
+---
+
+## 2026-07-20 — 制限時間（持ち時間 + 毎ターン一時時間）
+
+### 背景・目的
+- オンライン部屋で制限時間を設定したい
+- モデル: **持ち時間 + 毎ターンの一時時間**（例: 5分 + 20秒）。手番中は持ち時間が先に減り、尽きたらそのターンの一時時間が減る。未使用の一時時間は持ち越さない
+
+### 実施内容
+1. プロトコル: `set_time_control` / `PlayerView.timeControl` / `PlayerView.clock`
+2. Worker: `RoomClock`（bank 先減算）+ DO alarm でタイムアウト
+3. タイムアウト時: 可能なら最小宣言 → 不可ならコヨーテ → それも不可なら脱落
+4. ロビー UI: `TimeControlPanel`（プリセット + カスタム秒）
+5. 対戦 UI: ステータスバーに `⏱ 持ち + 一時` 表示（クライアント補間）
+6. 単体テスト `worker/turnClock.test.ts`
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `worker/turnClock.ts` | 時計ロジック（純粋） |
+| `worker/roomLogic.ts` / `GameRoom.ts` / `types.ts` | 設定・同期・alarm |
+| `src/online/protocol.ts` / `clockDisplay.ts` | クライアント型・表示計算 |
+| `src/components/lobby/TimeControlPanel.vue` | ロビー設定 |
+| `src/components/game/TurnClockDisplay.vue` | 対戦中時計 |
+| `src/views/LobbyView.vue` / `GameView.vue` | 配線 |
+| `docs/phase1-multiplayer.md` / `docs/backlog.md` | 仕様メモ |
+
+### 明示的にやっていないこと
+- ローカル / ボット対戦への制限時間
+- タイムアウトでライフ1だけ減らす（フル脱落 or 自動アクションのみ）
+- ヘルプ本文への制限時間説明の追記
+- 対戦中の設定変更
+
+### 確認結果
+- `npm test` 全パス（165）
+- `npm run typecheck` / `npm run lint` 成功
+
+### 次に考えられる作業
+1. ヘルプに制限時間の説明を追加
+2. 席ごと残り持ち時間の常時表示
+3. 本番デプロイ後の実機確認

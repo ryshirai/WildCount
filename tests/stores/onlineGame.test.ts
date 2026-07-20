@@ -208,6 +208,7 @@ describe('onlineGame store', () => {
           draw1: false,
           lifeDouble: false,
         },
+        timeControl: null,
       },
     })
     await joinP

@@ -50,6 +50,8 @@ export type ClientMessage =
   | { type: 'set_deck'; deck: WireDeckComposition }
   /** Host only, lobby: set extra rules toggles */
   | { type: 'set_extra_rules'; extraRules: WireExtraRules }
+  /** Host only, lobby: set turn time control (`null` = unlimited) */
+  | { type: 'set_time_control'; timeControl: WireTimeControl | null }
 
 /** Mirror of worker / domain ExtraRulesConfig (turn actions only; 1/2 is deck). */
 export interface WireExtraRules {
@@ -59,6 +61,25 @@ export interface WireExtraRules {
   shot: boolean
   draw1: boolean
   lifeDouble: boolean
+}
+
+/**
+ * Room time control: main bank + per-turn temporary time.
+ * Bank decreases first, then the temporary budget.
+ */
+export interface WireTimeControl {
+  mainSeconds: number
+  turnSeconds: number
+}
+
+/** Live clock snapshot from the server (absolute times for client animation). */
+export interface WireClockSnapshot {
+  bankMsByPlayer: Record<string, number>
+  currentTurnPlayerId: string | null
+  turnStartedAt: number | null
+  bankAtTurnStartMs: number
+  turnBonusMs: number
+  deadlineAt: number | null
 }
 
 export type ClientBidExtra =
@@ -233,6 +254,10 @@ export interface PlayerView {
   deck: WireDeckComposition
   /** Extra rules toggles for next game (host can edit in lobby) */
   extraRules: WireExtraRules
+  /** Turn time control (`null` = unlimited) */
+  timeControl: WireTimeControl | null
+  /** Live clock while playing with timeControl set */
+  clock?: WireClockSnapshot
   game?: MaskedGamePayload
   pendingResult?: PendingResultSnapshot
 }

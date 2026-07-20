@@ -30,6 +30,7 @@ function sampleView(): PlayerView {
       draw1: false,
       lifeDouble: false,
     },
+    timeControl: null,
     players: [
       {
         id: 'a',

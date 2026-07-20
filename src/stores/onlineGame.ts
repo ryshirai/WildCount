@@ -17,6 +17,7 @@ import type {
   StampId,
   WireDeckComposition,
   WireExtraRules,
+  WireTimeControl,
 } from '@/online/protocol'
 import {
   formatHttpErrorBody,
@@ -962,6 +963,12 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     send({ type: 'set_extra_rules', extraRules })
   }
 
+  /** Host only, lobby: apply turn time control (`null` = unlimited). */
+  function setTimeControl(timeControl: WireTimeControl | null): void {
+    clearError()
+    send({ type: 'set_time_control', timeControl })
+  }
+
   function sendAction(action: ClientGameAction): void {
     clearError()
     const actionId =
@@ -1195,6 +1202,7 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     startGame,
     setDeck,
     setExtraRules,
+    setTimeControl,
     placeBid,
     playSame,
     playChange,

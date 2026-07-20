@@ -14,6 +14,21 @@ import {
   type GameState,
 } from '../src/domain/game'
 import {
+  createInitialClock,
+  DEFAULT_TIME_CONTROL,
+  isTimeControlEnabled,
+  MAX_MAIN_SECONDS,
+  MAX_TURN_SECONDS,
+  MIN_MAIN_SECONDS,
+  MIN_TURN_SECONDS,
+  settleTurn,
+  startTurn,
+  toWireClock,
+  turnDeadlineAt,
+  type RoomClock,
+  type WireTimeControl,
+} from './turnClock'
+import {
   AVATAR_COUNT,
   isValidAvatarIndex,
   sanitizeAvatarIndex,
@@ -45,6 +60,16 @@ import {
   type WireDeckComposition,
   type WireExtraRules,
 } from './types'
+
+// Re-export clock types for GameRoom consumers
+export type { RoomClock, WireTimeControl } from './turnClock'
+export {
+  isTimeControlEnabled,
+  isTurnTimedOut,
+  remainingForPlayer,
+  turnDeadlineAt,
+  toWireClock,
+} from './turnClock'
 
 export type RoomStatus = 'open' | 'playing' | 'closed'
 
@@ -96,6 +121,17 @@ export interface RoomState {
    * Host edits via set_extra_rules in lobby. Rematch keeps this value.
    */
   extraRules: ExtraRulesConfig
+  /**
+   * Turn time control for the next startGame.
+   * Host edits via set_time_control in lobby. `null` = unlimited.
+   * Rematch keeps this value. Live state is `clock`.
+   */
+  timeControl: WireTimeControl | null
+  /**
+   * Live bank + turn timer while status === 'playing' and timeControl is set.
+   * Cleared in lobby / rematch.
+   */
+  clock: RoomClock | null
 }
 
 export interface WsAttachment {
@@ -122,6 +158,8 @@ export function createEmptyRoom(roomCode: string, now = Date.now()): RoomState {
     chatLastAt: {},
     deck: cloneDeckComposition(STANDARD_DECK),
     extraRules: { ...DEFAULT_EXTRA_RULES },
+    timeControl: DEFAULT_TIME_CONTROL,
+    clock: null,
   }
 }
 
@@ -191,6 +229,7 @@ export function resetRoomForRematch(room: RoomState): void {
   room.resultAcks = {}
   room.bidHistory = []
   room.appliedActions = {}
+  room.clock = null
   for (const p of room.players) {
     p.ready = false
   }
@@ -390,6 +429,13 @@ export function parseClientMessage(raw: unknown): ClientMessage | { error: strin
       }
       return { type: 'set_extra_rules', extraRules: parsed.extraRules }
     }
+    case 'set_time_control': {
+      const parsed = parseWireTimeControl(msg.timeControl)
+      if ('error' in parsed) {
+        return { error: parsed.error }
+      }
+      return { type: 'set_time_control', timeControl: parsed.timeControl }
+    }
     case 'resume': {
       if (typeof msg.resumeToken !== 'string' || !msg.resumeToken) {
         return { error: 'resumeToken required' }
@@ -494,6 +540,11 @@ export function buildPlayerView(
 
   const deck = room.deck ?? cloneDeckComposition(STANDARD_DECK)
   const extraRules = room.extraRules ?? { ...DEFAULT_EXTRA_RULES }
+  const timeControl = room.timeControl ?? null
+  const clock =
+    room.clock && isTimeControlEnabled(timeControl)
+      ? toWireClock(room.clock)
+      : undefined
 
   return {
     phase,
@@ -507,6 +558,8 @@ export function buildPlayerView(
     maxPlayers: MAX_PLAYERS,
     deck: toWireDeck(deck),
     extraRules: toWireExtraRules(extraRules),
+    timeControl,
+    clock,
     game: room.game
       ? buildMaskedGame(
           room.game,
@@ -580,6 +633,124 @@ export function applySetExtraRules(
   extraRules: WireExtraRules,
 ): void {
   room.extraRules = { ...extraRules }
+}
+
+/**
+ * Parse lobby time-control payload.
+ * `null` disables the clock. Otherwise mainSeconds + turnSeconds (turn > 0).
+ */
+export function parseWireTimeControl(
+  raw: unknown,
+): { timeControl: WireTimeControl | null } | { error: string } {
+  if (raw === null || raw === undefined) {
+    return { timeControl: null }
+  }
+  if (typeof raw !== 'object') {
+    return { error: '制限時間の設定を読み取れませんでした' }
+  }
+  const r = raw as Record<string, unknown>
+  const main = r.mainSeconds
+  const turn = r.turnSeconds
+  if (typeof main !== 'number' || !Number.isFinite(main) || !Number.isInteger(main)) {
+    return { error: '持ち時間は整数の秒で指定してください' }
+  }
+  if (typeof turn !== 'number' || !Number.isFinite(turn) || !Number.isInteger(turn)) {
+    return { error: 'ターン時間は整数の秒で指定してください' }
+  }
+  if (main < MIN_MAIN_SECONDS || main > MAX_MAIN_SECONDS) {
+    return {
+      error: `持ち時間は ${MIN_MAIN_SECONDS}〜${MAX_MAIN_SECONDS} 秒で指定してください`,
+    }
+  }
+  if (turn < MIN_TURN_SECONDS || turn > MAX_TURN_SECONDS) {
+    return {
+      error: `ターン時間は ${MIN_TURN_SECONDS}〜${MAX_TURN_SECONDS} 秒で指定してください`,
+    }
+  }
+  return { timeControl: { mainSeconds: main, turnSeconds: turn } }
+}
+
+export function applySetTimeControl(
+  room: RoomState,
+  timeControl: WireTimeControl | null,
+): void {
+  room.timeControl = timeControl
+}
+
+/**
+ * Initialize live clock when a timed game starts.
+ */
+export function initClockForGame(room: RoomState, now = Date.now()): void {
+  ensureLifecycleFields(room)
+  if (!isTimeControlEnabled(room.timeControl) || !room.game) {
+    room.clock = null
+    return
+  }
+  const ids = room.game.players.map((p) => p.id)
+  room.clock = createInitialClock(
+    ids,
+    room.timeControl,
+    room.game.currentTurnPlayerId,
+    now,
+  )
+}
+
+/**
+ * After any game mutation: pause clock on result / end, or start the new turn.
+ * Safe no-op when time control is off.
+ */
+export function syncClockAfterGameChange(
+  room: RoomState,
+  now = Date.now(),
+): void {
+  ensureLifecycleFields(room)
+  if (!isTimeControlEnabled(room.timeControl) || !room.game) {
+    room.clock = null
+    return
+  }
+
+  if (!room.clock) {
+    initClockForGame(room, now)
+    return
+  }
+
+  const game = room.game
+  const paused =
+    room.pendingResult != null ||
+    game.phase === 'round_end' ||
+    game.phase === 'game_over' ||
+    game.phase === 'lobby'
+
+  if (paused || !game.currentTurnPlayerId) {
+    if (room.clock.turnStartedAt != null) {
+      room.clock = settleTurn(room.clock, now)
+    } else {
+      room.clock = {
+        ...room.clock,
+        turnPlayerId: null,
+        turnStartedAt: null,
+        bankAtTurnStartMs: 0,
+        turnBonusMs: 0,
+      }
+    }
+    return
+  }
+
+  const turnId = game.currentTurnPlayerId
+  // Already counting this player — leave running (e.g. spurious sync)
+  if (
+    room.clock.turnPlayerId === turnId &&
+    room.clock.turnStartedAt != null
+  ) {
+    return
+  }
+
+  room.clock = startTurn(
+    room.clock,
+    turnId,
+    room.timeControl.turnSeconds,
+    now,
+  )
 }
 
 /**
@@ -747,6 +918,8 @@ export function ensureLifecycleFields(room: RoomState): void {
   if (!room.chatLastAt) room.chatLastAt = {}
   if (!room.deck) room.deck = cloneDeckComposition(STANDARD_DECK)
   if (!room.extraRules) room.extraRules = { ...DEFAULT_EXTRA_RULES }
+  if (room.timeControl === undefined) room.timeControl = DEFAULT_TIME_CONTROL
+  if (room.clock === undefined) room.clock = null
 }
 
 export function connectedPlayerCount(room: RoomState): number {
@@ -965,7 +1138,7 @@ export function shouldPurgeRoom(
 
 /**
  * Next DO alarm time, or null if none needed.
- * Considers host-transfer deadlines and idle purge when empty.
+ * Considers host-transfer deadlines, turn clock deadline, and idle purge when empty.
  */
 export function nextAlarmAt(room: RoomState, now = Date.now()): number | null {
   ensureLifecycleFields(room)
@@ -973,6 +1146,15 @@ export function nextAlarmAt(room: RoomState, now = Date.now()): number | null {
 
   for (const t of Object.values(room.disconnectDeadlines)) {
     if (typeof t === 'number' && Number.isFinite(t)) candidates.push(t)
+  }
+
+  if (
+    room.status === 'playing' &&
+    room.clock &&
+    isTimeControlEnabled(room.timeControl)
+  ) {
+    const deadline = turnDeadlineAt(room.clock)
+    if (deadline != null) candidates.push(deadline)
   }
 
   if (connectedPlayerCount(room) === 0) {

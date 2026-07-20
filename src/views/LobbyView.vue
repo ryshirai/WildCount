@@ -12,8 +12,13 @@ import StampPickerSheet from '@/components/game/StampPickerSheet.vue'
 import PlayerAvatar from '@/components/game/PlayerAvatar.vue'
 import DeckSettingsPanel from '@/components/lobby/DeckSettingsPanel.vue'
 import ExtraRulesPanel from '@/components/lobby/ExtraRulesPanel.vue'
+import TimeControlPanel from '@/components/lobby/TimeControlPanel.vue'
 import type { StampId } from '@/online/stamps'
-import type { WireDeckComposition, WireExtraRules } from '@/online/protocol'
+import type {
+  WireDeckComposition,
+  WireExtraRules,
+  WireTimeControl,
+} from '@/online/protocol'
 import { allowLocalPlay } from '@/config/runtime'
 import { mockLobby } from '@/data/mockLobby'
 import {
@@ -426,6 +431,23 @@ function applyExtraRules(rules: WireExtraRules) {
   showToast('エクストラルールを反映しました')
 }
 
+function applyTimeControl(tc: WireTimeControl | null) {
+  if (!isOnline.value || !isHost.value) {
+    showToast('制限時間を変えられるのはホストだけです')
+    return
+  }
+  if (onlineGame.connection !== 'open') {
+    showToast('つながっているときだけ変更できます')
+    return
+  }
+  onlineGame.setTimeControl(tc)
+  showToast(
+    tc == null
+      ? '制限時間をオフにしました'
+      : `制限時間を反映しました（${tc.mainSeconds >= 60 && tc.mainSeconds % 60 === 0 ? `${tc.mainSeconds / 60}分` : `${tc.mainSeconds}秒`} + ${tc.turnSeconds}秒）`,
+  )
+}
+
 // Keep draft in sync when server view / store name updates (join, resume)
 watch(
   () => onlineGame.displayName,
@@ -625,6 +647,15 @@ watch(
         :editable="isHost"
         :disabled="onlineGame.connection !== 'open'"
         @apply="applyExtraRules"
+      />
+
+      <TimeControlPanel
+        v-if="isOnline"
+        class="mb-6"
+        :time-control="onlineGame.view?.timeControl"
+        :editable="isHost"
+        :disabled="onlineGame.connection !== 'open'"
+        @apply="applyTimeControl"
       />
 
       <!-- Participants -->

@@ -83,6 +83,7 @@
 | **UX-10** | **done** | **ロビー山札カスタマイズ** | host `set_deck` + `PlayerView.deck`。`DeckSettingsPanel`。10〜120 枚。`start` で適用 |
 | TEST-1 | idea | Playwright E2E（2 ブラウザ） | design-overview §7。手動 2 タブが当面の受け入れ |
 | OPS-1 | idea | Worker ヘルス表示（ホームに「Worker 未接続」） | create タイムアウト文言は済 |
+| **UX-13** | **done** | **制限時間（持ち時間 + 毎ターン一時時間）** | ロビー host 設定。`main + turn` 秒。持ち時間から先に減る。DO alarm でタイムアウト（自動最小宣言 / コヨーテ / 脱落） |
 
 ---
 
@@ -116,4 +117,4 @@
 3. Phase 1 スライスの ID（P1-x）は `phase1-multiplayer.md` §10 と揃える  
 4. エクストラルールの ID（ER-x）は `docs/extra-rules.md` §4 と揃える  
 
-最終更新: 2026-07-13（ドーパミン演出 第2波）
+最終更新: 2026-07-20（UX-13 制限時間）

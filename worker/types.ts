@@ -120,6 +120,11 @@ export type ClientMessage =
    * Host only, lobby only: set extra rules toggles for the next game.
    */
   | { type: 'set_extra_rules'; extraRules: WireExtraRules }
+  /**
+   * Host only, lobby only: set turn time control for the next game.
+   * `null` = unlimited (no clock).
+   */
+  | { type: 'set_time_control'; timeControl: WireTimeControl | null }
 
 /** Wire shape of domain ExtraRulesConfig (turn actions only; 1/2 is deck). */
 export interface WireExtraRules {
@@ -129,6 +134,18 @@ export interface WireExtraRules {
   shot: boolean
   draw1: boolean
   lifeDouble: boolean
+}
+
+/**
+ * Room time control (持ち時間 + 毎ターン一時時間).
+ * Bank decreases first, then the per-turn temporary budget.
+ * Example: mainSeconds=300, turnSeconds=20 → "5分 + 20秒".
+ */
+export interface WireTimeControl {
+  /** Main bank in seconds (0 = no bank, only turn time). */
+  mainSeconds: number
+  /** Temporary seconds granted at the start of each turn. */
+  turnSeconds: number
 }
 
 export type ClientBidExtra =
@@ -221,6 +238,16 @@ export interface PlayerView {
   deck: WireDeckComposition
   /** Extra rules toggles for the next / current game (lobby-configurable). */
   extraRules: WireExtraRules
+  /**
+   * Turn time control for the next / current game (lobby-configurable).
+   * `null` = unlimited.
+   */
+  timeControl: WireTimeControl | null
+  /**
+   * Live clock while playing with timeControl set.
+   * Clients interpolate remaining from turnStartedAt + bank/temp.
+   */
+  clock?: import('./turnClock').WireClockSnapshot
   /** Masked game payload (own Card never included during play). */
   game?: import('./maskedView').MaskedGamePayload
   /** Challenge reveal — includes all hands (self OK). */

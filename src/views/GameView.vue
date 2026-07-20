@@ -7,6 +7,7 @@ import { mockResult } from '@/data/mockResult'
 import { useLocalGameStore } from '@/stores/localGame'
 import { useOnlineGameStore } from '@/stores/onlineGame'
 import GameHeader from '@/components/game/GameHeader.vue'
+import TurnClockDisplay from '@/components/game/TurnClockDisplay.vue'
 import PlayerCircle from '@/components/game/PlayerCircle.vue'
 import CurrentBidDisplay from '@/components/game/CurrentBidDisplay.vue'
 import EventLog from '@/components/game/EventLog.vue'
@@ -403,6 +404,11 @@ const paceHint = computed(() => {
   }
   return null
 })
+
+/** Live turn clock from server (online timed rooms only). */
+const turnClock = computed(() =>
+  isOnline.value ? (onlineGame.view?.clock ?? null) : null,
+)
 
 /** Cards to flip on the game screen (live challenge or mock preview) */
 const revealCards = computed<RevealedCard[]>(() => {
@@ -974,7 +980,7 @@ async function onChallenge() {
 
         <!-- Status under header -->
         <div
-          v-if="paceHint"
+          v-if="paceHint || (turnClock && !awaitingResultView)"
           class="flex shrink-0 items-center justify-center gap-2.5 border-b px-3 py-2.5 text-center text-sm font-medium backdrop-blur-md"
           :class="[
             awaitingResultView
@@ -1004,7 +1010,13 @@ async function onChallenge() {
             class="inline-flex h-2.5 w-2.5 shrink-0 rounded-full bg-teal-soft/80"
             aria-hidden="true"
           />
-          {{ paceHint }}
+          <span v-if="paceHint">{{ paceHint }}</span>
+          <TurnClockDisplay
+            v-if="turnClock && !awaitingResultView"
+            :clock="turnClock"
+            :is-self-turn="!!gameView?.isSelfTurn"
+            class="ml-1"
+          />
         </div>
 
         <!-- Card reveal (main body under header) -->
@@ -1305,7 +1317,7 @@ async function onChallenge() {
         </div>
 
         <div
-          v-if="paceHint"
+          v-if="paceHint || (turnClock && !awaitingResultView)"
           class="flex shrink-0 items-center justify-center gap-2 border-b px-3 py-2 text-center text-xs font-medium backdrop-blur-md"
           :class="[
             awaitingResultView
@@ -1320,7 +1332,13 @@ async function onChallenge() {
           role="status"
           aria-live="polite"
         >
-          {{ paceHint }}
+          <span v-if="paceHint">{{ paceHint }}</span>
+          <TurnClockDisplay
+            v-if="turnClock && !awaitingResultView"
+            :clock="turnClock"
+            :is-self-turn="!!gameView?.isSelfTurn"
+            compact
+          />
         </div>
 
         <!-- Card reveal under header -->

@@ -105,6 +105,11 @@ type ClientMessage =
   | { type: 'leave' }                           // 意図的退出（ロビー: 席削除 / 対戦中: 即脱落）
   | { type: 'end_room' }                        // host only: ルーム解散（全員 room_closed + storage 削除）
   | { type: 'set_deck'; deck: WireDeckComposition } // host only / ロビーのみ: 山札構成
+  | { type: 'set_extra_rules'; extraRules: WireExtraRules } // host only / ロビー
+  | { type: 'set_time_control'; timeControl: WireTimeControl | null } // host only / ロビー。null=無制限
+
+/** 持ち時間 + 毎ターン一時時間（秒）。手番中は持ち時間から先に減る */
+type WireTimeControl = { mainSeconds: number; turnSeconds: number }
 
 /** domain GameAction のうちプレイヤー操作分（START_GAME は start メッセージ） */
 type ClientGameAction =

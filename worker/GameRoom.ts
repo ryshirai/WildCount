@@ -2,9 +2,12 @@ import {
   applyAction,
   forceEliminatePlayer,
   GameError,
+  getLegalMoves,
+  minBidValue,
   seedRandom,
   startGame,
   type Card,
+  type GameState,
   type PlayerId,
 } from '../src/domain/game'
 import {
@@ -20,11 +23,14 @@ import {
   applyResultDismiss,
   applySetDeck,
   applySetExtraRules,
+  applySetTimeControl,
   buildPlayerView,
   clearDisconnectDeadline,
   createEmptyRoom,
   ensureLifecycleFields,
   findPlayerByToken,
+  initClockForGame,
+  isTurnTimedOut,
   markPlayerDisconnected,
   nextAlarmAt,
   nextAvatarIndex,
@@ -34,6 +40,7 @@ import {
   removePlayerFromRoom,
   resetRoomForRematch,
   shouldPurgeRoom,
+  syncClockAfterGameChange,
   type RoomState,
   type WsAttachment,
 } from './roomLogic'
@@ -45,6 +52,7 @@ import {
   type ServerMessage,
   type WireDeckComposition,
   type WireExtraRules,
+  type WireTimeControl,
 } from './types'
 
 const STORAGE_ROOM = 'room'
@@ -257,6 +265,9 @@ export class GameRoom {
       case 'set_extra_rules':
         await this.handleSetExtraRules(ws, room, msg.extraRules)
         return
+      case 'set_time_control':
+        await this.handleSetTimeControl(ws, room, msg.timeControl)
+        return
       default:
         this.send(ws, {
           type: 'error',
@@ -310,7 +321,7 @@ export class GameRoom {
   }
 
   /**
-   * Host transfer + disconnect forfeit deadlines + idle purge (phase1 §7.5–7.6).
+   * Host transfer + disconnect forfeit + turn clock timeout + idle purge.
    */
   async alarm(): Promise<void> {
     const room = await this.loadRoom()
@@ -323,6 +334,7 @@ export class GameRoom {
     const due = applyDueDisconnectPolicies(room, now)
 
     if (due.changed) {
+      syncClockAfterGameChange(room, now)
       await this.saveRoom(room)
       if (due.hostTransferred && due.newHostId && due.newHostId !== due.previousHostId) {
         const name =
@@ -360,7 +372,21 @@ export class GameRoom {
       this.broadcastView(room)
     }
 
-    if (shouldPurgeRoom(room, now)) {
+    // Turn clock timeout (may chain if successive auto-actions still leave a timed turn past deadline)
+    let safety = 0
+    while (
+      safety < 8 &&
+      room.status === 'playing' &&
+      room.game &&
+      room.clock &&
+      isTurnTimedOut(room.clock, Date.now())
+    ) {
+      safety += 1
+      const handled = await this.applyTurnTimeout(room, Date.now())
+      if (!handled) break
+    }
+
+    if (shouldPurgeRoom(room, Date.now())) {
       await this.purgeRoom()
       return
     }
@@ -683,6 +709,9 @@ export class GameRoom {
     }
     room.lastActivityAt = now
     room.revision += 1
+    if (forfeited) {
+      syncClockAfterGameChange(room, now)
+    }
     await this.saveRoom(room)
     await this.scheduleNextAlarm(room)
     this.broadcast(room, {
@@ -850,6 +879,56 @@ export class GameRoom {
     this.broadcastView(room)
   }
 
+  private async handleSetTimeControl(
+    ws: WebSocket,
+    room: RoomState,
+    timeControl: WireTimeControl | null,
+  ): Promise<void> {
+    const playerId = this.playerIdOf(ws)
+    if (!playerId) {
+      this.send(ws, {
+        type: 'error',
+        code: 'BAD_REQUEST',
+        message: 'Join the room first',
+      })
+      return
+    }
+
+    if (playerId !== room.hostId) {
+      this.send(ws, {
+        type: 'error',
+        code: 'UNAUTHORIZED',
+        message: 'Only the host can change time control',
+      })
+      return
+    }
+
+    if (room.status !== 'open') {
+      this.send(ws, {
+        type: 'error',
+        code: 'GAME_ALREADY_STARTED',
+        message: 'Cannot change time control after start',
+      })
+      return
+    }
+
+    applySetTimeControl(room, timeControl)
+    room.lastActivityAt = Date.now()
+    room.revision += 1
+    await this.saveRoom(room)
+    const label =
+      timeControl == null
+        ? '制限時間なし'
+        : `持ち時間 ${formatTimeControlLabel(timeControl)}`
+    this.broadcast(room, {
+      type: 'event',
+      level: 'info',
+      message: `制限時間を更新しました（${label}）`,
+      code: 'TIME_CONTROL_UPDATED',
+    })
+    this.broadcastView(room)
+  }
+
   private async handleStart(ws: WebSocket, room: RoomState): Promise<void> {
     const playerId = this.playerIdOf(ws)
     if (!playerId) {
@@ -917,9 +996,12 @@ export class GameRoom {
       room.pendingResult = null
       room.resultAcks = {}
       room.appliedActions = room.appliedActions ?? {}
-      room.lastActivityAt = Date.now()
+      const now = Date.now()
+      room.lastActivityAt = now
       room.revision += 1
+      initClockForGame(room, now)
       await this.saveRoom(room)
+      await this.scheduleNextAlarm(room)
 
       this.broadcast(room, {
         type: 'event',
@@ -1058,8 +1140,11 @@ export class GameRoom {
           actionId,
           room.revision,
         )
-        room.lastActivityAt = Date.now()
+        const now = Date.now()
+        room.lastActivityAt = now
+        syncClockAfterGameChange(room, now)
         await this.saveRoom(room)
+        await this.scheduleNextAlarm(room)
 
         const name =
           room.players.find((p) => p.id === actorId)?.displayName ?? '誰か'
@@ -1118,8 +1203,11 @@ export class GameRoom {
           actionId,
           room.revision,
         )
-        room.lastActivityAt = Date.now()
+        const now = Date.now()
+        room.lastActivityAt = now
+        syncClockAfterGameChange(room, now)
         await this.saveRoom(room)
+        await this.scheduleNextAlarm(room)
         const name =
           room.players.find((p) => p.id === actorId)?.displayName ?? '誰か'
         this.broadcast(room, {
@@ -1150,8 +1238,11 @@ export class GameRoom {
           actionId,
           room.revision,
         )
-        room.lastActivityAt = Date.now()
+        const now = Date.now()
+        room.lastActivityAt = now
+        syncClockAfterGameChange(room, now)
         await this.saveRoom(room)
+        await this.scheduleNextAlarm(room)
         const name =
           room.players.find((p) => p.id === actorId)?.displayName ?? '誰か'
         this.broadcast(room, {
@@ -1199,8 +1290,11 @@ export class GameRoom {
         actionId,
         room.revision,
       )
-      room.lastActivityAt = Date.now()
+      const now = Date.now()
+      room.lastActivityAt = now
+      syncClockAfterGameChange(room, now)
       await this.saveRoom(room)
+      await this.scheduleNextAlarm(room)
 
       const cName =
         room.players.find((p) => p.id === challengerId)?.displayName ?? '誰か'
@@ -1261,9 +1355,12 @@ export class GameRoom {
       this.maybeStartNextRound(room)
     }
 
-    room.lastActivityAt = Date.now()
+    const now = Date.now()
+    room.lastActivityAt = now
     room.revision += 1
+    syncClockAfterGameChange(room, now)
     await this.saveRoom(room)
+    await this.scheduleNextAlarm(room)
     // Broadcast so each client gets per-player pendingResult visibility
     this.broadcastView(room)
   }
@@ -1455,6 +1552,163 @@ export class GameRoom {
     await this.state.storage.deleteAll()
   }
 
+  /**
+   * Apply one turn-timeout: auto min-bid if possible, else challenge, else forfeit.
+   * Returns true when state was mutated.
+   */
+  private async applyTurnTimeout(
+    room: RoomState,
+    now: number,
+  ): Promise<boolean> {
+    this.ensureRoomDefaults(room)
+    if (
+      room.status !== 'playing' ||
+      !room.game ||
+      !room.clock ||
+      !isTurnTimedOut(room.clock, now)
+    ) {
+      return false
+    }
+    // Wait for result dismiss — clock should already be paused
+    if (room.pendingResult || room.game.phase === 'round_end') {
+      syncClockAfterGameChange(room, now)
+      await this.saveRoom(room)
+      return true
+    }
+
+    const playerId = room.clock.turnPlayerId ?? room.game.currentTurnPlayerId
+    if (!playerId || room.game.currentTurnPlayerId !== playerId) {
+      syncClockAfterGameChange(room, now)
+      await this.saveRoom(room)
+      return true
+    }
+
+    const name =
+      room.players.find((p) => p.id === playerId)?.displayName ?? '誰か'
+    const decision = pickTimeoutDecision(room.game)
+
+    try {
+      if (decision.kind === 'bid') {
+        room.game = applyAction(
+          room.game,
+          { type: 'PLACE_BID', value: decision.value },
+          seedRandom(cryptoSeed()),
+        )
+        room.bidHistory = [
+          ...(room.bidHistory ?? []),
+          {
+            playerId,
+            value: decision.value,
+            round: room.game.round,
+          },
+        ]
+        room.revision += 1
+        room.lastActivityAt = now
+        syncClockAfterGameChange(room, now)
+        await this.saveRoom(room)
+        this.broadcast(room, {
+          type: 'event',
+          level: 'warn',
+          message: `${name} が時間切れ — 自動で ${decision.value} を宣言`,
+          code: 'TURN_TIMEOUT_BID',
+        })
+        this.broadcastView(room)
+        return true
+      }
+
+      if (decision.kind === 'challenge') {
+        const handsSnapshot: Record<PlayerId, readonly Card[]> = {
+          ...room.game.hands,
+        }
+        const challengedRound = room.game.round
+        room.game = applyAction(
+          room.game,
+          { type: 'CHALLENGE' },
+          seedRandom(cryptoSeed()),
+        )
+        const outcome = room.game.lastOutcome
+        if (!outcome) {
+          throw new Error('Challenge resolved without lastOutcome')
+        }
+        room.pendingResult = buildPendingResultSnapshot({
+          outcome,
+          hands: handsSnapshot,
+          round: challengedRound,
+          winnerId: room.game.winnerId,
+        })
+        room.resultAcks = {}
+        room.bidHistory = []
+        room.revision += 1
+        room.lastActivityAt = now
+        syncClockAfterGameChange(room, now)
+        await this.saveRoom(room)
+        this.broadcast(room, {
+          type: 'event',
+          level: 'warn',
+          message: `${name} が時間切れ — 自動でコヨーテ！`,
+          code: 'TURN_TIMEOUT_CHALLENGE',
+        })
+        if (room.game.phase === 'game_over') {
+          this.broadcast(room, {
+            type: 'event',
+            level: 'info',
+            message: 'ゲーム終了',
+            code: 'GAME_ENDED',
+          })
+        }
+        this.broadcastView(room)
+        return true
+      }
+
+      // forfeit
+      room.game = forceEliminatePlayer(room.game, playerId)
+      room.revision += 1
+      room.lastActivityAt = now
+      syncClockAfterGameChange(room, now)
+      await this.saveRoom(room)
+      this.broadcast(room, {
+        type: 'event',
+        level: 'warn',
+        message: `${name} が時間切れで脱落しました`,
+        code: 'TURN_TIMEOUT_FORFEIT',
+      })
+      if (room.game.phase === 'game_over') {
+        const wName = room.game.winnerId
+          ? room.players.find((p) => p.id === room.game!.winnerId)?.displayName
+          : null
+        this.broadcast(room, {
+          type: 'event',
+          level: 'info',
+          message: wName
+            ? `ゲーム終了 — ${wName} の勝利`
+            : 'ゲーム終了',
+          code: 'GAME_ENDED',
+        })
+      }
+      this.broadcastView(room)
+      return true
+    } catch (err) {
+      // Fallback: force eliminate if auto action somehow illegal
+      console.error('applyTurnTimeout failed', err)
+      if (room.game) {
+        room.game = forceEliminatePlayer(room.game, playerId)
+        room.revision += 1
+        room.lastActivityAt = now
+        syncClockAfterGameChange(room, now)
+        await this.saveRoom(room)
+        this.broadcast(room, {
+          type: 'event',
+          level: 'warn',
+          message: `${name} が時間切れで脱落しました`,
+          code: 'TURN_TIMEOUT_FORFEIT',
+        })
+        this.broadcastView(room)
+        return true
+      }
+      return false
+    }
+  }
+
   private playerIdOf(ws: WebSocket): string | undefined {
     const att = (ws.deserializeAttachment() ?? {}) as WsAttachment
     return att.playerId
@@ -1539,6 +1793,42 @@ function cryptoSeed(): number {
   const buf = new Uint32Array(1)
   crypto.getRandomValues(buf)
   return buf[0]! >>> 0
+}
+
+/** Prefer auto min-bid (keeps the round going); else challenge; else forfeit. */
+function pickTimeoutDecision(
+  game: GameState,
+):
+  | { kind: 'bid'; value: number }
+  | { kind: 'challenge' }
+  | { kind: 'forfeit' } {
+  const moves = getLegalMoves(game)
+  const bidMove = moves.find((m) => m.type === 'PLACE_BID')
+  if (bidMove && bidMove.type === 'PLACE_BID') {
+    let value = bidMove.minValue
+    if (
+      bidMove.forbiddenValue != null &&
+      value === bidMove.forbiddenValue
+    ) {
+      value = bidMove.forbiddenValue + 1
+    }
+    // Safety: re-check against minBidValue for forced rebid edge cases
+    const floor = minBidValue(game)
+    if (value < floor) value = floor
+    return { kind: 'bid', value }
+  }
+  if (moves.some((m) => m.type === 'CHALLENGE')) {
+    return { kind: 'challenge' }
+  }
+  return { kind: 'forfeit' }
+}
+
+function formatTimeControlLabel(tc: WireTimeControl): string {
+  const main =
+    tc.mainSeconds >= 60 && tc.mainSeconds % 60 === 0
+      ? `${tc.mainSeconds / 60}分`
+      : `${tc.mainSeconds}秒`
+  return `${main} + ${tc.turnSeconds}秒`
 }
 
 function json(data: unknown, status = 200): Response {
