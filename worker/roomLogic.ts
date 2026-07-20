@@ -23,6 +23,7 @@ import {
   MAX_TURN_SECONDS,
   MIN_MAIN_SECONDS,
   MIN_TURN_SECONDS,
+  resetMainBanks,
   settleTurn,
   startTurn,
   toWireClock,
@@ -736,11 +737,13 @@ export function initClockForGame(room: RoomState, now = Date.now()): void {
     room.timeControl,
     room.game.currentTurnPlayerId,
     now,
+    room.game.round,
   )
 }
 
 /**
  * After any game mutation: pause clock on result / end, or start the new turn.
+ * Main banks reset when `game.round` advances (new round).
  * Safe no-op when time control is off.
  */
 export function syncClockAfterGameChange(
@@ -759,6 +762,22 @@ export function syncClockAfterGameChange(
   }
 
   const game = room.game
+  const ids = game.players.map((p) => p.id)
+
+  // Stamp missing forRound (older DO storage) without resetting mid-round.
+  if (room.clock.forRound === undefined) {
+    room.clock = { ...room.clock, forRound: game.round }
+  } else if (room.clock.forRound !== game.round) {
+    // New round: full main bank for every seated player
+    room.clock = resetMainBanks(
+      room.clock,
+      room.timeControl.mainSeconds,
+      ids,
+      game.round,
+      now,
+    )
+  }
+
   const paused =
     room.pendingResult != null ||
     game.phase === 'round_end' ||

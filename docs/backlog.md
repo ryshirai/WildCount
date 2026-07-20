@@ -83,7 +83,7 @@
 | **UX-10** | **done** | **ロビー山札カスタマイズ** | host `set_deck` + `PlayerView.deck`。`DeckSettingsPanel`。10〜120 枚。`start` で適用 |
 | TEST-1 | idea | Playwright E2E（2 ブラウザ） | design-overview §7。手動 2 タブが当面の受け入れ |
 | OPS-1 | idea | Worker ヘルス表示（ホームに「Worker 未接続」） | create タイムアウト文言は済 |
-| **UX-13** | **done** | **制限時間（持ち時間 + 毎ターン一時時間）** | ロビー host 設定。`main + turn` 秒。一時時間から先に減る。DO alarm でタイムアウト（自動最小宣言 / コヨーテ / 脱落） |
+| **UX-13** | **done** | **制限時間（持ち時間 + 毎ターン一時時間）** | ロビー host 設定。`main + turn` 秒。一時時間から先に減る。**持ち時間はラウンド開始時にフルリセット**。DO alarm でタイムアウト（自動最小宣言 / コヨーテ / 脱落） |
 | **UX-14** | **done** | 効果音（入力 / 宣言 / 手番 / 特殊能力 / コヨーテ / 勝敗）+ 任意トグル | D2 完了。`src/audio/*` 手続き音 + ミュート/音量 |
 | **UX-15** | **done** | 触覚フィードバック（vibration） | D4 完了。`src/haptics/*`。初期 OFF。手番 / WILD CALL / COYOTE / 自分のライフ喪失 |
 | UX-16 | idea | 席ごと残り持ち時間の常時表示 | 中央時計は UX-13 済み。席 UI へのミラーは未 |

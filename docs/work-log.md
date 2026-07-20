@@ -4216,3 +4216,39 @@
 
 ### 次に考えられる作業
 1. ロビー／ゲーム両方のチャットでフォーカス時ズームしないことを実機確認
+
+---
+
+## 2026-07-20 — ラウンド変更時に持ち時間をリセット
+
+### 背景・目的
+- 制限時間の持ち時間がゲーム全体で持ち越されていた
+- ラウンドが変わったら持ち時間をフルに戻したい
+
+### 実施内容
+1. `RoomClock.forRound` で「どのラウンド分の持ち時間か」を保持
+2. `syncClockAfterGameChange` で `game.round` が進んだら `resetMainBanks`（全員フル持ち時間）
+3. `settleTurn` が `forRound` を落とさないよう修正
+4. ロビー説明文・仕様メモを更新
+5. `worker/turnClock.test.ts` にラウンド跨ぎリセットのテストを追加
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `worker/turnClock.ts` | `forRound` / `resetMainBanks` / settle 保持 |
+| `worker/roomLogic.ts` | ラウンド進行時に持ち時間リセット |
+| `worker/turnClock.test.ts` | 単体テスト |
+| `src/components/lobby/TimeControlPanel.vue` | 説明文 |
+| `docs/phase1-multiplayer.md` / `docs/backlog.md` | 仕様メモ |
+
+### 明示的にやっていないこと
+- ローカル対戦への制限時間
+- ヘルプ本文への追記
+- ラウンド途中での持ち時間再充填オプション
+
+### 確認結果
+- `worker/turnClock.test.ts` 全パス
+
+### 次に考えられる作業
+1. ヘルプに制限時間（ラウンドごとリセット）を追記
+2. 席ごと残り持ち時間表示（UX-16）

@@ -47,7 +47,7 @@ const PRESETS: Array<{
     id: '300+20',
     label: '5分 + 20秒',
     value: { mainSeconds: 300, turnSeconds: 20 },
-    hint: '持ち時間5分 → 毎ターン20秒',
+    hint: 'ラウンドごと持ち時間5分 → 毎ターン20秒',
   },
 ]
 
@@ -150,6 +150,7 @@ function apply() {
         です。手番では
         <span class="text-sand">ターン時間が先に減り</span>、尽きたら持ち時間が減ります。
         使い切らなかったターン時間は持ち越しません。
+        <span class="text-sand">持ち時間はラウンドが変わるとリセット</span>されます。
       </p>
 
       <div class="flex flex-wrap gap-2">

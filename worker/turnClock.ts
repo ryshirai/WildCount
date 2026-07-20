@@ -5,7 +5,9 @@
  * 1. Per-turn temporary time (毎ターンもらえる一時時間) decreases first
  * 2. Then main bank (持ち時間)
  *
- * Unused temporary time is discarded at end of turn; bank carries over.
+ * Unused temporary time is discarded at end of turn.
+ * Main bank carries over within the same round, and resets to full
+ * mainSeconds when `game.round` advances.
  * Example "5 + 20" with main=300s, turn=20s: the 20s drain first, then bank.
  */
 
@@ -28,6 +30,12 @@ export interface RoomClock {
   bankAtTurnStartMs: number
   /** Temporary budget for this turn (ms), full amount at start. */
   turnBonusMs: number
+  /**
+   * Game round these banks apply to.
+   * When `game.round` advances, banks reset to full mainSeconds.
+   * Optional for storage migration of older rooms.
+   */
+  forRound?: number
 }
 
 export const DEFAULT_TIME_CONTROL: WireTimeControl | null = null
@@ -55,6 +63,7 @@ export function createInitialClock(
   tc: WireTimeControl,
   firstTurnPlayerId: string | null,
   now: number,
+  forRound = 1,
 ): RoomClock {
   const bankMs: Record<string, number> = {}
   const mainMs = Math.max(0, Math.floor(tc.mainSeconds * 1000))
@@ -67,11 +76,42 @@ export function createInitialClock(
     turnStartedAt: null,
     bankAtTurnStartMs: 0,
     turnBonusMs: 0,
+    forRound,
   }
   if (firstTurnPlayerId) {
     return startTurn(clock, firstTurnPlayerId, tc.turnSeconds, now)
   }
   return clock
+}
+
+/**
+ * Reset every player's main bank to full mainSeconds for a new round.
+ * Does not start a turn; call `startTurn` afterward when needed.
+ * Settles any active turn first so bankMs is consistent.
+ */
+export function resetMainBanks(
+  clock: RoomClock,
+  mainSeconds: number,
+  playerIds: readonly string[],
+  forRound: number,
+  now: number,
+): RoomClock {
+  const settled =
+    clock.turnStartedAt != null ? settleTurn(clock, now) : { ...clock }
+  const mainMs = Math.max(0, Math.floor(mainSeconds * 1000))
+  const bankMs: Record<string, number> = {}
+  for (const id of playerIds) {
+    bankMs[id] = mainMs
+  }
+  return {
+    ...settled,
+    bankMs,
+    forRound,
+    turnPlayerId: null,
+    turnStartedAt: null,
+    bankAtTurnStartMs: 0,
+    turnBonusMs: 0,
+  }
 }
 
 export function remainingForPlayer(
@@ -125,6 +165,7 @@ export function settleTurn(clock: RoomClock, now: number): RoomClock {
 
   const { bankMs } = remainingForPlayer(clock, clock.turnPlayerId, now)
   return {
+    ...clock,
     bankMs: { ...clock.bankMs, [clock.turnPlayerId]: bankMs },
     turnPlayerId: null,
     turnStartedAt: null,

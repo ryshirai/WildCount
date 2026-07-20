@@ -3,6 +3,7 @@ import {
   createInitialClock,
   isTurnTimedOut,
   remainingForPlayer,
+  resetMainBanks,
   settleTurn,
   startTurn,
   turnDeadlineAt,
@@ -15,7 +16,7 @@ import {
   initClockForGame,
   syncClockAfterGameChange,
 } from './roomLogic'
-import { seedRandom, startGame } from '../src/domain/game'
+import { applyAction, seedRandom, startGame } from '../src/domain/game'
 
 const TC: WireTimeControl = { mainSeconds: 5, turnSeconds: 20 }
 
@@ -158,5 +159,89 @@ describe('turnClock', () => {
     expect(room.clock?.turnStartedAt).toBeNull()
     // 1s came from temp; bank still full
     expect(room.clock?.bankMs[turnId]).toBe(5_000)
+  })
+
+  it('resetMainBanks restores full main for all players', () => {
+    const t0 = 1_000_000
+    let clock = createInitialClock(['a', 'b'], TC, 'a', t0, 1)
+    clock = settleTurn(clock, t0 + 23_000) // a: temp gone + 3s bank
+    expect(clock.bankMs['a']).toBe(2_000)
+    clock = resetMainBanks(clock, TC.mainSeconds, ['a', 'b'], 2, t0 + 30_000)
+    expect(clock.forRound).toBe(2)
+    expect(clock.bankMs['a']).toBe(5_000)
+    expect(clock.bankMs['b']).toBe(5_000)
+    expect(clock.turnStartedAt).toBeNull()
+  })
+
+  it('syncClock resets banks when game.round advances', () => {
+    const room = createEmptyRoom('RND001')
+    room.players = [
+      {
+        id: 'a',
+        displayName: 'A',
+        joinedAt: 1,
+        ready: true,
+        connected: true,
+        resumeToken: 'ta',
+        avatarIndex: 0,
+      },
+      {
+        id: 'b',
+        displayName: 'B',
+        joinedAt: 2,
+        ready: true,
+        connected: true,
+        resumeToken: 'tb',
+        avatarIndex: 1,
+      },
+    ]
+    room.timeControl = TC
+    const t0 = 4_000_000
+    const rng = seedRandom(42)
+    room.game = startGame({ playerIds: ['a', 'b'], config: {} }, rng)
+    room.status = 'playing'
+    initClockForGame(room, t0)
+    expect(room.clock?.forRound).toBe(room.game.round)
+    expect(room.game.round).toBe(1)
+
+    // Drain some bank on the current turn
+    const turnId = room.game.currentTurnPlayerId!
+    room.clock = settleTurn(room.clock!, t0 + 23_000)
+    expect(room.clock.bankMs[turnId]).toBe(2_000)
+
+    // Simulate end of round → START_ROUND (next round)
+    const challengerId = turnId === 'a' ? 'b' : 'a'
+    room.game = {
+      ...room.game,
+      phase: 'round_end',
+      currentTurnPlayerId: null,
+      lastOutcome: {
+        bid: 99,
+        actualTotal: 1,
+        calculation: {
+          total: 1,
+          steps: [],
+          handsSnapshot: {},
+        },
+        bidderWins: false,
+        loserRole: 'bidder',
+        loserId: turnId,
+        bidderId: turnId,
+        challengerId,
+        lifeLoss: 1,
+      },
+    }
+    room.pendingResult = null
+    room.game = applyAction(room.game, { type: 'START_ROUND' }, rng)
+    expect(room.game.round).toBe(2)
+
+    syncClockAfterGameChange(room, t0 + 60_000)
+    expect(room.clock?.forRound).toBe(2)
+    expect(room.clock?.bankMs['a']).toBe(5_000)
+    expect(room.clock?.bankMs['b']).toBe(5_000)
+    // New turn should be running with full bank + temp
+    expect(room.clock?.turnStartedAt).toBe(t0 + 60_000)
+    expect(room.clock?.bankAtTurnStartMs).toBe(5_000)
+    expect(room.clock?.turnBonusMs).toBe(20_000)
   })
 })
