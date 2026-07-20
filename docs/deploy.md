@@ -141,7 +141,19 @@ unset VITE_WORKER_URL   # または未 export
 npm run build
 ```
 
-成果物: `dist/`（PWA 含む）。
+成果物: `dist/`（PWA 含む）。`public/_headers` も `dist/` にコピーされる（Pages 用キャッシュ制御）。
+
+### 5.1b PWA 更新が反映されないとき
+
+本番は Service Worker が静的資産を precache する。次を入れてある:
+
+| 仕組み | 役割 |
+|--------|------|
+| `src/pwa.ts`（`virtual:pwa-register` + `autoUpdate`） | 新 SW 有効化時にタブを自動リロード |
+| フォーカス / 5 分間隔の `registration.update()` | 開きっぱなしタブでも更新を検知 |
+| `public/_headers` | `index.html` / `sw.js` を `no-cache`（CDN が古い SW を握らない） |
+
+**この修正を初めて載せた直後**は、すでに古い SW を掴んでいる端末が 1 回だけ強制リロード（または DevTools → Application → Unregister）が必要なことがある。それ以降のデプロイは自動更新を期待できる。
 
 ### 5.2 Pages へ載せる
 

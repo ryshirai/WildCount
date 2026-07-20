@@ -8,7 +8,10 @@ export default defineConfig({
   plugins: [
     vue(),
     VitePWA({
+      // autoUpdate + virtual:pwa-register (see src/pwa.ts) reloads tabs when a
+      // new SW activates. Default inject script only registers — no reload.
       registerType: 'autoUpdate',
+      injectRegister: false,
       includeAssets: [
         'favicon.svg',
         'favicon-32.png',
@@ -52,6 +55,10 @@ export default defineConfig({
       workbox: {
         navigateFallback: '/index.html',
         globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff2}'],
+        // injectRegister:false skips plugin auto-flags; set explicitly.
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
       },
       devOptions: {
         enabled: false,

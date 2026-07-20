@@ -4082,3 +4082,39 @@
 ### 次に考えられる作業
 1. 実プレイでログ・結果・ロビーの口調を最終確認
 2. 必要なら英語演出ラベルに日本語サブタイトルを足す
+
+## 2026-07-20 — 本番 PWA 更新が反映されない問題
+
+### 背景・目的
+- 本番でデザイン変更が強制リロードしないと見えない（通常リロード・再訪問でも古い見た目のまま）
+
+### 実施内容
+1. **原因** — `registerType: autoUpdate` でも、デフォルトの `registerSW.js` は SW 登録のみで、新 SW 有効化時のページリロードが無い。CDN が `sw.js` を長くキャッシュすると更新検知自体も遅れる
+2. **クライアント** — `src/pwa.ts` で `virtual:pwa-register` を使い、更新検知時に自動リロード。フォーカス / 5 分間隔で `registration.update()`
+3. **ビルド** — `injectRegister: false`、workbox に `skipWaiting` / `clientsClaim` / `cleanupOutdatedCaches` を明示
+4. **Pages** — `public/_headers` で `index.html` / `sw.js` / workbox を `no-cache`、hashed assets は長期 cache
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/pwa.ts` | SW 登録・更新ポーリング |
+| `src/main.ts` | `setupPwa()` 呼び出し |
+| `vite.config.ts` | injectRegister / workbox フラグ |
+| `env.d.ts` | `vite-plugin-pwa/client` 型 |
+| `public/_headers` | Cloudflare Pages キャッシュ制御 |
+| `docs/deploy.md` | §5.1b 更新メモ |
+
+### 明示的にやっていないこと
+- 対戦中だけリロードを遅らせる UI（デプロイ後 1 回の自動リロードは許容）
+- 既存端末の SW をサーバから強制破棄（初回だけユーザー側の強制リロードが必要な場合あり）
+- 本番へのデプロイ自体
+
+### 確認結果
+- `npm run typecheck` / `npm run build` 成功
+- `dist/sw.js` に `skipWaiting` / `clientsClaim` / `cleanupOutdatedCaches`
+- `dist/_headers` コピー確認、`registerSW.js` は生成されない（手動登録）
+
+### 次に考えられる作業
+1. Pages にこの `dist` をデプロイ
+2. 既に本番を開いている端末は 1 回だけ強制リロード or SW Unregister
+3. 以降のデプロイで自動更新されるか確認
