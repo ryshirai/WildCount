@@ -25,7 +25,42 @@
     />
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app">
+      <!-- Replaced on mount. Visible if JS is slow/fails (avoids pure black). -->
+      <div
+        id="app-boot"
+        style="
+          box-sizing: border-box;
+          min-height: 100%;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 0.75rem;
+          padding: 2rem 1.25rem;
+          color: #e8dcc4;
+          font-family: system-ui, 'Noto Sans JP', sans-serif;
+          text-align: center;
+        "
+      >
+        <p style="margin: 0; font-size: 1.25rem; font-weight: 700; color: #e8d5a3">
+          Wild Count
+        </p>
+        <p style="margin: 0; font-size: 0.875rem; color: #c4b49a">読み込み中…</p>
+      </div>
+    </div>
     <script type="module" src="/src/main.ts"></script>
+    <noscript>
+      <p
+        style="
+          margin: 2rem;
+          color: #e8dcc4;
+          font-family: system-ui, sans-serif;
+          text-align: center;
+        "
+      >
+        Wild Count を使うには JavaScript を有効にしてください。
+      </p>
+    </noscript>
   </body>
 </html>

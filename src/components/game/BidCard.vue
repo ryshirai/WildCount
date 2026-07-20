@@ -403,7 +403,7 @@ const ariaLabel = computed(() => {
   pointer-events: none;
   text-align: left;
   line-height: 1.35;
-  backdrop-filter: blur(8px);
+  /* backdrop-filter disabled on coarse pointers via main.css (iOS black-screen) */
   /* Avoid transform-based centering (clips at screen edges on mobile) */
   transform: none;
   word-break: break-word;

@@ -4252,3 +4252,41 @@
 ### 次に考えられる作業
 1. ヘルプに制限時間（ラウンドごとリセット）を追記
 2. 席ごと残り持ち時間表示（UX-16）
+
+---
+
+## 2026-07-20 — 実機 SP 真っ暗（黒画面）対策
+
+### 背景・目的
+- 実機スマートフォンで開くと画面が真っ暗になる報告
+
+### 実施内容
+1. **原因仮説** — 夜砂漠背景の多層 `radial-gradient`（30+）と多数の `backdrop-filter` が、モバイル GPU 合成で全面黒になることがある。チーム内でもスタンプ演出で blur を避けた経緯あり
+2. **`.desert-bg` を mobile-first に簡略化** — 既定は 9 層程度。`min-width: 1024px` のみフル月/砂丘/星。サボテン疑似要素もデスクトップ限定
+3. **`backdrop-filter` をタッチ端末で無効化** — `.panel` / ターン時計は fine-pointer のみ blur。`(hover: none), (pointer: coarse)` で utility の blur を一括 none
+4. **ビューポート高さ** — `-webkit-fill-available` + `@supports (height: 100dvh)` で iOS の高さ取りこぼしを緩和
+5. **起動シェル** — `index.html` に「読み込み中…」静的マークアップ。`main.ts` で boot 失敗時に再読み込み UI。`setupPwa` は throw しない
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/styles/main.css` | desert 簡略化 / blur 制限 / 高さ / coarse 向け kill |
+| `index.html` | boot シェル + noscript |
+| `src/main.ts` | try/catch + エラー表示 |
+| `src/pwa.ts` | register 失敗を握りつぶし |
+| `src/components/game/BidCard.vue` | tip の blur 削除（グローバル制御） |
+| `docs/work-log.md` | 本エントリ |
+
+### 明示的にやっていないこと
+- 実機での目視確認（デプロイ後にユーザー確認が必要）
+- デスクトップの見た目フルシーンは維持
+- Playwright 実機エミュでの自動回帰（環境に Chromium 依存ライブラリ不足）
+
+### 確認結果
+- `npm run typecheck` / `npm run build` / `npm test`（269）成功
+- ビルド CSS: mobile desert 8 radial / desktop 31 radial、`pointer:coarse` で backdrop none
+
+### 次に考えられる作業
+1. Pages へデプロイして iPhone / Android 実機でホーム・ロビー・ゲームを確認
+2. まだ黒なら Safari リモートデバッグで JS エラー有無を確認
+3. 必要なら PWA の自動リロードにクールダウンを追加

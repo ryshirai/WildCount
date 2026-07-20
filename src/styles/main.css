@@ -7,9 +7,13 @@
    * App shell: lock to the visual viewport so pages don't "spill" and clip.
    * Each view either scrolls internally (Home / Result / Lobby) or manages
    * its own flex regions (Game).
+   *
+   * Height: 100% → 100dvh → -webkit-fill-available (iOS Safari fill).
+   * Avoid relying only on 100vh (legacy mobile chrome bug).
    */
   html {
     height: 100%;
+    height: -webkit-fill-available;
     /*
      * iOS Safari: disable double-tap-to-zoom (keeps pinch-zoom).
      * Prefer this over maximum-scale=1 for accessibility.
@@ -20,10 +24,26 @@
   html,
   body,
   #app {
-    /* 100dvh tracks mobile browser chrome; 100% is a safe fallback */
+    width: 100%;
+    max-width: 100%;
+    /*
+     * Height chain (last supported wins among height decls):
+     * 100% → -webkit-fill-available (iOS) → 100dvh when supported.
+     */
     height: 100%;
-    height: 100dvh;
+    min-height: 100%;
+    height: -webkit-fill-available;
+    min-height: -webkit-fill-available;
     overflow: hidden;
+  }
+
+  @supports (height: 100dvh) {
+    html,
+    body,
+    #app {
+      height: 100dvh;
+      min-height: 100dvh;
+    }
   }
 
   body {
@@ -65,8 +85,19 @@
 }
 
 @layer components {
+  /*
+   * Panel: solid-enough fill by default.
+   * backdrop-blur is applied only on fine-pointer / hover devices — on many
+   * mobile GPUs, blur over multi-layer desert-bg can composite as a black screen.
+   */
   .panel {
-    @apply rounded-2xl border border-gold-400/20 bg-night-800/80 shadow-panel backdrop-blur-md;
+    @apply rounded-2xl border border-gold-400/20 bg-night-800/95 shadow-panel;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .panel {
+      @apply bg-night-800/80 backdrop-blur-md;
+    }
   }
 
   .btn-gold {
@@ -2120,49 +2151,70 @@
  * Desert night backdrop (B7).
  * Pure CSS: multi-layer dunes, moon glow, stars, soft silhouettes.
  * Keep UI readable — decoration stays low-contrast and behind content.
+ *
+ * Mobile uses a reduced layer count. 30+ stacked radial-gradients +
+ * backdrop-filter on panels has caused full-viewport black compositing on
+ * real iOS / Android devices (desktop still gets the full scene).
  */
 .desert-bg {
   background-color: #060a12;
+  /* Mobile-first: few layers, cheap to composite */
   background-image:
-    /* Moon disc + warm halo (upper right) */
-    radial-gradient(circle 3px at 78% 12%, rgba(255, 248, 220, 0.95) 0%, transparent 100%),
-    radial-gradient(ellipse 32% 24% at 78% 12%, rgba(201, 168, 76, 0.16) 0%, transparent 68%),
-    radial-gradient(ellipse 18% 14% at 78% 12%, rgba(232, 213, 163, 0.08) 0%, transparent 70%),
-    /* Cool night sky */
-    radial-gradient(ellipse 90% 55% at 50% -8%, rgba(28, 48, 88, 0.55) 0%, transparent 58%),
-    radial-gradient(ellipse 50% 30% at 20% 8%, rgba(20, 40, 70, 0.25) 0%, transparent 55%),
-    /* Horizon haze (teal-sand dust) */
-    radial-gradient(ellipse 110% 28% at 50% 72%, rgba(42, 138, 138, 0.06) 0%, transparent 65%),
-    radial-gradient(ellipse 100% 22% at 50% 78%, rgba(201, 168, 76, 0.05) 0%, transparent 60%),
-    /* Far / mid / near dunes */
-    radial-gradient(ellipse 120% 48% at 50% 118%, rgba(90, 60, 30, 0.72) 0%, transparent 52%),
-    radial-gradient(ellipse 90% 40% at 22% 112%, rgba(70, 48, 28, 0.5) 0%, transparent 48%),
-    radial-gradient(ellipse 85% 38% at 78% 114%, rgba(100, 68, 32, 0.45) 0%, transparent 48%),
-    radial-gradient(ellipse 70% 28% at 50% 105%, rgba(50, 36, 22, 0.55) 0%, transparent 55%),
-    /* Soft ridge silhouettes along the horizon */
-    radial-gradient(ellipse 48% 18% at 8% 92%, rgba(8, 14, 24, 0.75) 0%, transparent 70%),
-    radial-gradient(ellipse 55% 20% at 38% 94%, rgba(10, 16, 26, 0.7) 0%, transparent 68%),
-    radial-gradient(ellipse 50% 18% at 68% 93%, rgba(8, 14, 24, 0.72) 0%, transparent 70%),
-    radial-gradient(ellipse 42% 16% at 94% 92%, rgba(9, 15, 25, 0.7) 0%, transparent 68%),
-    /* Ground fade so chrome stays dark */
-    linear-gradient(to top, rgba(6, 10, 18, 0.9) 0%, rgba(6, 10, 18, 0.28) 16%, transparent 40%),
-    /* Stars */
-    radial-gradient(1px 1px at 8% 14%, rgba(255, 255, 255, 0.55), transparent),
-    radial-gradient(1px 1px at 14% 32%, rgba(255, 255, 255, 0.28), transparent),
-    radial-gradient(1.5px 1.5px at 22% 10%, rgba(255, 255, 255, 0.5), transparent),
-    radial-gradient(1px 1px at 28% 42%, rgba(255, 255, 255, 0.32), transparent),
-    radial-gradient(1px 1px at 35% 18%, rgba(255, 255, 255, 0.4), transparent),
-    radial-gradient(1.5px 1.5px at 42% 6%, rgba(255, 255, 255, 0.48), transparent),
-    radial-gradient(1px 1px at 48% 28%, rgba(255, 255, 255, 0.22), transparent),
-    radial-gradient(1px 1px at 55% 12%, rgba(255, 255, 255, 0.5), transparent),
-    radial-gradient(1px 1px at 62% 38%, rgba(255, 255, 255, 0.25), transparent),
-    radial-gradient(1.5px 1.5px at 68% 8%, rgba(255, 255, 255, 0.42), transparent),
-    radial-gradient(1px 1px at 72% 28%, rgba(255, 255, 255, 0.38), transparent),
-    radial-gradient(1px 1px at 84% 22%, rgba(255, 255, 255, 0.3), transparent),
-    radial-gradient(1px 1px at 90% 36%, rgba(255, 255, 255, 0.22), transparent),
-    radial-gradient(1.5px 1.5px at 94% 16%, rgba(255, 255, 255, 0.4), transparent),
-    radial-gradient(1px 1px at 18% 52%, rgba(255, 255, 255, 0.2), transparent),
-    radial-gradient(1px 1px at 40% 48%, rgba(255, 255, 255, 0.18), transparent);
+    radial-gradient(ellipse 32% 24% at 78% 12%, rgba(201, 168, 76, 0.14) 0%, transparent 68%),
+    radial-gradient(ellipse 90% 55% at 50% -8%, rgba(28, 48, 88, 0.5) 0%, transparent 58%),
+    radial-gradient(ellipse 120% 48% at 50% 118%, rgba(90, 60, 30, 0.7) 0%, transparent 52%),
+    radial-gradient(ellipse 70% 28% at 50% 105%, rgba(50, 36, 22, 0.5) 0%, transparent 55%),
+    linear-gradient(to top, rgba(6, 10, 18, 0.88) 0%, rgba(6, 10, 18, 0.2) 18%, transparent 42%),
+    radial-gradient(1.5px 1.5px at 22% 10%, rgba(255, 255, 255, 0.48), transparent),
+    radial-gradient(1px 1px at 55% 12%, rgba(255, 255, 255, 0.42), transparent),
+    radial-gradient(1px 1px at 72% 28%, rgba(255, 255, 255, 0.32), transparent),
+    radial-gradient(1px 1px at 88% 16%, rgba(255, 255, 255, 0.28), transparent);
+}
+
+/* Desktop: full moon / dunes / star field */
+@media (min-width: 1024px) {
+  .desert-bg {
+    background-image:
+      /* Moon disc + warm halo (upper right) */
+      radial-gradient(circle 3px at 78% 12%, rgba(255, 248, 220, 0.95) 0%, transparent 100%),
+      radial-gradient(ellipse 32% 24% at 78% 12%, rgba(201, 168, 76, 0.16) 0%, transparent 68%),
+      radial-gradient(ellipse 18% 14% at 78% 12%, rgba(232, 213, 163, 0.08) 0%, transparent 70%),
+      /* Cool night sky */
+      radial-gradient(ellipse 90% 55% at 50% -8%, rgba(28, 48, 88, 0.55) 0%, transparent 58%),
+      radial-gradient(ellipse 50% 30% at 20% 8%, rgba(20, 40, 70, 0.25) 0%, transparent 55%),
+      /* Horizon haze (teal-sand dust) */
+      radial-gradient(ellipse 110% 28% at 50% 72%, rgba(42, 138, 138, 0.06) 0%, transparent 65%),
+      radial-gradient(ellipse 100% 22% at 50% 78%, rgba(201, 168, 76, 0.05) 0%, transparent 60%),
+      /* Far / mid / near dunes */
+      radial-gradient(ellipse 120% 48% at 50% 118%, rgba(90, 60, 30, 0.72) 0%, transparent 52%),
+      radial-gradient(ellipse 90% 40% at 22% 112%, rgba(70, 48, 28, 0.5) 0%, transparent 48%),
+      radial-gradient(ellipse 85% 38% at 78% 114%, rgba(100, 68, 32, 0.45) 0%, transparent 48%),
+      radial-gradient(ellipse 70% 28% at 50% 105%, rgba(50, 36, 22, 0.55) 0%, transparent 55%),
+      /* Soft ridge silhouettes along the horizon */
+      radial-gradient(ellipse 48% 18% at 8% 92%, rgba(8, 14, 24, 0.75) 0%, transparent 70%),
+      radial-gradient(ellipse 55% 20% at 38% 94%, rgba(10, 16, 26, 0.7) 0%, transparent 68%),
+      radial-gradient(ellipse 50% 18% at 68% 93%, rgba(8, 14, 24, 0.72) 0%, transparent 70%),
+      radial-gradient(ellipse 42% 16% at 94% 92%, rgba(9, 15, 25, 0.7) 0%, transparent 68%),
+      /* Ground fade so chrome stays dark */
+      linear-gradient(to top, rgba(6, 10, 18, 0.9) 0%, rgba(6, 10, 18, 0.28) 16%, transparent 40%),
+      /* Stars */
+      radial-gradient(1px 1px at 8% 14%, rgba(255, 255, 255, 0.55), transparent),
+      radial-gradient(1px 1px at 14% 32%, rgba(255, 255, 255, 0.28), transparent),
+      radial-gradient(1.5px 1.5px at 22% 10%, rgba(255, 255, 255, 0.5), transparent),
+      radial-gradient(1px 1px at 28% 42%, rgba(255, 255, 255, 0.32), transparent),
+      radial-gradient(1px 1px at 35% 18%, rgba(255, 255, 255, 0.4), transparent),
+      radial-gradient(1.5px 1.5px at 42% 6%, rgba(255, 255, 255, 0.48), transparent),
+      radial-gradient(1px 1px at 48% 28%, rgba(255, 255, 255, 0.22), transparent),
+      radial-gradient(1px 1px at 55% 12%, rgba(255, 255, 255, 0.5), transparent),
+      radial-gradient(1px 1px at 62% 38%, rgba(255, 255, 255, 0.25), transparent),
+      radial-gradient(1.5px 1.5px at 68% 8%, rgba(255, 255, 255, 0.42), transparent),
+      radial-gradient(1px 1px at 72% 28%, rgba(255, 255, 255, 0.38), transparent),
+      radial-gradient(1px 1px at 84% 22%, rgba(255, 255, 255, 0.3), transparent),
+      radial-gradient(1px 1px at 90% 36%, rgba(255, 255, 255, 0.22), transparent),
+      radial-gradient(1.5px 1.5px at 94% 16%, rgba(255, 255, 255, 0.4), transparent),
+      radial-gradient(1px 1px at 18% 52%, rgba(255, 255, 255, 0.2), transparent),
+      radial-gradient(1px 1px at 40% 48%, rgba(255, 255, 255, 0.18), transparent);
+  }
 }
 
 /*
@@ -2174,7 +2226,7 @@
   isolation: isolate;
 }
 
-/* Soft cactus silhouettes (left / right) — behind in-flow UI */
+/* Soft cactus silhouettes (left / right) — desktop only (extra paint layers) */
 .desert-bg::before,
 .desert-bg::after {
   content: '';
@@ -2184,6 +2236,14 @@
   z-index: -1;
   opacity: 0.38;
   background: #070d16;
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .desert-bg::before,
+  .desert-bg::after {
+    display: block;
+  }
 }
 
 .desert-bg::before {
@@ -2206,11 +2266,22 @@
     12px -18px 0 -12px #070d16;
 }
 
-@media (max-width: 640px) {
-  .desert-bg::before,
-  .desert-bg::after {
-    opacity: 0.28;
-    height: min(12vh, 88px);
+/*
+ * Touch / coarse-pointer: strip backdrop-filter entirely.
+ * iOS Safari (and some Android GPUs) can paint the whole viewport black when
+ * multiple blurred layers sit over complex backgrounds. Solid fills remain.
+ */
+@media (hover: none), (pointer: coarse) {
+  .backdrop-blur,
+  .backdrop-blur-sm,
+  .backdrop-blur-md,
+  .backdrop-blur-lg,
+  .backdrop-blur-xl,
+  .backdrop-blur-2xl,
+  .backdrop-blur-3xl,
+  .card-face-tip {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
   }
 }
 
@@ -3120,8 +3191,13 @@
     0 0 0 1px rgba(0, 0, 0, 0.35) inset,
     0 6px 20px rgba(0, 0, 0, 0.45),
     0 0 22px var(--tc-glow);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .turn-clock--prominent {
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
 }
 
 .turn-clock--prominent.turn-clock--compact {
