@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   AVATAR_COUNT,
   avatarByIndex,
+  avatarSrc,
   isValidAvatarIndex,
   sanitizeAvatarIndex,
 } from '@/localGame/avatarCatalog'
@@ -37,5 +38,10 @@ describe('avatarCatalog', () => {
     expect(avatarByIndex(1).id).toBe('owl')
     expect(avatarByIndex(10).id).toBe('koi')
     expect(avatarByIndex(99).id).toBe('cat')
+  })
+
+  it('avatarSrc busts cache with build version query', () => {
+    expect(avatarSrc('cat')).toMatch(/^\/avatars\/cat\.webp\?v=/)
+    expect(avatarSrc('owl')).toMatch(/^\/avatars\/owl\.webp\?v=/)
   })
 })

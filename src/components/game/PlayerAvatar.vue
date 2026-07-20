@@ -22,16 +22,21 @@ const props = withDefaults(
 )
 
 const imgFailed = ref(false)
+/** One cache-bust retry when a stale SW/CDN entry returns a bad image. */
+const retrySrc = ref<string | null>(null)
 
 watch(
   () => props.avatarSrc,
   () => {
     imgFailed.value = false
+    retrySrc.value = null
   },
 )
 
+const effectiveSrc = computed(() => retrySrc.value ?? props.avatarSrc)
+
 const showImage = computed(
-  () => Boolean(props.avatarSrc) && !imgFailed.value,
+  () => Boolean(effectiveSrc.value) && !imgFailed.value,
 )
 
 const sizeClass = computed(() => {
@@ -49,6 +54,12 @@ const ringClass = computed(() => {
 })
 
 function onImgError() {
+  const src = props.avatarSrc
+  if (src && !retrySrc.value) {
+    const sep = src.includes('?') ? '&' : '?'
+    retrySrc.value = `${src}${sep}_=${Date.now()}`
+    return
+  }
   imgFailed.value = true
 }
 </script>
@@ -68,7 +79,7 @@ function onImgError() {
       >
         <img
           v-if="showImage"
-          :src="avatarSrc!"
+          :src="effectiveSrc!"
           :alt="name"
           class="h-full w-full object-cover"
           draggable="false"

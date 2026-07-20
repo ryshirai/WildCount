@@ -265,7 +265,7 @@ describe('onlineGame store', () => {
     const entry = store.eventLog.find((e) => e.kind === 'entry' && e.name === 'フクロウ')
     expect(entry).toBeTruthy()
     expect(entry!.avatar).toBe('🦉')
-    expect(entry!.avatarSrc).toBe('/avatars/owl.webp')
+    expect(entry!.avatarSrc).toMatch(/^\/avatars\/owl\.webp\?v=/)
     expect(entry!.message).toContain('5')
 
     // Room-level events keep the system icon (no player portrait)

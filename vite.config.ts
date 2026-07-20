@@ -4,7 +4,15 @@ import vue from '@vitejs/plugin-vue'
 import { VitePWA } from 'vite-plugin-pwa'
 import { fileURLToPath, URL } from 'node:url'
 
+/** Busts public media URLs (`?v=`) so SW / CDN never keep a stale avatar/stamp. */
+const assetVersion =
+  process.env.VITE_ASSET_VERSION?.trim() ||
+  Date.now().toString(36)
+
 export default defineConfig({
+  define: {
+    __WC_ASSET_VERSION__: JSON.stringify(assetVersion),
+  },
   plugins: [
     vue(),
     VitePWA({
@@ -55,10 +63,21 @@ export default defineConfig({
       workbox: {
         navigateFallback: '/index.html',
         globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff2}'],
+        // Avatars/stamps stay on the network — a precached 404 or stale body
+        // shows as a broken image until hard refresh (esp. newly added animals).
+        globIgnores: ['**/avatars/**', '**/stamps/**'],
         // injectRegister:false skips plugin auto-flags; set explicitly.
         skipWaiting: true,
         clientsClaim: true,
         cleanupOutdatedCaches: true,
+        runtimeCaching: [
+          {
+            urlPattern: ({ url }) =>
+              url.pathname.startsWith('/avatars/') ||
+              url.pathname.startsWith('/stamps/'),
+            handler: 'NetworkOnly',
+          },
+        ],
       },
       devOptions: {
         enabled: false,

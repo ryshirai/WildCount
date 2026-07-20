@@ -4118,3 +4118,34 @@
 1. Pages にこの `dist` をデプロイ
 2. 既に本番を開いている端末は 1 回だけ強制リロード or SW Unregister
 3. 以降のデプロイで自動更新されるか確認
+
+## 2026-07-20 — ネコアバターがリンク切れになる問題
+
+### 背景・目的
+- 本番でネコ（`/avatars/cat.webp`）がリンク切れ。ハードリロードすると一瞬だけ見える → SW / ブラウザの古いキャッシュ（追加前の 404 や stale precache）が疑わしい
+
+### 実施内容
+1. **アバター / スタンプを SW precache から除外**（`globIgnores`）し、`NetworkOnly` で常にネットワークへ
+2. **URL に `?v=` ビルド版**（`__WC_ASSET_VERSION__`）を付与し、古いキャッシュキーを迂回
+3. **PlayerAvatar** — 読み込み失敗時に 1 回だけタイムスタンプ付きでリトライしてから絵文字へフォールバック
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/config/assetVersion.ts` | `withAssetVersion` |
+| `src/localGame/avatarCatalog.ts` / `src/online/stamps.ts` | `?v=` 付き URL |
+| `vite.config.ts` | define / globIgnores / NetworkOnly |
+| `src/components/game/PlayerAvatar.vue` | エラー時 1 回リトライ |
+| `tests/**` | パス assertion を `?v=` 対応 |
+
+### 明示的にやっていないこと
+- 画像ファイル自体の差し替え（本番の cat.webp は正常な WebP）
+- 本番デプロイ
+
+### 確認結果
+- `npm run typecheck` / `npm test`（267）/ `npm run build` 成功
+- precache 185 → 35 エントリ（avatars/stamps 除外）
+
+### 次に考えられる作業
+1. Pages へデプロイ
+2. 既端末は 1 回リロードで新 JS（`?v=` URL）が効くことを確認

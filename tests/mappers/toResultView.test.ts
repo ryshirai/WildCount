@@ -64,7 +64,7 @@ describe('toResultView', () => {
     const selfCard = vm.cards.find((c) => c.playerId === SELF_ID)
     if (selfCard) {
       expect(selfCard.isSelf).toBe(true)
-      expect(selfCard.avatarSrc).toBe('/avatars/self.webp')
+      expect(selfCard.avatarSrc).toMatch(/^\/avatars\/self\.webp\?v=/)
     }
   })
 

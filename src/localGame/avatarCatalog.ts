@@ -5,6 +5,9 @@
  * Used by profiles / UI (Phase B3) for paths and emoji fallbacks.
  */
 
+// Relative import: worker/roomLogic also pulls this module (no `@/` paths there).
+import { withAssetVersion } from '../config/assetVersion'
+
 /** Canonical asset id = file stem under public/avatars/ */
 export type AvatarAssetId =
   | 'self'
@@ -35,7 +38,7 @@ export interface AvatarAssetMeta {
 
 /** Public URL path for an avatar WebP (served from public/avatars/). */
 export function avatarSrc(id: AvatarAssetId): string {
-  return `/avatars/${id}.webp`
+  return withAssetVersion(`/avatars/${id}.webp`)
 }
 
 /** Full catalog — order is display order in AvatarPicker (stable wire indices). */

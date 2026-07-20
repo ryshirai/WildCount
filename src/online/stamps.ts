@@ -5,6 +5,7 @@
  * for the 9 emotion stamps × 15 avatar animals (not the brand `coyote` stamp).
  */
 
+import { withAssetVersion } from '@/config/assetVersion'
 import type { AvatarAssetId } from '@/localGame/avatarCatalog'
 import { AVATAR_ASSETS } from '@/localGame/avatarCatalog'
 
@@ -70,5 +71,5 @@ export function characterStampSrc(
   if (!avatarId || !stampId) return null
   if (!AVATAR_ID_SET.has(avatarId)) return null
   if (!isCharacterStampId(stampId)) return null
-  return `/stamps/${avatarId}/${stampId}.webp`
+  return withAssetVersion(`/stamps/${avatarId}/${stampId}.webp`)
 }

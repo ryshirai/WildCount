@@ -22,8 +22,12 @@ describe('stamps', () => {
   })
 
   it('resolves character stamp paths', () => {
-    expect(characterStampSrc('owl', 'thumbs')).toBe('/stamps/owl/thumbs.webp')
-    expect(characterStampSrc('self', 'party')).toBe('/stamps/self/party.webp')
+    expect(characterStampSrc('owl', 'thumbs')).toMatch(
+      /^\/stamps\/owl\/thumbs\.webp\?v=/,
+    )
+    expect(characterStampSrc('self', 'party')).toMatch(
+      /^\/stamps\/self\/party\.webp\?v=/,
+    )
     expect(characterStampSrc('owl', 'coyote')).toBeNull()
     expect(characterStampSrc('unknown', 'thumbs')).toBeNull()
     expect(characterStampSrc(null, 'thumbs')).toBeNull()
