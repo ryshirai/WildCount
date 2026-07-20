@@ -65,7 +65,7 @@ export interface WireExtraRules {
 
 /**
  * Room time control: main bank + per-turn temporary time.
- * Bank decreases first, then the temporary budget.
+ * Temporary budget decreases first, then the main bank.
  */
 export interface WireTimeControl {
   mainSeconds: number

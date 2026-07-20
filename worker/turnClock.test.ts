@@ -20,27 +20,27 @@ import { seedRandom, startGame } from '../src/domain/game'
 const TC: WireTimeControl = { mainSeconds: 5, turnSeconds: 20 }
 
 describe('turnClock', () => {
-  it('consumes bank before temporary time', () => {
+  it('consumes temporary time before bank', () => {
     const t0 = 1_000_000
     let clock = createInitialClock(['a', 'b'], TC, 'a', t0)
-    // After 3s: bank 2s left, temp still full 20s
+    // After 3s: temp 17s left, bank still full 5s
     let r = remainingForPlayer(clock, 'a', t0 + 3_000)
-    expect(r.bankMs).toBe(2_000)
-    expect(r.tempMs).toBe(20_000)
+    expect(r.bankMs).toBe(5_000)
+    expect(r.tempMs).toBe(17_000)
     expect(r.totalMs).toBe(22_000)
 
-    // After 5s bank gone: temp starts
-    r = remainingForPlayer(clock, 'a', t0 + 5_000)
-    expect(r.bankMs).toBe(0)
-    expect(r.tempMs).toBe(20_000)
+    // After 20s temp gone: bank still full
+    r = remainingForPlayer(clock, 'a', t0 + 20_000)
+    expect(r.bankMs).toBe(5_000)
+    expect(r.tempMs).toBe(0)
 
-    // After 5+7s: temp 13s
-    r = remainingForPlayer(clock, 'a', t0 + 12_000)
-    expect(r.bankMs).toBe(0)
-    expect(r.tempMs).toBe(13_000)
+    // After 20+3s: bank 2s
+    r = remainingForPlayer(clock, 'a', t0 + 23_000)
+    expect(r.bankMs).toBe(2_000)
+    expect(r.tempMs).toBe(0)
 
-    // Deadline = start + bank + temp
-    expect(turnDeadlineAt(clock)).toBe(t0 + 5_000 + 20_000)
+    // Deadline = start + temp + bank
+    expect(turnDeadlineAt(clock)).toBe(t0 + 20_000 + 5_000)
     expect(isTurnTimedOut(clock, t0 + 24_999)).toBe(false)
     expect(isTurnTimedOut(clock, t0 + 25_000)).toBe(true)
   })
@@ -48,9 +48,9 @@ describe('turnClock', () => {
   it('settles bank and discards unused temp between turns', () => {
     const t0 = 1_000_000
     let clock = createInitialClock(['a', 'b'], TC, 'a', t0)
-    // a used 3s of bank
+    // a used 3s of temp only — bank untouched
     clock = settleTurn(clock, t0 + 3_000)
-    expect(clock.bankMs['a']).toBe(2_000)
+    expect(clock.bankMs['a']).toBe(5_000)
     expect(clock.bankMs['b']).toBe(5_000)
     expect(clock.turnStartedAt).toBeNull()
 
@@ -59,7 +59,16 @@ describe('turnClock', () => {
     expect(clock.turnPlayerId).toBe('b')
     expect(clock.bankAtTurnStartMs).toBe(5_000)
     expect(clock.turnBonusMs).toBe(20_000)
+    expect(clock.bankMs['a']).toBe(5_000)
+  })
+
+  it('settles bank after temp is exhausted', () => {
+    const t0 = 1_000_000
+    let clock = createInitialClock(['a', 'b'], TC, 'a', t0)
+    // a used full 20s temp + 3s bank
+    clock = settleTurn(clock, t0 + 23_000)
     expect(clock.bankMs['a']).toBe(2_000)
+    expect(clock.bankMs['b']).toBe(5_000)
   })
 
   it('parseWireTimeControl validates ranges', () => {
@@ -147,6 +156,7 @@ describe('turnClock', () => {
     room.pendingResult = { round: 1 } as never
     syncClockAfterGameChange(room, t0 + 1_000)
     expect(room.clock?.turnStartedAt).toBeNull()
-    expect(room.clock?.bankMs[turnId]).toBe(4_000)
+    // 1s came from temp; bank still full
+    expect(room.clock?.bankMs[turnId]).toBe(5_000)
   })
 })

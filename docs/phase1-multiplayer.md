@@ -108,7 +108,7 @@ type ClientMessage =
   | { type: 'set_extra_rules'; extraRules: WireExtraRules } // host only / ロビー
   | { type: 'set_time_control'; timeControl: WireTimeControl | null } // host only / ロビー。null=無制限
 
-/** 持ち時間 + 毎ターン一時時間（秒）。手番中は持ち時間から先に減る */
+/** 持ち時間 + 毎ターン一時時間（秒）。手番中は一時時間から先に減る */
 type WireTimeControl = { mainSeconds: number; turnSeconds: number }
 
 /** domain GameAction のうちプレイヤー操作分（START_GAME は start メッセージ） */

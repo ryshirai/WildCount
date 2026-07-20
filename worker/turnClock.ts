@@ -2,11 +2,11 @@
  * Room turn clock: main bank + per-turn temporary time.
  *
  * Consumption order while a turn is active:
- * 1. Main bank (持ち時間) decreases first
- * 2. Then the per-turn temporary time (毎ターンもらえる一時時間)
+ * 1. Per-turn temporary time (毎ターンもらえる一時時間) decreases first
+ * 2. Then main bank (持ち時間)
  *
  * Unused temporary time is discarded at end of turn; bank carries over.
- * Example "5 + 20" with main=300s, turn=20s: bank drains first, then the 20s.
+ * Example "5 + 20" with main=300s, turn=20s: the 20s drain first, then bank.
  */
 
 export interface WireTimeControl {
@@ -90,10 +90,10 @@ export function remainingForPlayer(
   }
 
   const elapsed = Math.max(0, now - clock.turnStartedAt)
-  const fromBank = Math.min(elapsed, clock.bankAtTurnStartMs)
-  const bankMs = Math.max(0, clock.bankAtTurnStartMs - fromBank)
-  const tempElapsed = Math.max(0, elapsed - fromBank)
-  const tempMs = Math.max(0, clock.turnBonusMs - tempElapsed)
+  const fromTemp = Math.min(elapsed, clock.turnBonusMs)
+  const tempMs = Math.max(0, clock.turnBonusMs - fromTemp)
+  const bankElapsed = Math.max(0, elapsed - fromTemp)
+  const bankMs = Math.max(0, clock.bankAtTurnStartMs - bankElapsed)
   return { bankMs, tempMs, totalMs: bankMs + tempMs }
 }
 

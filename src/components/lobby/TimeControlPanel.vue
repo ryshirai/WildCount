@@ -145,7 +145,7 @@ function apply() {
       >
         <span class="text-sand">持ち時間 + 毎ターンの一時時間</span>
         です。手番では
-        <span class="text-sand">持ち時間が先に減り</span>、尽きたらそのターンの一時時間が減ります。
+        <span class="text-sand">一時時間が先に減り</span>、尽きたら持ち時間が減ります。
         使い切らなかった一時時間は持ち越しません。
       </p>
 

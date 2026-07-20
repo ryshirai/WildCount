@@ -1,6 +1,6 @@
 /**
  * Client-side helpers for room turn clock display.
- * Mirrors worker/turnClock consumption order: bank first, then temp.
+ * Mirrors worker/turnClock consumption order: temp first, then bank.
  */
 
 import type { WireClockSnapshot, WireTimeControl } from './protocol'
@@ -42,10 +42,10 @@ export function remainingForPlayer(
   }
 
   const elapsed = Math.max(0, now - clock.turnStartedAt)
-  const fromBank = Math.min(elapsed, clock.bankAtTurnStartMs)
-  const bankMs = Math.max(0, clock.bankAtTurnStartMs - fromBank)
-  const tempElapsed = Math.max(0, elapsed - fromBank)
-  const tempMs = Math.max(0, clock.turnBonusMs - tempElapsed)
+  const fromTemp = Math.min(elapsed, clock.turnBonusMs)
+  const tempMs = Math.max(0, clock.turnBonusMs - fromTemp)
+  const bankElapsed = Math.max(0, elapsed - fromTemp)
+  const bankMs = Math.max(0, clock.bankAtTurnStartMs - bankElapsed)
   return { bankMs, tempMs, totalMs: bankMs + tempMs }
 }
 
@@ -58,7 +58,10 @@ export function formatActiveTurnClock(
   const r = remainingForPlayer(clock, clock.currentTurnPlayerId, now)
   const bank = formatClockMs(r.bankMs)
   const temp = formatClockMs(r.tempMs)
-  // When bank is gone, emphasize temp only; otherwise bank + temp
+  // Temp gone → bank only; bank gone → temp only; otherwise bank + temp
+  if (r.tempMs <= 0) {
+    return bank
+  }
   if (r.bankMs <= 0) {
     return temp
   }

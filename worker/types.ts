@@ -138,7 +138,7 @@ export interface WireExtraRules {
 
 /**
  * Room time control (持ち時間 + 毎ターン一時時間).
- * Bank decreases first, then the per-turn temporary budget.
+ * Per-turn temporary budget decreases first, then the main bank.
  * Example: mainSeconds=300, turnSeconds=20 → "5分 + 20秒".
  */
 export interface WireTimeControl {
