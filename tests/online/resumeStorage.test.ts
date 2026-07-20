@@ -78,7 +78,8 @@ describe('resumeStorage', () => {
     saveAvatarIndex(7)
     expect(loadSavedAvatarIndex()).toBe(7)
     saveAvatarIndex(99)
-    expect(loadSavedAvatarIndex()).toBe(9)
+    // Catalog is 15 assets → clamp to max index 14
+    expect(loadSavedAvatarIndex()).toBe(14)
     localStorage.setItem('wc:avatarIndex', 'nope')
     expect(loadSavedAvatarIndex()).toBe(0)
   })

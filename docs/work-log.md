@@ -3559,3 +3559,47 @@
 1. ヘルプに「アバター 15 種・スタンプは自分のキャラ姿」を追記
 2. 煽り系の表示名をさらに尖らせる案（例: コイ→「登竜門」など）は任意
 3. ローカルデモ bot に新キャラを混ぜる
+
+---
+
+## 2026-07-20 — ドーパミン D0（計測と共通モデル）
+
+### 背景・目的
+- `docs/gameplay-dopamine-plan.md` の D0 を実装し、HEAT / RALLY / RAISE と二重発火防止の土台を純関数で固める
+- 既存 cut-in / 中央宣言 FX と重複する判定経路を増やさず、同じ公開履歴から同じ分類が得られるようにする
+
+### 実施内容
+1. **FX 発火点の棚卸し** — 宣言 / cut-in / COYOTE / ROUND / 手番 / 時計 / 結果などを `src/utils/bidDrama.ts` 先頭コメントに一覧化
+2. **純関数** — `heatLevel` / `rallyCount` / `shouldShowRally` / `classifyRaise` / `raiseTier` / `isDoubleRaise` / `classifyRoundBidDrama`（閾値定数付き）
+3. **共通イベント型** — `DramaEvent` / `DramaEventKind`、履歴からの `dramaEventForLatestBid`
+4. **event identity** — `makeDramaEventId` + ヘルパ ID、`createDramaEventDeduper`（初回のみ `tryConsume`）
+5. **既存 intensity ブリッジ** — `raiseIntensityFromTier` で wave-3 cut-in CSS と接続（`resultDrama.raiseIntensity` は維持）
+6. **境界値テスト** — `tests/utils/bidDrama.test.ts`（HEAT / RALLY / RAISE / double / 履歴 / dedupe）
+7. 計画・backlog を D0 完了に追随
+8. **ついで** — アバター 15 種化でズレていた `resumeStorage` クランプ期待値（9→14）を修正
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/utils/bidDrama.ts` | 新規: 分類・イベント型・identity |
+| `tests/utils/bidDrama.test.ts` | 境界値・dedupe テスト |
+| `tests/online/resumeStorage.test.ts` | max avatar index 14 に追随 |
+| `docs/gameplay-dopamine-plan.md` | D0 完了メモ |
+| `docs/backlog.md` | UX-17 に D0 済 |
+| `docs/work-log.md` | 本セッション |
+
+### 明示的にやっていないこと
+- UI 接続（HEAT 表示、RALLY バッジ、NICE/BIG/WILD ラベル）→ D1
+- `useGameSession` の Date.now key を identity に置換 → D1 以降
+- SFX / 触覚 / COYOTE シーケンス統合 → D2–D4
+- ルールエンジン・Worker への演出状態追加（意図的になし）
+- `raiseIntensity` 自体の破壊的変更（ブリッジで共存）
+
+### 確認結果
+- `npm test`（`bidDrama` 21 + 全スイート）緑
+- `npm run typecheck` / `npm run lint` / `npm run build` 成功
+
+### 次に考えられる作業
+1. D1: HEAT 段階表現・RALLY・RAISE 拡張を UI に接続（identity dedupe 込み）
+2. 既存 `playBidFx` / `CurrentBidDisplay` を `classifyRaise` 経路に寄せる
+3. D2: SFX 基盤

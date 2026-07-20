@@ -2,7 +2,7 @@
 
 作成日: 2026-07-20
 
-状態: 計画
+状態: 計画（D0 完了）
 
 関連: `docs/design-polish-plan.md` / `docs/ui-mock.md` / `docs/ui-redesign.md` / `docs/backlog.md`
 
@@ -200,12 +200,19 @@ COYOTE / 結果
 
 ## 7. 実装スライス
 
-### D0 — 計測と共通モデル
+### D0 — 計測と共通モデル ✅
 
 1. 現在の宣言 FX、結果 FX、タイマーイベントの発火箇所を一覧化
 2. `heatLevel`、`rallyCount`、`raiseTier` を純粋関数として定義
 3. ローカル / オンライン共通の演出イベント型を定義
 4. 二重発火防止用の event identity を決める
+
+実装:
+
+- 純関数・型・dedupe: `src/utils/bidDrama.ts`（発火点一覧は同ファイル先頭コメント）
+- 境界値テスト: `tests/utils/bidDrama.test.ts`
+- 既存 `raiseIntensity`（`resultDrama.ts`）は cut-in CSS 用に残し、`raiseIntensityFromTier` でブリッジ（二重判定を増やさない）
+- ルールエンジン / Worker 状態には演出専用フィールドを追加していない
 
 完了条件:
 
