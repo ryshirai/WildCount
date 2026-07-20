@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { playSfx } from '@/audio'
 import type { WireClockSnapshot } from '@/online/protocol'
 import {
   formatActiveTurnClock,
@@ -63,6 +64,18 @@ const expired = computed(() => {
 
 const visible = computed(
   () => props.clock != null && props.clock.turnStartedAt != null && label.value,
+)
+
+// D2: soft pulse while urgent (engine cooldown ≈ 900ms; no private info)
+watch(
+  () => [urgent.value, now.value] as const,
+  ([isUrgent]) => {
+    if (!isUrgent) return
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+      return
+    }
+    playSfx('timer_pulse')
+  },
 )
 </script>
 

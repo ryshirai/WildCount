@@ -6,6 +6,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
+import { playSfx } from '@/audio'
 import { mockResult } from '@/data/mockResult'
 import { useLocalGameStore } from '@/stores/localGame'
 import { useOnlineGameStore } from '@/stores/onlineGame'
@@ -142,6 +143,19 @@ function clearStepTimers() {
   }
 }
 
+function playVerdictSfx() {
+  if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+    return
+  }
+  playSfx('result_slam')
+  // Self-centric win/lose from public selfIsLoser; no private hand info
+  const lose = selfIsLoser.value
+  // Small delay so slam and verdict don't fully stack
+  window.setTimeout(() => {
+    playSfx(lose ? 'result_lose' : 'result_win')
+  }, 120)
+}
+
 function animateTotalTo(target: number) {
   if (countRaf) cancelAnimationFrame(countRaf)
   totalRevealDone.value = false
@@ -153,6 +167,7 @@ function animateTotalTo(target: number) {
     totalRevealDone.value = true
     showConfetti.value = true
     showVignette.value = true
+    playVerdictSfx()
     return
   }
 
@@ -173,6 +188,7 @@ function animateTotalTo(target: number) {
       showConfetti.value = true
       showVignette.value = true
       countRaf = 0
+      playVerdictSfx()
     }
   }
   countRaf = requestAnimationFrame(frame)

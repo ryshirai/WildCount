@@ -7,6 +7,7 @@
 import AppHeader from '@/components/common/AppHeader.vue'
 import AppLogo from '@/components/common/AppLogo.vue'
 import StatusChip from '@/components/common/StatusChip.vue'
+import { useSfxSettings } from '@/composables/useSfxSettings'
 
 withDefaults(
   defineProps<{
@@ -26,6 +27,8 @@ const emit = defineEmits<{
   deck: []
   leave: []
 }>()
+
+const { enabled: sfxEnabled, toggleEnabled: toggleSfx } = useSfxSettings()
 
 const connectionLabel: Record<string, string> = {
   good: '接続良好',
@@ -82,6 +85,17 @@ function connectionVariant(
     </template>
 
     <template #actions>
+      <button
+        type="button"
+        class="btn-ghost btn-icon"
+        :class="mobile ? '!p-1.5 text-sm' : 'text-sm'"
+        :title="sfxEnabled ? '効果音オン（タップでミュート）' : '効果音オフ（タップでオン）'"
+        :aria-label="sfxEnabled ? '効果音をオフ' : '効果音をオン'"
+        :aria-pressed="sfxEnabled"
+        @click="toggleSfx()"
+      >
+        <span aria-hidden="true">{{ sfxEnabled ? '🔊' : '🔇' }}</span>
+      </button>
       <button
         type="button"
         class="btn-ghost btn-icon"

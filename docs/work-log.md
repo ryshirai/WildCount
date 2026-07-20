@@ -3649,3 +3649,48 @@
 1. D2: SFX 基盤（音量・ミュート・カテゴリ優先）
 2. 実プレイで HEAT 閾値・RALLY 尺を調整
 3. 10人モックで trail 負荷確認
+
+## 2026-07-20 — ドーパミン D2（SFX）
+
+### 背景・目的
+- `docs/gameplay-dopamine-plan.md` の D2 を実装し、音量・ミュート・カテゴリ優先の SFX 基盤をゲーム中イベントへ接続する
+- 外部音声アセットなしで手続き音（Web Audio）により、OFF 時は再生しない・非公開情報を漏らさない
+
+### 実施内容
+1. **基盤** — `src/audio/*`（types / settings / policy / synth / engine）。localStorage `wc:sfxEnabled` / `wc:sfxVolume`
+2. **ポリシー** — 優先度 1=COYOTE/勝敗 … 4=入力/心音、同 ID クールダウン、上位 duck、タブ非表示・未 unlock は no-op
+3. **接続** — 入力 tick、宣言着弾（HEAT/RAISE ピッチ）、手番、特殊能力、COYOTE、カード公開、結果 slam/勝敗、時計 urgent pulse
+4. **UI** — Home 音量スライダ + ON/OFF、GameHeader ミュート、`useSfxSettings`
+5. **ヘルプ** — 操作タブに効果音の説明
+6. **テスト** — `tests/audio/sfxSettings|sfxPolicy|sfxEngine.test.ts`
+7. plan / backlog（UX-14 done、UX-17 を D2 済）を追随
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/audio/*` | SFX 基盤（新規） |
+| `src/composables/useSfxSettings.ts` | 設定 UI 用 composable |
+| `src/components/game/BidControls.vue` | 入力 tick |
+| `src/components/game/CurrentBidDisplay.vue` | 宣言着弾 + ピッチ |
+| `src/composables/useGameSession.ts` | 手番 / 特殊能力 |
+| `src/composables/useChallengeReveal.ts` | COYOTE / カード |
+| `src/views/ResultView.vue` | slam / 勝敗 |
+| `src/components/game/TurnClockDisplay.vue` | urgent pulse |
+| `src/components/game/GameHeader.vue` / `HomeView.vue` | ミュート・音量 |
+| `tests/audio/*` | 単体テスト |
+| `docs/gameplay-dopamine-plan.md` / `backlog.md` | D2 完了 |
+
+### 明示的にやっていないこと
+- 外部 wav/mp3 アセット・BGM
+- 演出プリセット（ひかえめ / WILD）UI
+- COYOTE シーケンス尺統合（D3）
+- 触覚（D4）
+- ルールエンジンへの演出状態追加
+
+### 確認結果
+- `npm test` 234 緑 / `typecheck` / `lint` / `build` 成功
+
+### 次に考えられる作業
+1. D3: COYOTE 解放シーケンスとレア決着のタイミング統合
+2. 実プレイで音量・ピッチ・クールダウンを調整
+3. D4: 触覚（初期 OFF）

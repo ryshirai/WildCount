@@ -7,6 +7,7 @@
  * Scale / opacity FX only (absolute overlays).
  */
 import { computed, ref, watch } from 'vue'
+import { pitchForBidLand, playSfx } from '@/audio'
 import FxSparkleBurst from '@/components/common/FxSparkleBurst.vue'
 import type { RaiseIntensity } from '@/utils/resultDrama'
 import {
@@ -130,6 +131,14 @@ function fireDeclareBurst(value: number, raise: RaiseClassification) {
     doubleRaise: raise.doubleRaise,
     raiseLabel: raiseTierLabel(raise),
   }
+  // D2: land SFX — public bid only; pitch from HEAT + RAISE (no private info)
+  const pitch = pitchForBidLand({
+    heat: heat.value,
+    tier: raise.tier,
+  })
+  const gain =
+    raise.tier === 'wild' ? 1 : raise.tier === 'big' ? 0.92 : raise.tier === 'nice' ? 0.85 : 0.72
+  playSfx('bid_land', { pitch, gain })
   const hold =
     raise.tier === 'wild'
       ? 1300

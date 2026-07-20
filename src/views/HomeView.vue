@@ -23,12 +23,19 @@ import {
   loadSavedDisplayName,
   saveAvatarIndex,
 } from '@/online/resumeStorage'
+import { useSfxSettings } from '@/composables/useSfxSettings'
 import { useLocalGameStore } from '@/stores/localGame'
 import { useOnlineGameStore } from '@/stores/onlineGame'
 
 const router = useRouter()
 const localGame = useLocalGameStore()
 const onlineGame = useOnlineGameStore()
+const {
+  enabled: sfxEnabled,
+  volume: sfxVolume,
+  setEnabled: setSfxEnabled,
+  setVolume: setSfxVolume,
+} = useSfxSettings()
 
 /** Dev-only surfaces (tree-shaken away from user-facing prod copy). */
 const showLocalDemo = allowLocalPlay
@@ -315,6 +322,46 @@ watch(
           />
         </label>
         <AvatarPicker v-model="playerAvatarIndex" label="アイコン" />
+
+        <!-- D2: SFX prefs (localStorage; changeable mid-game via header mute) -->
+        <div class="mt-5 border-t border-gold-400/10 pt-4">
+          <div class="mb-2 flex items-center justify-between gap-3">
+            <div>
+              <p class="text-sm font-semibold text-gold-200">効果音</p>
+              <p class="text-xs text-sand-dim">
+                宣言・手番・コヨーテなどの短い音。ゲーム中もヘッダでミュートできます
+              </p>
+            </div>
+            <button
+              type="button"
+              class="btn-ghost btn-sm shrink-0"
+              :aria-pressed="sfxEnabled"
+              @click="setSfxEnabled(!sfxEnabled)"
+            >
+              {{ sfxEnabled ? 'ON' : 'OFF' }}
+            </button>
+          </div>
+          <label
+            class="block"
+            :class="sfxEnabled ? '' : 'pointer-events-none opacity-40'"
+          >
+            <span class="field-label">音量</span>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              step="5"
+              class="w-full accent-gold-400"
+              :disabled="!sfxEnabled"
+              :value="Math.round(sfxVolume * 100)"
+              @input="
+                setSfxVolume(
+                  Number(($event.target as HTMLInputElement).value) / 100,
+                )
+              "
+            />
+          </label>
+        </div>
       </section>
 
       <!-- Create room -->

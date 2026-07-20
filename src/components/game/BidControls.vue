@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { playSfx } from '@/audio'
 import type { ClientBidExtra } from '@/online/protocol'
 
 export type BidExtraChoice = ClientBidExtra['type'] | 'none'
@@ -208,9 +209,13 @@ function adjust(delta: number) {
     stepDirTimer = setTimeout(() => {
       stepDir.value = null
     }, 160)
+    playSfx('ui_boundary')
     return
   }
-  if (next === bid.value) return
+  if (next === bid.value) {
+    if (delta !== 0) playSfx('ui_boundary')
+    return
+  }
   bid.value = next
   tickKey.value += 1
   stepDir.value = delta > 0 ? 'up' : 'down'
@@ -218,6 +223,8 @@ function adjust(delta: number) {
   stepDirTimer = setTimeout(() => {
     stepDir.value = null
   }, 180)
+  // Slight pitch rise when stepping up (input feedback only — no private info)
+  playSfx('ui_tick', { pitch: delta > 0 ? 1.06 : 0.94 })
 }
 
 function onDeclarePointerDown() {

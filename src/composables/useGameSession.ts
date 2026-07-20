@@ -29,6 +29,7 @@ import {
   shouldShowBidCutIn,
   type RaiseIntensity,
 } from '@/utils/resultDrama'
+import { playSfx } from '@/audio'
 import {
   classifyRaise,
   createDramaEventDeduper,
@@ -37,6 +38,7 @@ import {
   raiseCutInEventId,
   raiseIntensityFromTier,
   shouldShowRally,
+  turnStartEventId,
   type HeatLevel,
   type RaiseClassification,
   type RaiseTier,
@@ -299,6 +301,8 @@ export function useGameSession() {
       key: `${Date.now()}-${payload.kind}`,
       ...payload,
     }
+    // D2: special-ability sting (public FX only)
+    playSfx('extra')
   }
 
   function onExtraFxDone() {
@@ -727,6 +731,51 @@ export function useGameSession() {
       !reveal.coyoteBanner.value &&
       !roundBannerVisible.value &&
       !bidFx.value,
+  )
+
+  // D2: own-turn notice (once per turn identity; no backlog on tab return)
+  watch(
+    () =>
+      [
+        gameView.value?.isSelfTurn,
+        gameView.value?.round,
+        gameView.value?.currentTurnPlayerId,
+        gameView.value?.roundBidCount,
+        gameView.value?.currentBid,
+        turnClock.value?.turnStartedAt,
+        awaitingResultView.value,
+        pendingResult.value != null,
+      ] as const,
+    ([
+      isSelf,
+      round,
+      playerId,
+      bidCount,
+      currentBid,
+      turnStartedAt,
+      awaiting,
+      hasPending,
+    ]) => {
+      if (!isSelf || awaiting || hasPending) return
+      if (reveal.cutInVisible.value || reveal.coyoteBanner.value) return
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        return
+      }
+      const pid = playerId ?? 'self'
+      const r = round ?? 0
+      // Prefer server clock anchor; else public bid progress so re-turns re-fire
+      const turnKey =
+        typeof turnStartedAt === 'number' && Number.isFinite(turnStartedAt)
+          ? turnStartedAt
+          : `b${bidCount ?? 0}:c${currentBid ?? 'x'}`
+      const eventId = turnStartEventId({
+        round: r,
+        playerId: pid,
+        turnKey,
+      })
+      if (!dramaDeduper.tryConsume(eventId)) return
+      playSfx('turn_self')
+    },
   )
 
   // Only the player who pressed rematch auto-navigates (peers use banner)

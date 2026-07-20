@@ -1,5 +1,6 @@
 import { computed, onUnmounted, ref, watch, type ComputedRef, type Ref } from 'vue'
 import type { Router } from 'vue-router'
+import { playSfx } from '@/audio'
 import type { ResultViewModel } from '@/mappers/toResultView'
 import type { RevealedCard } from '@/types/game'
 import {
@@ -199,6 +200,10 @@ export function useChallengeReveal(options: UseChallengeRevealOptions) {
         cutInPlayed.value = true
         revealedCount.value = 0
         cardsRevealDone.value = false
+        // D2: COYOTE sting (public challenge only)
+        if (typeof document === 'undefined' || document.visibilityState !== 'hidden') {
+          playSfx('coyote')
+        }
       }
       if (!key) {
         resetPostChallengeUi()
@@ -206,6 +211,15 @@ export function useChallengeReveal(options: UseChallengeRevealOptions) {
     },
     { immediate: true },
   )
+
+  // D2: card flip ticks as reveal advances
+  watch(revealedCount, (n, prev) => {
+    if (typeof prev !== 'number' || n <= prev) return
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+      return
+    }
+    playSfx('card_flip')
+  })
 
   function onCutInDone() {
     cutInVisible.value = false
@@ -242,6 +256,7 @@ export function useChallengeReveal(options: UseChallengeRevealOptions) {
     revealedCount.value = 0
     cardsRevealDone.value = false
     mockCutIn.value = payload
+    playSfx('coyote')
   }
 
   onUnmounted(() => {

@@ -2,7 +2,7 @@
 
 作成日: 2026-07-20
 
-状態: 計画（D0・D1 完了）
+状態: 計画（D0・D1・D2 完了）
 
 関連: `docs/design-polish-plan.md` / `docs/ui-mock.md` / `docs/ui-redesign.md` / `docs/backlog.md`
 
@@ -243,12 +243,21 @@ COYOTE / 結果
 - 宣言操作をブロックせず、連打でも表示が破綻しない
 - 3人 / 4人 / 10人モックで HEAT の上がり方を確認できる
 
-### D2 — SFX
+### D2 — SFX ✅
 
 1. 音声マネージャー、カテゴリ、音量、ミュートを実装
 2. 入力、宣言、手番、特殊能力、COYOTE、公開、勝敗へ接続
 3. HEAT / RAISE に応じたピッチまたは音レイヤーを追加
 4. autoplay、タブ復帰、連続イベントを検証
+
+実装:
+
+- 設定: `src/audio/sfxSettings.ts`（`wc:sfxEnabled` / `wc:sfxVolume`）
+- 優先度・クールダウン: `src/audio/sfxPolicy.ts` + `sfxTypes.ts` カタログ
+- 再生: `src/audio/sfxEngine.ts` + 手続き音 `sfxSynth.ts`（外部アセットなし）
+- UI: Home 音量スライダ、GameHeader ミュート、`useSfxSettings`
+- 接続: BidControls / CurrentBidDisplay / useGameSession / useChallengeReveal / ResultView / TurnClockDisplay
+- テスト: `tests/audio/sfx*.test.ts`
 
 完了条件:
 
