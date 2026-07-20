@@ -65,6 +65,11 @@ export function onlineToResultView(
     }
   }
 
+  // Game seats reflect lives after resolve (lobby players have no lives field).
+  const seatLives = view.game?.seats.find((s) => s.id === outcome.loserId)?.lives
+  const livesAfter = typeof seatLives === 'number' ? seatLives : 0
+  const eliminated = livesAfter <= 0
+
   return {
     roomCode: view.roomCode,
     round: snap.round,
@@ -88,6 +93,9 @@ export function onlineToResultView(
     lifeLostAvatar: loser.avatar,
     lifeLostAvatarSrc: loser.avatarSrc,
     lifeLoss: outcome.lifeLoss ?? 1,
+    livesAfter,
+    eliminated,
+    selfIsLoser: outcome.loserId === selfId,
     winnerId: snap.winnerId,
     winnerName: winner?.name ?? null,
     isGameOver: snap.winnerId != null,

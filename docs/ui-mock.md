@@ -23,6 +23,7 @@ npm run dev
 | 結果・カード公開 | スタッガー公開・特殊札・計算ステップ + 合計カウントアップ / 紙吹雪。`AppHeader` シェル（R1） |
 | デザインシステム | `.field` / `btn-sm` / `chip-*` / `AppHeader` / `AppToast` / `AppConfirmDialog` / `StatusChip`（R0） |
 | マイクロ演出 | 宣言 FX・Coyote・Extra・ROUND・confetti・stamp float 等（CSS、`prefers-reduced-motion` 対応。**効果音・触覚は未**） |
+| ドラマ差（第3波） | 結果マージン（ジャスト/ギリギリ/大差）・脱落・自己視点コピー・札強調（self/特殊/極端）・初手/+5 宣言 cut-in |
 | データ | Pinia `localGame` / `onlineGame` + mapper。固定モックは `?mock=1`（DEV） |
 | ゲームエンジン | ローカル + オンライン（Worker / DO / WS）。再接続・ホスト移譲・再戦・途中抜け込み |
 | チャット / スタンプ | オンラインのみ。ルーム履歴 + キャラ別スタンプ WebP |

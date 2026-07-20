@@ -17,6 +17,15 @@ import PlayerAvatar from '@/components/game/PlayerAvatar.vue'
 import RevealCardTile from '@/components/game/RevealCardTile.vue'
 import { allowLocalPlay, allowUiMock } from '@/config/runtime'
 import type { ResultMock } from '@/types/game'
+import {
+  classifyMargin,
+  confettiDensityFor,
+  isExtremeNumber,
+  marginChipLabel,
+  verdictDetailFor,
+  verdictTitleFor,
+  type MarginTier,
+} from '@/utils/resultDrama'
 
 const router = useRouter()
 const route = useRoute()
@@ -55,26 +64,47 @@ const localMeta = computed(() => {
   }
 })
 
-const verdictTitle = computed(() => {
-  if (!result.value) return ''
-  if (localMeta.value.isGameOver) return 'ゲーム終了'
-  return result.value.bidderWins ? '宣言が通った！' : 'コヨーテ成功！'
+const marginTier = computed<MarginTier>(() => {
+  if (!result.value) return 'clear'
+  return classifyMargin(result.value.finalTotal, result.value.bidValue)
 })
+
+const dramaChip = computed(() => marginChipLabel(marginTier.value))
 
 const lifeLossAmount = computed(() => {
   const n = result.value?.lifeLoss
   return typeof n === 'number' && n > 0 ? n : 1
 })
 
+const eliminated = computed(
+  () =>
+    result.value?.eliminated === true ||
+    (typeof result.value?.livesAfter === 'number' &&
+      result.value.livesAfter <= 0),
+)
+
+const selfIsLoser = computed(() => result.value?.selfIsLoser === true)
+
+const verdictTitle = computed(() => {
+  if (!result.value) return ''
+  return verdictTitleFor({
+    tier: marginTier.value,
+    bidderWins: result.value.bidderWins,
+    isGameOver: localMeta.value.isGameOver,
+  })
+})
+
 const verdictDetail = computed(() => {
   if (!result.value) return ''
-  const loss = lifeLossAmount.value
-  const lossPhrase =
-    loss > 1 ? `ライフを ${loss} 失います（ダブル）` : 'ライフを失います'
-  if (result.value.bidderWins) {
-    return `合計 ${result.value.finalTotal} は宣言 ${result.value.bidValue} 以上 → チャレンジした人が${lossPhrase}`
-  }
-  return `合計 ${result.value.finalTotal} は宣言 ${result.value.bidValue} より小さい → 宣言した人が${lossPhrase}`
+  return verdictDetailFor({
+    finalTotal: result.value.finalTotal,
+    bidValue: result.value.bidValue,
+    bidderWins: result.value.bidderWins,
+    lifeLoss: lifeLossAmount.value,
+    selfIsLoser: selfIsLoser.value,
+    eliminated: eliminated.value,
+    lifeLostName: result.value.lifeLostName,
+  })
 })
 
 /** Active calc step index (-1 = not started; steps.length = all done) */
@@ -93,7 +123,15 @@ let countRaf = 0
 
 const STEP_INTERVAL_MS = 480
 const STEP_START_MS = 220
-const COUNT_UP_MS = 620
+/** Slightly longer count-up on exact / clutch for drama */
+const COUNT_UP_MS_BASE = 620
+const COUNT_UP_MS_SLOW = 820
+
+const countUpMs = computed(() =>
+  marginTier.value === 'exact' || marginTier.value === 'clutch'
+    ? COUNT_UP_MS_SLOW
+    : COUNT_UP_MS_BASE,
+)
 
 function clearStepTimers() {
   for (const t of stepTimers) clearTimeout(t)
@@ -122,8 +160,9 @@ function animateTotalTo(target: number) {
   const from = 0
   const span = target - from
 
+  const duration = countUpMs.value
   function frame(now: number) {
-    const t = Math.min(1, (now - start) / COUNT_UP_MS)
+    const t = Math.min(1, (now - start) / duration)
     const eased = 1 - (1 - t) ** 3
     displayTotal.value = Math.round(from + span * eased)
     if (t < 1) {
@@ -197,20 +236,42 @@ function skipCalc() {
 const confettiPalette = computed(() => {
   if (localMeta.value.isGameOver) return 'gold' as const
   if (!result.value) return 'mixed' as const
+  if (marginTier.value === 'exact') return 'mixed' as const
   // Challenge success → teal; bidder held → gold
   return result.value.bidderWins ? ('gold' as const) : ('teal' as const)
 })
 
 const confettiDensity = computed(() =>
-  localMeta.value.isGameOver ? ('lg' as const) : ('md' as const),
+  confettiDensityFor({
+    isGameOver: localMeta.value.isGameOver,
+    tier: marginTier.value,
+  }),
 )
 
 const vignetteTone = computed(() => {
   if (localMeta.value.isGameOver) return 'gameover' as const
   if (!result.value) return 'win' as const
+  if (eliminated.value || lifeLossAmount.value > 1) return 'lose' as const
   // Coyote success (challenger correct) → teal win feel; bidder held → gold
   return result.value.bidderWins ? ('lose' as const) : ('win' as const)
 })
+
+function cardEmphasis(card: ResultMock['cards'][number]) {
+  if (card.isSelf) return 'self' as const
+  if (
+    card.kind === 'double' ||
+    card.kind === 'max_to_zero' ||
+    card.kind === 'half' ||
+    card.kind === 'redraw' ||
+    card.kind === 'zero_mix'
+  ) {
+    return 'special' as const
+  }
+  if (card.kind === 'number' && isExtremeNumber(card.value)) {
+    return 'extreme' as const
+  }
+  return 'none' as const
+}
 
 // Restart calc only when the challenge identity changes (not peer view noise)
 watch(
@@ -409,10 +470,23 @@ async function playAgain() {
         </p>
         <h2
           class="font-display font-bold text-gold-200"
-          :class="localMeta.isGameOver ? 'text-xl sm:text-2xl' : 'text-2xl sm:text-3xl'"
+          :class="[
+            localMeta.isGameOver ? 'text-xl sm:text-2xl' : 'text-2xl sm:text-3xl',
+            totalRevealDone && marginTier === 'exact' ? 'total-slam total-slam--exact' : '',
+            totalRevealDone && marginTier === 'clutch' ? 'total-slam--clutch' : '',
+          ]"
         >
           {{ verdictTitle }}
         </h2>
+        <div
+          v-if="totalRevealDone && dramaChip"
+          class="mt-2 flex justify-center"
+        >
+          <span
+            class="drama-tier-chip"
+            :class="`drama-tier-chip--${marginTier}`"
+          >{{ dramaChip }}</span>
+        </div>
         <p class="mt-2 text-sm text-sand-dim">{{ verdictDetail }}</p>
 
         <div class="mt-5 flex flex-wrap items-center justify-center gap-4 sm:gap-8">
@@ -464,6 +538,8 @@ async function playAgain() {
               :class="[
                 calcDone ? 'opacity-100' : 'opacity-40',
                 totalRevealDone ? 'total-slam' : '',
+                totalRevealDone && marginTier === 'exact' ? 'total-slam--exact' : '',
+                totalRevealDone && marginTier === 'clutch' ? 'total-slam--clutch' : '',
               ]"
             >
               {{ displayTotal ?? '—' }}
@@ -475,6 +551,10 @@ async function playAgain() {
         <div
           v-if="totalRevealDone"
           class="life-lost-panel life-lost-pulse mt-6 w-full max-w-md mx-auto rounded-2xl border border-red-400/40 bg-gradient-to-b from-red-950/80 via-night-900/90 to-night-950/95 px-5 py-5 text-center shadow-[0_0_36px_rgba(248,113,113,0.18)] sm:px-8 sm:py-6"
+          :class="[
+            eliminated ? 'life-lost-panel--ko' : '',
+            lifeLossAmount > 1 ? 'life-lost-panel--double' : '',
+          ]"
           role="status"
         >
           <div class="life-lost-avatar-wrap mx-auto mb-2 inline-flex">
@@ -491,9 +571,20 @@ async function playAgain() {
             {{ result.lifeLostName }}
           </p>
 
+          <p
+            v-if="eliminated"
+            class="life-lost-ko-label mt-1 font-display text-lg font-bold tracking-wide text-rose-300 sm:text-xl"
+          >
+            脱落！
+          </p>
+
           <div
             class="life-lost-hearts mt-3 flex items-center justify-center gap-2 sm:gap-3"
-            :aria-label="`${result.lifeLostName} がライフを ${lifeLossAmount} 失った`"
+            :aria-label="
+              eliminated
+                ? `${result.lifeLostName} が脱落した`
+                : `${result.lifeLostName} がライフを ${lifeLossAmount} 失った`
+            "
           >
             <span
               v-for="i in lifeLossAmount"
@@ -506,12 +597,15 @@ async function playAgain() {
           </div>
 
           <p class="mt-3 text-sm text-red-200/90 sm:text-base">
-            ライフ −{{ lifeLossAmount
-            }}<span
-              v-if="lifeLossAmount > 1"
-              class="ml-1.5 rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-200"
-              >ダブル</span
-            >
+            <template v-if="eliminated">ライフ 0</template>
+            <template v-else>
+              ライフ −{{ lifeLossAmount
+              }}<span
+                v-if="lifeLossAmount > 1"
+                class="ml-1.5 rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-200"
+                >ダブル</span
+              >
+            </template>
           </p>
         </div>
       </section>
@@ -569,14 +663,21 @@ async function playAgain() {
       </section>
 
       <!-- Card recap (already revealed on game screen) -->
-      <section class="panel mb-5 p-4 sm:mb-6 sm:p-5">
+      <section
+        class="panel mb-5 p-4 sm:mb-6 sm:p-5"
+        :class="
+          totalRevealDone && (marginTier === 'exact' || marginTier === 'clutch')
+            ? 'result-cards-pulse'
+            : ''
+        "
+      >
         <h3 class="mb-3 text-sm font-semibold text-gold-200">みんなの札（もう一度）</h3>
         <ul class="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
           <li
-            v-for="card in result.cards"
-            :key="card.playerId"
+            v-for="(card, ci) in result.cards"
+            :key="`${card.playerId}-${ci}`"
             class="flex flex-col items-center rounded-xl border border-gold-400/10 bg-night-900/40 px-1.5 py-2"
-            :class="card.isSelf ? 'ring-1 ring-teal-soft/40' : ''"
+            :class="card.isSelf ? 'ring-2 ring-teal-soft/55 reveal-seat--self' : ''"
           >
             <PlayerAvatar
               class="mb-0.5"
@@ -591,7 +692,7 @@ async function playAgain() {
               class="mb-1 max-w-full truncate text-[10px] font-medium"
               :class="card.isSelf ? 'text-teal-soft' : 'text-sand-dim'"
             >
-              {{ card.playerName }}
+              {{ card.isSelf ? 'あなたの札' : card.playerName }}
             </div>
             <RevealCardTile
               :kind="card.kind"
@@ -599,6 +700,7 @@ async function playAgain() {
               :value="card.value"
               size="md"
               :revealed="true"
+              :emphasis="cardEmphasis(card)"
             />
           </li>
         </ul>

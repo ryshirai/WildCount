@@ -25,6 +25,11 @@ import {
   useChallengeReveal,
   type UseChallengeRevealOptions,
 } from '@/composables/useChallengeReveal'
+import {
+  raiseIntensity,
+  shouldShowBidCutIn,
+  type RaiseIntensity,
+} from '@/utils/resultDrama'
 
 export type ExtraFxState = {
   key: string
@@ -32,6 +37,14 @@ export type ExtraFxState = {
   actorName?: string
   targetName?: string
   bidValue?: number | null
+} | null
+
+export type BidFxState = {
+  key: string
+  intensity: RaiseIntensity
+  bidValue: number
+  delta: number | null
+  actorName: string
 } | null
 
 /**
@@ -218,6 +231,9 @@ export function useGameSession() {
 
   /** 特殊能力 / セイム / チェンジ impact banner */
   const extraFx = ref<ExtraFxState>(null)
+  /** Wave-3: open / hard raise cut-in */
+  const bidFx = ref<BidFxState>(null)
+  let prevBidForFx: number | null | undefined = undefined
 
   const roomCode = computed(() => onlineGame.roomCode)
 
@@ -247,6 +263,8 @@ export function useGameSession() {
   }) {
     // Don't stack over coyote cut-in
     if (reveal.cutInVisible.value) return
+    // Coyote / extra takes priority over bid cut-in
+    bidFx.value = null
     extraFx.value = {
       key: `${Date.now()}-${payload.kind}`,
       ...payload,
@@ -255,6 +273,39 @@ export function useGameSession() {
 
   function onExtraFxDone() {
     extraFx.value = null
+  }
+
+  function playBidFx(payload: {
+    intensity: RaiseIntensity
+    bidValue: number
+    delta: number | null
+    actorName?: string
+  }) {
+    if (!shouldShowBidCutIn(payload.intensity)) return
+    // Don't stack over coyote / extra / result reveal
+    if (reveal.cutInVisible.value) return
+    if (extraFx.value) return
+    if (pendingResult.value) return
+    if (reveal.coyoteBanner.value) return
+    bidFx.value = {
+      key: `${Date.now()}-bid`,
+      intensity: payload.intensity,
+      bidValue: payload.bidValue,
+      delta: payload.delta,
+      actorName: payload.actorName ?? '',
+    }
+  }
+
+  function onBidFxDone() {
+    bidFx.value = null
+  }
+
+  function findLastBidderName(bid: number): string {
+    const players = gameView.value?.players
+    if (!players) return ''
+    // Prefer seat that currently shows this bid (hasDeclared)
+    const match = players.find((p) => p.bid === bid && p.hasDeclared)
+    return match?.name ?? ''
   }
 
   function resolveTargetName(targetId?: string): string | undefined {
@@ -493,6 +544,43 @@ export function useGameSession() {
     },
   )
 
+  // Wave-3: open / hard raise → short BidDeclareCutIn (all clients)
+  watch(
+    () => room.value?.currentBid,
+    (next) => {
+      if (prevBidForFx === undefined) {
+        prevBidForFx = next ?? null
+        return
+      }
+      const prev = prevBidForFx
+      prevBidForFx = next ?? null
+      if (next == null || next === prev) return
+      // Round reset null→value is open; raise prev→higher
+      if (typeof next !== 'number') return
+      const intensity = raiseIntensity(
+        typeof prev === 'number' ? prev : null,
+        next,
+      )
+      if (!shouldShowBidCutIn(intensity)) return
+      const delta =
+        typeof prev === 'number' && next > prev ? next - prev : null
+      playBidFx({
+        intensity,
+        bidValue: next,
+        delta,
+        actorName: findLastBidderName(next),
+      })
+    },
+  )
+
+  // Drop bid cut-in immediately when coyote starts
+  watch(
+    () => reveal.cutInVisible.value,
+    (vis) => {
+      if (vis) bidFx.value = null
+    },
+  )
+
   /** Round-start slam: fire when round increases (skip mid-challenge / coyote UI) */
   watch(
     () => room.value?.round,
@@ -531,7 +619,8 @@ export function useGameSession() {
       !botsRunning.value &&
       !reveal.cutInVisible.value &&
       !reveal.coyoteBanner.value &&
-      !roundBannerVisible.value,
+      !roundBannerVisible.value &&
+      !bidFx.value,
   )
 
   // Only the player who pressed rematch auto-navigates (peers use banner)
@@ -845,6 +934,8 @@ export function useGameSession() {
     // FX / banners
     extraFx,
     onExtraFxDone,
+    bidFx,
+    onBidFxDone,
     roundBannerVisible,
     roundBannerNum,
     onRoundBannerDone,

@@ -99,6 +99,7 @@
 | design-polish / ui-mock | 細部 UX（ボット思考時間スライダー等） | 任意 |
 | design-polish | ドーパミン系マイクロ演出（bid / 結果 / 手番） | **done** 第1波 |
 | design-polish | ドーパミン演出 第2波（ROUND / 特殊札 / ライフ / ロビー等） | **done**（CSS only。効果音・触覚は未） |
+| design-polish | ドーパミン演出 第3波（ドラマ差・札強調・宣言 cut-in） | **done**（SFX/触覚は未。UX-14/15） |
 | prod-copy | 本番はオンラインのみ・mock/ローカル/開発文言を DEV 限定 | **done**（`src/config/runtime.ts`） |
 | design-overview | 公式素材は使わない・オリジナル維持 | 方針固定 |
 | ローカルデモ | DEV では並存・壊さない / **本番 UI からは除外** | `allowLocalPlay`（`runtime.ts`） |
@@ -139,4 +140,4 @@
 3. Phase 1 スライスの ID（P1-x）は `phase1-multiplayer.md` §10 と揃える  
 4. エクストラルールの ID（ER-x）は `docs/extra-rules.md` §4 と揃える  
 
-最終更新: 2026-07-20（R6 docs + デッド CSS 掃除。Phase R 完了）
+最終更新: 2026-07-20（ドーパミン第3波: ドラマ差 / 札 / 宣言 cut-in）

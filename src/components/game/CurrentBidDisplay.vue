@@ -9,6 +9,10 @@
  */
 import { computed, ref, watch } from 'vue'
 import FxSparkleBurst from '@/components/common/FxSparkleBurst.vue'
+import {
+  raiseIntensity,
+  type RaiseIntensity,
+} from '@/utils/resultDrama'
 
 const props = withDefaults(
   defineProps<{
@@ -30,6 +34,7 @@ const declareBurst = ref<{
   key: number
   value: number
   delta: number | null
+  intensity: RaiseIntensity
 } | null>(null)
 let deltaSeq = 0
 let burstSeq = 0
@@ -53,13 +58,19 @@ watch(
     popKey.value += 1
     if (from == null && next != null) {
       popClass.value = 'bid-num--slam'
-      fireDeclareBurst(next, null)
+      fireDeclareBurst(next, null, 'open')
     } else if (next == null) {
       popClass.value = 'bid-num--fade'
     } else if (from != null && next > from) {
-      popClass.value = 'bid-num--up'
+      const intensity = raiseIntensity(from, next)
+      popClass.value =
+        intensity === 'hard'
+          ? 'bid-num--up bid-num--hard'
+          : intensity === 'soft'
+            ? 'bid-num--up bid-num--soft'
+            : 'bid-num--up'
       spawnDelta(`+${next - from}`, 'up')
-      fireDeclareBurst(next, next - from)
+      fireDeclareBurst(next, next - from, intensity)
     } else if (from != null && next < from) {
       popClass.value = 'bid-num--down'
       spawnDelta(`${next - from}`, 'down')
@@ -69,13 +80,18 @@ watch(
   },
 )
 
-function fireDeclareBurst(value: number, delta: number | null) {
+function fireDeclareBurst(
+  value: number,
+  delta: number | null,
+  intensity: RaiseIntensity,
+) {
   if (burstTimer) clearTimeout(burstTimer)
-  declareBurst.value = { key: ++burstSeq, value, delta }
+  declareBurst.value = { key: ++burstSeq, value, delta, intensity }
+  const hold = intensity === 'soft' ? 700 : intensity === 'hard' ? 1200 : 1100
   burstTimer = setTimeout(() => {
     declareBurst.value = null
     burstTimer = null
-  }, 1100)
+  }, hold)
 }
 
 function spawnDelta(text: string, sign: 'up' | 'down') {
@@ -134,31 +150,47 @@ const numSizeClass = computed(() =>
           aria-hidden="true"
         />
 
-        <!-- Declare impact overlays (absolute only) -->
+        <!-- Declare impact overlays (absolute only; intensity soft/normal/hard/open) -->
         <template v-if="declareBurst">
           <div
             :key="`ripple-a-${declareBurst.key}`"
             class="bid-declare-ripple pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full"
-            :class="compact ? 'h-32 w-32' : 'h-44 w-44 sm:h-52 sm:w-52'"
+            :class="[
+              compact ? 'h-32 w-32' : 'h-44 w-44 sm:h-52 sm:w-52',
+              `bid-declare-ripple--${declareBurst.intensity}`,
+            ]"
             aria-hidden="true"
           />
           <div
+            v-if="declareBurst.intensity !== 'soft'"
             :key="`ripple-b-${declareBurst.key}`"
             class="bid-declare-ripple bid-declare-ripple--delay pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full"
-            :class="compact ? 'h-32 w-32' : 'h-44 w-44 sm:h-52 sm:w-52'"
+            :class="[
+              compact ? 'h-32 w-32' : 'h-44 w-44 sm:h-52 sm:w-52',
+              `bid-declare-ripple--${declareBurst.intensity}`,
+            ]"
             aria-hidden="true"
           />
           <div
+            v-if="declareBurst.intensity !== 'soft'"
             class="pointer-events-none absolute left-1/2 top-1/2 h-28 w-28 -translate-x-1/2 -translate-y-1/2 sm:h-32 sm:w-32"
             aria-hidden="true"
           >
-            <FxSparkleBurst density="lg" palette="gold" />
+            <FxSparkleBurst
+              :density="declareBurst.intensity === 'hard' || declareBurst.intensity === 'open' ? 'lg' : 'md'"
+              palette="gold"
+            />
           </div>
           <!-- Echo: same type size as number; grows via CSS scale only -->
           <span
             :key="`echo-${declareBurst.key}`"
             class="bid-declare-echo pointer-events-none absolute left-1/2 top-1/2 font-display font-bold tabular-nums text-gold-200"
-            :class="numSizeClass"
+            :class="[
+              numSizeClass,
+              declareBurst.intensity === 'hard' || declareBurst.intensity === 'open'
+                ? 'bid-declare-echo--hard'
+                : '',
+            ]"
             aria-hidden="true"
           >
             {{ declareBurst.value }}

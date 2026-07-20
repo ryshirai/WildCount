@@ -3391,3 +3391,52 @@
 
 ### 次に考えられる作業
 1. 短い viewport + 全エクストラ + 特殊展開 + 対象多数で宣言/コヨーテが常に押せることを実機確認
+
+---
+
+## 2026-07-20 — ドーパミン第3波（ドラマ差・札・宣言 cut-in）
+
+### 背景・目的
+- 「単調」というフィードバック。第1・2波の CSS 演出はあるが、毎回同じ強度で結果・宣言が均一に感じられる
+- 方針: ルール変更なし。SFX/触覚は後回し。結果マージン・脱落・カード強調・初手/+5 宣言 cut-in
+
+### 実施内容
+1. **`resultDrama.ts`** — margin ティア（exact/clutch/clear/blowout）、raise intensity、confetti/stagger ヘルパー + 単体テスト
+2. **結果** — ジャスト/ギリギリ/大差コピー、tier chip、自己視点・脱落パネル、confetti 密度分岐
+3. **Mapper** — `livesAfter` / `eliminated` / `selfIsLoser`（local + online）
+4. **札** — self / extreme / special impact（RevealCardTile + CoyoteRevealPanel + Result recap）。self フリップ遅延・clutch/exact stagger
+5. **`BidDeclareCutIn`** — 初手 or +5 以上のみ。Coyote/Extra と非同時。`CurrentBidDisplay` soft/hard 分岐
+6. **docs** — backlog / ui-mock / work-log
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/utils/resultDrama.ts` | ドラマ分類（新規） |
+| `tests/utils/resultDrama.test.ts` | 閾値テスト |
+| `src/views/ResultView.vue` | コピー・強度・札 recap |
+| `src/mappers/toResultView.ts` / `onlineToResultView.ts` | 脱落フィールド |
+| `src/types/game.ts` | ResultMock 拡張 |
+| `src/components/game/RevealCardTile.vue` | emphasis |
+| `src/components/game/CoyoteRevealPanel.vue` | self ラベル |
+| `src/composables/useChallengeReveal.ts` | stagger 可変 |
+| `src/components/game/BidDeclareCutIn.vue` | 宣言 cut-in（新規） |
+| `src/components/game/CurrentBidDisplay.vue` | raise intensity |
+| `src/composables/useGameSession.ts` | bidFx |
+| `src/views/GameView.vue` | BidDeclareCutIn mount |
+| `src/styles/main.css` | wave-3 CSS |
+| `docs/*` | backlog / ui-mock / work-log |
+
+### 明示的にやっていないこと
+- 効果音 / 触覚（UX-14/15）
+- Coyote cut-in 本体のバリエーション
+- 毎宣言フル cut-in（+1 は中央ポップのみ）
+- セッション統計・称号
+- Slice 6 卓上予兆（lives===1 / 決勝表示）
+
+### 確認結果
+- `npm run typecheck` / `npm test`（183）/ `npm run build` 成功
+
+### 次に考えられる作業
+1. 実プレイで閾値（clutch 2 / hard raise 5 / extreme 15）を調整
+2. UX-14 SFX（宣言 / コヨーテ / 勝敗）
+3. 任意: ピンチ席 / 決勝チップ

@@ -113,6 +113,49 @@ describe('toResultView', () => {
     expect(vm.winnerName).toBe('あなた')
     expect(vm.bidderWins).toBe(false)
     expect(vm.lifeLoss).toBe(1)
+    expect(vm.livesAfter).toBe(0)
+    expect(vm.eliminated).toBe(true)
+    expect(vm.selfIsLoser).toBe(false)
+  })
+
+  it('marks selfIsLoser when local player lost the challenge', () => {
+    const outcome: ChallengeOutcome = {
+      bid: 10,
+      actualTotal: 12,
+      calculation: {
+        steps: [{ id: 's1', title: '合計', detail: '12', totalAfter: 12 }],
+        finalTotal: 12,
+        adjustedCards: [],
+        doubleCount: 0,
+        halfCount: 0,
+        maxToZeroApplied: false,
+        rawNumberSum: 12,
+      },
+      bidderWins: true,
+      loserRole: 'challenger',
+      loserId: SELF_ID,
+      bidderId: 'bot1',
+      challengerId: SELF_ID,
+      lifeLoss: 1,
+    }
+
+    const vm = toResultView({
+      outcome,
+      hands: {
+        [SELF_ID]: [{ id: 'c1', kind: 'number', value: 3 }],
+        bot1: [{ id: 'c2', kind: 'number', value: 9 }],
+      },
+      players: [
+        { id: SELF_ID, seatIndex: 0, lives: 2, alive: true },
+        { id: 'bot1', seatIndex: 1, lives: 3, alive: true },
+      ],
+      round: 1,
+      profiles: DEFAULT_PROFILES,
+    })
+
+    expect(vm.selfIsLoser).toBe(true)
+    expect(vm.eliminated).toBe(false)
+    expect(vm.livesAfter).toBe(2)
   })
 
   it('maps lifeLoss 2 from life-double outcome', () => {

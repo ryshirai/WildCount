@@ -12,6 +12,7 @@ import GameMobileLayout from '@/components/game/GameMobileLayout.vue'
 import CoyoteCutIn from '@/components/game/CoyoteCutIn.vue'
 import RoundStartBanner from '@/components/game/RoundStartBanner.vue'
 import ExtraActionCutIn from '@/components/game/ExtraActionCutIn.vue'
+import BidDeclareCutIn from '@/components/game/BidDeclareCutIn.vue'
 import FloatingReactionsHost from '@/components/game/FloatingReactionsHost.vue'
 import StampPickerSheet from '@/components/game/StampPickerSheet.vue'
 import DeckInfoModal from '@/components/game/DeckInfoModal.vue'
@@ -216,6 +217,17 @@ const isLgUp = useIsLgUp()
       :target-name="s.extraFx.targetName"
       :bid-value="s.extraFx.bidValue"
       @done="s.onExtraFxDone"
+    />
+
+    <!-- Wave-3: open / hard raise cut-in (below coyote/extra) -->
+    <BidDeclareCutIn
+      v-if="s.bidFx && !s.cutInPayload && !s.extraFx"
+      :key="s.bidFx.key"
+      :intensity="s.bidFx.intensity"
+      :bid-value="s.bidFx.bidValue"
+      :delta="s.bidFx.delta"
+      :actor-name="s.bidFx.actorName"
+      @done="s.onBidFxDone"
     />
 
     <AppToast :message="s.toast" @dismiss="s.dismissToast" />

@@ -149,4 +149,13 @@ export interface ResultMock {
    * 1 default; 2 when life-double (特殊能力ダブル) was pending.
    */
   lifeLoss?: number
+  /**
+   * Loser's remaining lives after this challenge (mapper-filled).
+   * Used for 脱落 vs normal −1 presentation.
+   */
+  livesAfter?: number
+  /** true when livesAfter === 0 */
+  eliminated?: boolean
+  /** Loser is the local player (self POV copy). */
+  selfIsLoser?: boolean
 }

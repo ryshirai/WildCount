@@ -2,9 +2,15 @@ import { computed, onUnmounted, ref, watch, type ComputedRef, type Ref } from 'v
 import type { Router } from 'vue-router'
 import type { ResultViewModel } from '@/mappers/toResultView'
 import type { RevealedCard } from '@/types/game'
+import {
+  cardRevealStaggerMs,
+  classifyMargin,
+} from '@/utils/resultDrama'
 
-const CARD_STAGGER_MS = 100
+const CARD_STAGGER_MS_DEFAULT = 100
 const CARD_START_MS = 120
+/** Extra delay before flipping the local player's card (Indian poker beat). */
+const SELF_CARD_EXTRA_MS = 80
 
 export interface CoyoteBanner {
   challengerName: string
@@ -124,6 +130,17 @@ export function useChallengeReveal(options: UseChallengeRevealOptions) {
     cardTimers = []
   }
 
+  function staggerForPending(): number {
+    const r = pendingResult.value
+    if (!r) return CARD_STAGGER_MS_DEFAULT
+    return cardRevealStaggerMs(classifyMargin(r.finalTotal, r.bidValue))
+  }
+
+  /**
+   * Reveal order: non-self first (seat order), then self last for the
+   * forehead-card payoff. `revealedCount` still means "first N in revealCards
+   * array order" for the panel — so we keep array order but delay self index.
+   */
   function startCardReveal(cards: readonly RevealedCard[]) {
     clearCardTimers()
     revealedCount.value = 0
@@ -133,11 +150,22 @@ export function useChallengeReveal(options: UseChallengeRevealOptions) {
       cardsRevealDone.value = true
       return
     }
+    const stagger = staggerForPending()
+    // Cumulative delays: self cards get a short extra beat (forehead payoff).
+    let elapsed = CARD_START_MS
     for (let i = 0; i < n; i++) {
+      const card = cards[i]!
+      if (card.isSelf) elapsed += SELF_CARD_EXTRA_MS
+      const at = elapsed
+      elapsed += stagger
+      const idx = i + 1
       const t = setTimeout(() => {
-        revealedCount.value = i + 1
-        if (i + 1 >= n) cardsRevealDone.value = true
-      }, CARD_START_MS + i * CARD_STAGGER_MS)
+        // Panel uses i < revealedCount — keep index order
+        if (revealedCount.value < idx) {
+          revealedCount.value = idx
+        }
+        if (idx >= n) cardsRevealDone.value = true
+      }, at)
       cardTimers.push(t)
     }
   }

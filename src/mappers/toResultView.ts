@@ -82,6 +82,11 @@ export function toResultView(input: ToResultViewInput): ResultViewModel {
     totalAfter: s.totalAfter,
   }))
 
+  // players are already after applyLifeLoss
+  const loserPlayer = players.find((p) => p.id === outcome.loserId)
+  const livesAfter = loserPlayer?.lives ?? 0
+  const eliminated = livesAfter <= 0
+
   return {
     roomCode,
     round,
@@ -100,6 +105,9 @@ export function toResultView(input: ToResultViewInput): ResultViewModel {
     lifeLostAvatar: loser.avatar,
     lifeLostAvatarSrc: loser.avatarSrc,
     lifeLoss: outcome.lifeLoss ?? 1,
+    livesAfter,
+    eliminated,
+    selfIsLoser: outcome.loserId === selfId,
     winnerId: winnerId ?? null,
     winnerName: winnerProfile?.name ?? null,
     isGameOver: winnerId != null,

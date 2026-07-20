@@ -7,6 +7,7 @@ import type { CoyoteBanner } from '@/composables/useChallengeReveal'
 import type { RevealedCard } from '@/types/game'
 import PlayerAvatar from '@/components/game/PlayerAvatar.vue'
 import RevealCardTile from '@/components/game/RevealCardTile.vue'
+import { isExtremeNumber } from '@/utils/resultDrama'
 
 withDefaults(
   defineProps<{
@@ -19,6 +20,23 @@ withDefaults(
   }>(),
   { variant: 'desktop' },
 )
+
+function cardEmphasis(card: RevealedCard) {
+  if (card.isSelf) return 'self' as const
+  if (
+    card.kind === 'double' ||
+    card.kind === 'max_to_zero' ||
+    card.kind === 'half' ||
+    card.kind === 'redraw' ||
+    card.kind === 'zero_mix'
+  ) {
+    return 'special' as const
+  }
+  if (card.kind === 'number' && isExtremeNumber(card.value)) {
+    return 'extreme' as const
+  }
+  return 'none' as const
+}
 
 const emit = defineEmits<{
   skip: []
@@ -96,11 +114,11 @@ const emit = defineEmits<{
       >
         <li
           v-for="(card, i) in revealCards"
-          :key="card.playerId"
+          :key="`${card.playerId}-${i}`"
           class="flex flex-col items-center rounded-xl border border-gold-400/10 bg-night-900/50"
           :class="[
             variant === 'mobile' ? 'px-1 py-2' : 'px-1.5 py-2.5',
-            card.isSelf ? 'ring-1 ring-teal-soft/40' : '',
+            card.isSelf ? 'ring-2 ring-teal-soft/55 reveal-seat--self' : '',
             i < revealedCount ? '' : 'opacity-40',
           ]"
         >
@@ -117,7 +135,7 @@ const emit = defineEmits<{
             class="mb-1 max-w-full truncate text-[10px] font-medium"
             :class="card.isSelf ? 'text-teal-soft' : 'text-sand-dim'"
           >
-            {{ card.playerName }}
+            {{ card.isSelf ? 'あなたの札' : card.playerName }}
           </div>
           <RevealCardTile
             :kind="card.kind"
@@ -125,6 +143,7 @@ const emit = defineEmits<{
             :value="card.value"
             size="md"
             :revealed="i < revealedCount"
+            :emphasis="cardEmphasis(card)"
           />
         </li>
       </ul>

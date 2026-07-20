@@ -3,10 +3,14 @@
  * Result-screen card face.
  * Numbers: gold tile. Specials (×2 / MAX→0 / ? / 0mix): CSS/SVG — not AI art.
  * Wave-2: special sparkle / number light pop on reveal.
+ * Wave-3: emphasis (self / extreme / special pulse).
  */
 import { computed } from 'vue'
 import type { CardKind } from '@/types/game'
 import FxSparkleBurst from '@/components/common/FxSparkleBurst.vue'
+import { isExtremeNumber } from '@/utils/resultDrama'
+
+export type CardEmphasis = 'none' | 'self' | 'extreme' | 'special'
 
 const props = withDefaults(
   defineProps<{
@@ -18,11 +22,14 @@ const props = withDefaults(
     size?: 'md' | 'lg'
     /** Trigger flip-in (parent staggers via revealed count) */
     revealed?: boolean
+    /** Drama emphasis (wave-3) */
+    emphasis?: CardEmphasis
   }>(),
   {
     value: null,
     size: 'lg',
     revealed: true,
+    emphasis: 'none',
   },
 )
 
@@ -39,6 +46,13 @@ const isSpecial = computed(
     props.kind === 'zero_mix' ||
     props.kind === 'half',
 )
+
+const resolvedEmphasis = computed<CardEmphasis>(() => {
+  if (props.emphasis !== 'none') return props.emphasis
+  if (isSpecial.value) return 'special'
+  if (props.kind === 'number' && isExtremeNumber(props.value)) return 'extreme'
+  return 'none'
+})
 </script>
 
 <template>
@@ -56,6 +70,13 @@ const isSpecial = computed(
       kind === 'redraw' ? 'reveal-card--redraw' : '',
       kind === 'zero_mix' ? 'reveal-card--zeromix' : '',
       kind === 'number' ? 'reveal-card--number' : '',
+      revealed && resolvedEmphasis === 'self' ? 'reveal-card--self' : '',
+      revealed && resolvedEmphasis === 'extreme' ? 'reveal-card--extreme' : '',
+      revealed &&
+      (resolvedEmphasis === 'special' || isSpecial) &&
+      (kind === 'double' || kind === 'max_to_zero')
+        ? 'reveal-card--impact'
+        : '',
     ]"
     :title="label"
     role="img"

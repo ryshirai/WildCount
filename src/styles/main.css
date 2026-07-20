@@ -895,6 +895,8 @@
   .bid-num--slam,
   .bid-num--fade,
   .bid-num--declare,
+  .bid-num--hard,
+  .bid-num--soft,
   .bid-glow--up,
   .bid-glow--down,
   .bid-delta,
@@ -908,6 +910,8 @@
   .turn-arrive,
   .fx-confetti__piece,
   .total-slam,
+  .total-slam--exact,
+  .total-slam--clutch,
   .heart-crack,
   .verdict-win-glow,
   .verdict-lose-glow,
@@ -917,12 +921,25 @@
   .life-lost-panel,
   .life-lost-avatar-wrap,
   .life-lost-name,
+  .life-lost-panel--ko,
+  .life-lost-panel--double,
+  .life-lost-ko-label,
   .avatar-turn-ring,
   .round-slam,
   .round-slam-banner,
   .turn-edge-glow,
   .reveal-sparkle,
   .reveal-card--sparkle-ring,
+  .reveal-card--self,
+  .reveal-card--extreme,
+  .reveal-card--impact,
+  .reveal-seat--self,
+  .result-cards-pulse,
+  .drama-tier-chip,
+  .bid-cutin--in,
+  .bid-cutin__slash,
+  .bid-cutin__card,
+  .bid-cutin__value,
   .life-heart-break,
   .life-heart-remain-pulse,
   .verdict-vignette,
@@ -946,8 +963,14 @@
   .bid-declare-ripple,
   .bid-declare-echo,
   .bid-declare-badge,
-  .bid-declare-launch {
+  .bid-declare-launch,
+  .bid-cutin__scrim {
     display: none !important;
+  }
+
+  .bid-cutin {
+    /* Keep readable static banner under reduced motion */
+    opacity: 1;
   }
 
   .coyote-cutin__flash {
@@ -2180,4 +2203,323 @@
   box-shadow:
     inset 0 0 48px rgba(0, 0, 0, 0.28),
     0 0 80px rgba(201, 168, 76, 0.05);
+}
+
+/* ─── Dopamine wave-3: drama tiers, cards, bid cut-in ─── */
+
+.drama-tier-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  padding: 0.2rem 0.75rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  animation: drama-tier-pop 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.drama-tier-chip--exact {
+  color: #f5e6b8;
+  background: rgba(201, 168, 76, 0.22);
+  border: 1px solid rgba(245, 230, 184, 0.45);
+  box-shadow: 0 0 18px rgba(201, 168, 76, 0.25);
+}
+
+.drama-tier-chip--clutch {
+  color: #fca5a5;
+  background: rgba(248, 113, 113, 0.15);
+  border: 1px solid rgba(248, 113, 113, 0.4);
+}
+
+.drama-tier-chip--blowout {
+  color: #99f6e4;
+  background: rgba(45, 212, 191, 0.12);
+  border: 1px solid rgba(45, 212, 191, 0.35);
+}
+
+@keyframes drama-tier-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.7) translateY(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.total-slam--exact {
+  animation: total-slam-exact 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+  text-shadow:
+    0 0 24px rgba(245, 230, 184, 0.75),
+    0 0 48px rgba(201, 168, 76, 0.45);
+}
+
+.total-slam--clutch {
+  animation: total-slam-clutch 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes total-slam-exact {
+  0% {
+    transform: scale(0.7);
+    filter: brightness(1.8);
+  }
+  45% {
+    transform: scale(1.18);
+    filter: brightness(1.35);
+  }
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+}
+
+@keyframes total-slam-clutch {
+  0% {
+    transform: scale(0.92) translateX(-2px);
+  }
+  30% {
+    transform: scale(1.06) translateX(2px);
+  }
+  60% {
+    transform: scale(1.02) translateX(-1px);
+  }
+  100% {
+    transform: scale(1) translateX(0);
+  }
+}
+
+.life-lost-panel--ko {
+  border-color: rgba(248, 113, 113, 0.65) !important;
+  box-shadow:
+    0 0 48px rgba(248, 113, 113, 0.28),
+    inset 0 0 40px rgba(127, 29, 29, 0.35) !important;
+}
+
+.life-lost-panel--double {
+  border-color: rgba(251, 191, 36, 0.5) !important;
+}
+
+.life-lost-ko-label {
+  animation: life-lost-name-slam 0.55s 0.12s cubic-bezier(0.22, 1, 0.36, 1) both;
+  text-shadow: 0 0 18px rgba(248, 113, 113, 0.55);
+}
+
+.reveal-card--self {
+  box-shadow:
+    0 0 0 2px rgba(94, 207, 207, 0.55),
+    0 0 18px rgba(45, 212, 191, 0.35);
+}
+
+.reveal-card--extreme.reveal-card--number {
+  box-shadow:
+    0 0 0 1px rgba(245, 230, 184, 0.4),
+    0 0 14px rgba(201, 168, 76, 0.35);
+  transform: scale(1.04);
+}
+
+.reveal-card--impact {
+  animation: reveal-card-impact 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes reveal-card-impact {
+  0% {
+    filter: brightness(1.6);
+    transform: scale(0.88);
+  }
+  40% {
+    filter: brightness(1.25);
+    transform: scale(1.08);
+  }
+  100% {
+    filter: brightness(1);
+    transform: scale(1);
+  }
+}
+
+.reveal-seat--self {
+  background: linear-gradient(
+    160deg,
+    rgba(20, 60, 60, 0.55),
+    rgba(14, 20, 32, 0.7)
+  ) !important;
+}
+
+.result-cards-pulse {
+  animation: result-cards-pulse 1.4s ease-in-out 1 both;
+}
+
+@keyframes result-cards-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 rgba(201, 168, 76, 0);
+  }
+  40% {
+    box-shadow: 0 0 28px rgba(201, 168, 76, 0.18);
+  }
+}
+
+.bid-declare-ripple--soft {
+  animation-duration: 0.55s;
+  border-width: 2px;
+  opacity: 0.7;
+}
+
+.bid-declare-ripple--hard,
+.bid-declare-ripple--open {
+  animation-duration: 1s;
+  border-width: 3.5px;
+  box-shadow: 0 0 24px rgba(201, 168, 76, 0.35);
+}
+
+.bid-declare-echo--hard {
+  filter: brightness(1.2);
+}
+
+/* Bid declare cut-in (short, non-coyote) */
+.bid-cutin {
+  pointer-events: auto;
+  position: fixed;
+  inset: 0;
+  z-index: 52;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.bid-cutin__scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(6, 10, 18, 0.42);
+}
+
+.bid-cutin__slash {
+  position: absolute;
+  left: -10%;
+  right: -10%;
+  height: 6.5rem;
+  transform: rotate(-5deg);
+  opacity: 0.92;
+}
+
+.bid-cutin--open .bid-cutin__slash {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(201, 168, 76, 0.3),
+    rgba(240, 215, 140, 0.5),
+    rgba(201, 168, 76, 0.3),
+    transparent
+  );
+}
+
+.bid-cutin--hard .bid-cutin__slash {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(251, 146, 60, 0.3),
+    rgba(252, 211, 77, 0.55),
+    rgba(251, 146, 60, 0.3),
+    transparent
+  );
+}
+
+.bid-cutin__card {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 1rem 1.75rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(201, 168, 76, 0.35);
+  background: rgba(12, 18, 28, 0.88);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  text-align: center;
+}
+
+.bid-cutin__actor {
+  font-size: 0.75rem;
+  color: rgba(214, 201, 176, 0.75);
+}
+
+.bid-cutin__title {
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #f5e6b8;
+}
+
+.bid-cutin__value {
+  font-size: 2.75rem;
+  font-weight: 800;
+  line-height: 1;
+  color: #faf3d8;
+  text-shadow: 0 0 24px rgba(201, 168, 76, 0.45);
+}
+
+.bid-cutin__delta {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #fdba74;
+}
+
+.bid-cutin--in .bid-cutin__card {
+  animation: bid-cutin-card-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.bid-cutin--in .bid-cutin__slash {
+  animation: bid-cutin-slash-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.bid-cutin--in .bid-cutin__value {
+  animation: bid-cutin-value 0.5s 0.05s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.bid-cutin--out {
+  animation: bid-cutin-out 0.22s ease-in forwards;
+}
+
+@keyframes bid-cutin-card-in {
+  from {
+    opacity: 0;
+    transform: scale(0.85) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes bid-cutin-slash-in {
+  from {
+    opacity: 0;
+    transform: rotate(-5deg) scaleX(0.4);
+  }
+  to {
+    opacity: 0.92;
+    transform: rotate(-5deg) scaleX(1);
+  }
+}
+
+@keyframes bid-cutin-value {
+  0% {
+    transform: scale(0.6);
+    filter: brightness(1.6);
+  }
+  55% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+}
+
+@keyframes bid-cutin-out {
+  to {
+    opacity: 0;
+  }
 }
