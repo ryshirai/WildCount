@@ -9,9 +9,10 @@ import { storeToRefs } from 'pinia'
 import { mockResult } from '@/data/mockResult'
 import { useLocalGameStore } from '@/stores/localGame'
 import { useOnlineGameStore } from '@/stores/onlineGame'
-import AppLogo from '@/components/common/AppLogo.vue'
+import AppHeader from '@/components/common/AppHeader.vue'
 import FxConfetti from '@/components/common/FxConfetti.vue'
 import MockBadge from '@/components/common/MockBadge.vue'
+import StatusChip from '@/components/common/StatusChip.vue'
 import PlayerAvatar from '@/components/game/PlayerAvatar.vue'
 import RevealCardTile from '@/components/game/RevealCardTile.vue'
 import { allowLocalPlay, allowUiMock } from '@/config/runtime'
@@ -330,30 +331,29 @@ async function playAgain() {
   }
   await store.restartLastGame()
   void router.push({ name: 'game' })
-}</script>
+}
+</script>
 
 <template>
   <div class="page-fixed desert-bg safe-x">
-    <!-- safe-top on outer, py-3 on inner (same pattern as Lobby / Game) -->
-    <header
-      class="shrink-0 border-b border-gold-400/15 bg-night-900/90 backdrop-blur-md safe-top"
-    >
-      <div class="flex items-center justify-between gap-3 px-4 py-3 sm:px-6">
-        <AppLogo size="sm" />
-        <div v-if="result" class="flex items-center gap-2">
-          <span class="chip font-mono">{{ result.roomCode }}</span>
-          <span class="chip">Round {{ result.round }}</span>
-          <button
-            v-if="!calcDone"
-            type="button"
-            class="btn-ghost !px-2 !py-1 text-[11px]"
-            @click="skipCalc"
-          >
-            スキップ
-          </button>
-        </div>
-      </div>
-    </header>
+    <AppHeader :sticky="false">
+      <template #chips>
+        <template v-if="result">
+          <StatusChip class="font-mono tracking-wider" :label="result.roomCode" />
+          <StatusChip :label="`ラウンド ${result.round}`" />
+        </template>
+      </template>
+      <template #actions>
+        <button
+          v-if="result && !calcDone"
+          type="button"
+          class="btn-ghost btn-sm"
+          @click="skipCalc"
+        >
+          スキップ
+        </button>
+      </template>
+    </AppHeader>
 
     <div
       v-if="result"
@@ -373,45 +373,51 @@ async function playAgain() {
         aria-hidden="true"
       />
 
-      <!-- Game over banner -->
+      <!-- Single verdict banner (game-over winner folded in) -->
       <section
-        v-if="localMeta.isGameOver"
-        class="panel result-banner-in relative mb-4 overflow-hidden p-4 text-center ring-1 ring-gold-400/40 sm:p-5"
-      >
-        <p class="text-xs uppercase tracking-[0.2em] text-sand-dim">Winner</p>
-        <h2
-          class="font-display text-2xl font-bold text-gold-100 sm:text-3xl"
-          :class="totalRevealDone || showConfetti ? 'total-slam' : ''"
-        >
-          {{ localMeta.winnerName ?? '勝者' }} の勝利！
-        </h2>
-        <p class="mt-2 text-xs text-sand-dim">
-          最後の1人が生き残りました。下の「もう一度遊ぶ」から再戦できます。
-        </p>
-      </section>
-
-      <!-- Verdict banner (main “結果”) -->
-      <section
-        class="panel result-banner-in relative mb-6 overflow-hidden p-5 text-center sm:p-6"
+        class="panel result-banner-in relative mb-5 overflow-hidden p-5 text-center sm:mb-6 sm:p-6"
         :class="[
-          result.bidderWins ? 'ring-1 ring-gold-400/35' : 'ring-1 ring-teal-soft/45',
-          totalRevealDone
+          localMeta.isGameOver
+            ? 'ring-1 ring-gold-400/40'
+            : result.bidderWins
+              ? 'ring-1 ring-gold-400/35'
+              : 'ring-1 ring-teal-soft/45',
+          totalRevealDone && !localMeta.isGameOver
             ? result.bidderWins
               ? 'verdict-lose-glow'
               : 'verdict-win-glow'
             : '',
         ]"
-        style="animation-delay: 60ms"
       >
-        <p class="mb-1 text-xs uppercase tracking-[0.18em] text-sand-dim">コヨーテ！ 結果</p>
-        <h2 class="font-display text-2xl font-bold text-gold-200 sm:text-3xl">
+        <!-- Game-over winner (integrated; no second panel) -->
+        <template v-if="localMeta.isGameOver">
+          <p class="mb-1 text-xs tracking-[0.18em] text-sand-dim">勝者</p>
+          <h2
+            class="font-display text-2xl font-bold text-gold-100 sm:text-3xl"
+            :class="totalRevealDone || showConfetti ? 'total-slam' : ''"
+          >
+            {{ localMeta.winnerName ?? '勝者' }} の勝利！
+          </h2>
+          <p class="mt-2 text-xs text-sand-dim">
+            最後の1人が生き残りました。下の「もう一度遊ぶ」から再戦できます。
+          </p>
+          <div class="my-4 h-px w-full bg-gold-400/15" />
+        </template>
+
+        <p class="mb-1 text-xs tracking-[0.18em] text-sand-dim">
+          {{ localMeta.isGameOver ? '最終ラウンド' : 'コヨーテ！ 結果' }}
+        </p>
+        <h2
+          class="font-display font-bold text-gold-200"
+          :class="localMeta.isGameOver ? 'text-xl sm:text-2xl' : 'text-2xl sm:text-3xl'"
+        >
           {{ verdictTitle }}
         </h2>
         <p class="mt-2 text-sm text-sand-dim">{{ verdictDetail }}</p>
 
         <div class="mt-5 flex flex-wrap items-center justify-center gap-4 sm:gap-8">
           <div class="flex flex-col items-center gap-1">
-            <span class="text-[10px] uppercase tracking-wider text-sand-dim">宣言</span>
+            <span class="text-[10px] tracking-wider text-sand-dim">宣言</span>
             <div class="flex items-center gap-2">
               <PlayerAvatar
                 :avatar="result.bidderAvatar"
@@ -435,7 +441,7 @@ async function playAgain() {
           </div>
 
           <div class="flex flex-col items-center gap-1">
-            <span class="text-[10px] uppercase tracking-wider text-sand-dim">チャレンジ</span>
+            <span class="text-[10px] tracking-wider text-sand-dim">チャレンジ</span>
             <div class="flex items-center gap-2">
               <PlayerAvatar
                 :avatar="result.challengerAvatar"
@@ -446,13 +452,13 @@ async function playAgain() {
               />
               <span class="text-sm font-semibold text-sand">{{ result.challengerName }}</span>
             </div>
-            <span class="chip !border-teal-soft/35 !bg-teal-deep/40 !text-teal-soft">コヨーテ！</span>
+            <span class="chip chip-teal">コヨーテ！</span>
           </div>
 
           <div
             class="flex flex-col items-center gap-1 border-l border-gold-400/15 pl-4 sm:pl-8"
           >
-            <span class="text-[10px] uppercase tracking-wider text-sand-dim">実際の合計</span>
+            <span class="text-[10px] tracking-wider text-sand-dim">実際の合計</span>
             <span
               class="font-display text-4xl font-bold tabular-nums text-gold-100 transition-opacity duration-300"
               :class="[
@@ -465,22 +471,12 @@ async function playAgain() {
           </div>
         </div>
 
+        <!-- Life loss: avatar + hearts + short line (no triple redundancy) -->
         <div
           v-if="totalRevealDone"
           class="life-lost-panel life-lost-pulse mt-6 w-full max-w-md mx-auto rounded-2xl border border-red-400/40 bg-gradient-to-b from-red-950/80 via-night-900/90 to-night-950/95 px-5 py-5 text-center shadow-[0_0_36px_rgba(248,113,113,0.18)] sm:px-8 sm:py-6"
           role="status"
         >
-          <p
-            class="life-lost-label mb-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-red-300/90"
-          >
-            ライフ −{{ lifeLossAmount
-            }}<span
-              v-if="lifeLossAmount > 1"
-              class="ml-1.5 rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold normal-case tracking-normal text-amber-200"
-              >ダブル</span
-            >
-          </p>
-
           <div class="life-lost-avatar-wrap mx-auto mb-2 inline-flex">
             <PlayerAvatar
               :avatar="result.lifeLostAvatar"
@@ -491,15 +487,13 @@ async function playAgain() {
             />
           </div>
 
-          <p
-            class="life-lost-name font-display text-xl font-bold text-red-50 sm:text-2xl"
-          >
+          <p class="life-lost-name font-display text-xl font-bold text-red-50 sm:text-2xl">
             {{ result.lifeLostName }}
           </p>
 
           <div
             class="life-lost-hearts mt-3 flex items-center justify-center gap-2 sm:gap-3"
-            :aria-label="`ライフ ${lifeLossAmount} 失った`"
+            :aria-label="`${result.lifeLostName} がライフを ${lifeLossAmount} 失った`"
           >
             <span
               v-for="i in lifeLossAmount"
@@ -512,11 +506,12 @@ async function playAgain() {
           </div>
 
           <p class="mt-3 text-sm text-red-200/90 sm:text-base">
-            ライフを
-            <span class="font-display text-lg font-bold tabular-nums text-rose-300">{{
-              lifeLossAmount
-            }}</span>
-            失いました
+            ライフ −{{ lifeLossAmount
+            }}<span
+              v-if="lifeLossAmount > 1"
+              class="ml-1.5 rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-200"
+              >ダブル</span
+            >
           </p>
         </div>
       </section>
@@ -552,28 +547,24 @@ async function playAgain() {
           </li>
         </ol>
 
+        <!-- Post-calc summary: secondary after count-up (verdict total is primary) -->
         <div
           v-if="totalRevealDone"
-          class="calc-done-pop mt-4 flex items-center justify-center gap-2 rounded-xl border border-gold-400/25 bg-night-900/60 px-4 py-3 shadow-[0_0_24px_rgba(201,168,76,0.12)]"
+          class="calc-done-pop mt-4 flex flex-wrap items-center justify-center gap-2 rounded-xl border border-gold-400/25 bg-night-900/60 px-4 py-3 shadow-[0_0_24px_rgba(201,168,76,0.12)]"
         >
           <span class="text-xs text-sand-dim">最終合計</span>
-          <span class="total-slam font-display text-2xl font-bold tabular-nums text-gold-100">{{
+          <span class="font-display text-2xl font-bold tabular-nums text-gold-100">{{
             displayTotal ?? result.finalTotal
           }}</span>
           <span class="text-sand-dim">vs 宣言</span>
           <span class="font-display text-xl font-bold tabular-nums text-gold-300">{{
             result.bidValue
           }}</span>
-          <span
-            class="ml-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
-            :class="
-              result.bidderWins
-                ? 'bg-gold-400/20 text-gold-200'
-                : 'bg-teal-deep/50 text-teal-soft'
-            "
-          >
-            {{ result.bidderWins ? '宣言が通った' : 'コヨーテ成功' }}
-          </span>
+          <StatusChip
+            :variant="result.bidderWins ? 'gold' : 'teal'"
+            class="ml-1 text-[10px]"
+            :label="result.bidderWins ? '宣言が通った' : 'コヨーテ成功'"
+          />
         </div>
       </section>
 
@@ -657,11 +648,33 @@ async function playAgain() {
       </div>
     </div>
 
+    <!-- Loading skeleton -->
     <div
       v-else
-      class="flex min-h-0 flex-1 items-center justify-center text-sm text-sand-dim"
+      class="relative z-10 mx-auto flex w-full max-w-3xl min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-5 safe-bottom sm:py-6"
+      aria-busy="true"
+      aria-label="結果を読み込み中"
     >
-      結果を読み込んでいます…
+      <div class="panel animate-pulse p-5 sm:p-6">
+        <div class="mx-auto mb-3 h-3 w-24 rounded bg-gold-400/15" />
+        <div class="mx-auto mb-4 h-8 w-48 rounded-lg bg-gold-400/20" />
+        <div class="mx-auto mb-6 h-3 w-64 max-w-full rounded bg-gold-400/10" />
+        <div class="flex justify-center gap-6">
+          <div class="h-16 w-20 rounded-xl bg-night-800/80" />
+          <div class="h-10 w-10 self-center rounded-full bg-night-800/60" />
+          <div class="h-16 w-20 rounded-xl bg-night-800/80" />
+          <div class="h-16 w-16 rounded-xl bg-night-800/80" />
+        </div>
+      </div>
+      <div class="panel animate-pulse p-4 sm:p-5">
+        <div class="mb-3 h-4 w-28 rounded bg-gold-400/15" />
+        <div class="space-y-2.5">
+          <div class="h-12 rounded-xl bg-night-800/60" />
+          <div class="h-12 rounded-xl bg-night-800/50" />
+          <div class="h-12 rounded-xl bg-night-800/40" />
+        </div>
+      </div>
+      <p class="text-center text-xs text-sand-dim">結果を読み込んでいます…</p>
     </div>
 
     <MockBadge />

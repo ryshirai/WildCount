@@ -3034,3 +3034,41 @@
 1. **R1** Home + Result リデザイン
 2. R2 Lobby / R3 Game 分割（並列可）
 3. 詳細は `docs/ui-redesign.md`
+
+---
+
+## 2026-07-20 — R1 Home + Result リデザイン
+
+### 背景・目的
+- 全面 UI リデザイン（`docs/ui-redesign.md`）Phase R1
+- Home の入室 IA をスキャンしやすくし、Result の冗長さを削りつつ演出は維持
+
+### 実施内容
+1. **Home**: 1 メガパネルを「プロフィール / ルームを作る / ルームに入る」に分離。再開・DEV ローカル・モック導線は維持
+2. **Result**: ヘッダを `AppHeader` + `StatusChip` に統一。`Round N` → `ラウンド N`
+3. ゲーム終了の勝者バナーを勝敗パネルに統合（二重パネル回避）
+4. ライフ減少の三重表現を「アバター + ハート + 短い −N」に圧縮
+5. ローディングを dim 1 行から `.panel` スケルトンへ
+6. count-up / confetti / vignette / calc-step アニメはロジック・クラス維持
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/views/HomeView.vue` | IA 分離（プロフィール / 作成 / 参加） |
+| `src/views/ResultView.vue` | AppHeader・階層圧縮・スケルトン・日本語化 |
+| `docs/backlog.md` | R1 done、着手順更新 |
+| `docs/work-log.md` | 本エントリ |
+
+### 明示的にやっていないこと
+- Lobby sticky CTA・設定アコーディオン（R2）
+- GameView 分割・モバイルクロム圧縮（R3–R4）
+- ルール・Worker・演出 keyframe の変更
+
+### 確認結果
+- `npm test` 167 passed
+- `npm run typecheck` / `lint` / `build` 成功
+
+### 次に考えられる作業
+1. **R2** Lobby 情報設計
+2. **R3** GameView 構造分割（並列可）
+3. 詳細は `docs/ui-redesign.md`

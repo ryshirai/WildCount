@@ -294,6 +294,103 @@ watch(
         </div>
       </section>
 
+      <!-- Profile: name + avatar (shared by create / join) -->
+      <section class="panel mb-4 p-5 sm:p-6">
+        <div class="mb-1 flex items-center gap-2">
+          <h2 class="text-sm font-semibold text-gold-200">プロフィール</h2>
+          <StatusChip variant="muted" class="text-[10px]" label="最大10人" />
+        </div>
+        <p class="mb-4 text-xs text-sand-dim">
+          表示名とアイコンは席とチャットに出ます。空欄のときは「プレイヤー」になります
+        </p>
+        <label class="mb-4 block">
+          <span class="field-label">表示名</span>
+          <input
+            v-model="playerName"
+            type="text"
+            maxlength="12"
+            autocomplete="nickname"
+            placeholder="例: コヨーテ"
+            class="field"
+          />
+        </label>
+        <AvatarPicker v-model="playerAvatarIndex" label="アイコン" />
+      </section>
+
+      <!-- Create room -->
+      <section class="panel mb-4 p-5 sm:p-6">
+        <h2 class="mb-1 text-sm font-semibold text-gold-200">ルームを作る</h2>
+        <p class="mb-4 text-xs text-sand-dim">
+          あなたがホストになります。6文字のコードを友だちに送ってください
+        </p>
+        <button
+          type="button"
+          class="btn-gold w-full"
+          :class="ctaFlash === 'create' ? 'btn-fx-press' : ''"
+          :disabled="onlineBusy"
+          @click="createRoom"
+        >
+          {{ onlineBusy ? '接続中…' : 'ルームを作る' }}
+        </button>
+        <p v-if="onlineBusy" class="mt-2 text-center text-[11px] text-sand-dim">
+          <template v-if="isDevBuild">
+            接続中…（進まないときは <code class="font-mono">npm run worker:dev</code> を確認）
+          </template>
+          <template v-else>サーバーにつないでいます…</template>
+        </p>
+        <p
+          v-else-if="onlineGame.lastError"
+          class="mt-2 text-center text-[11px] text-red-200"
+        >
+          {{ onlineGame.lastError }}
+        </p>
+      </section>
+
+      <!-- Divider -->
+      <div class="mb-4 flex items-center gap-3 px-1">
+        <div class="h-px flex-1 bg-gold-400/15" />
+        <span class="text-xs text-sand-dim">または</span>
+        <div class="h-px flex-1 bg-gold-400/15" />
+      </div>
+
+      <!-- Join room -->
+      <section class="panel mb-4 p-5 sm:p-6">
+        <h2 class="mb-1 text-sm font-semibold text-gold-200">ルームに入る</h2>
+        <p class="mb-4 text-xs text-sand-dim">
+          ホストからもらった6文字のコードを入力してください
+        </p>
+        <label class="mb-3 block">
+          <span class="field-label">ルームコード</span>
+          <input
+            :value="roomCode"
+            type="text"
+            inputmode="text"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="例: AB7KQ2"
+            maxlength="6"
+            class="field field-mono"
+            @input="onCodeInput"
+            @keydown.enter="joinRoom"
+          />
+        </label>
+        <button
+          type="button"
+          class="btn-teal w-full"
+          :class="ctaFlash === 'join' ? 'btn-fx-press' : ''"
+          :disabled="onlineBusy"
+          @click="joinRoom"
+        >
+          {{ onlineBusy ? '接続中…' : 'ルームに入る' }}
+        </button>
+        <p
+          v-if="!onlineBusy && onlineGame.lastError"
+          class="mt-2 text-center text-[11px] text-red-200"
+        >
+          {{ onlineGame.lastError }}
+        </p>
+      </section>
+
       <!-- Local bot demo — DEV builds only (not in production) -->
       <section
         v-if="showLocalDemo"
@@ -381,104 +478,10 @@ watch(
         </button>
       </section>
 
-      <!-- Online: shared display name + create / join -->
-      <section class="panel mb-4 p-5 sm:p-6">
-        <div class="mb-1 flex items-center gap-2">
-          <h2 class="text-sm font-semibold text-gold-200">オンライン対戦</h2>
-          <span class="chip text-[10px]">最大10人</span>
-        </div>
-        <p class="mb-4 text-xs text-sand-dim">
-          表示名とアイコンは席とチャットに出ます。空欄のときは「プレイヤー」になります
-        </p>
-        <label class="mb-4 block">
-          <span class="field-label">表示名</span>
-          <input
-            v-model="playerName"
-            type="text"
-            maxlength="12"
-            autocomplete="nickname"
-            placeholder="例: コヨーテ"
-            class="field"
-          />
-        </label>
-        <div class="mb-5">
-          <AvatarPicker v-model="playerAvatarIndex" label="アイコン" />
-        </div>
-
-        <div class="mb-1 flex items-center gap-2">
-          <h3 class="text-sm font-semibold text-gold-200">ルームを作る</h3>
-        </div>
-        <p class="mb-3 text-xs text-sand-dim">
-          あなたがホストになります。6文字のコードを友だちに送ってください
-        </p>
-        <button
-          type="button"
-          class="btn-gold w-full"
-          :class="ctaFlash === 'create' ? 'btn-fx-press' : ''"
-          :disabled="onlineBusy"
-          @click="createRoom"
-        >
-          {{ onlineBusy ? '接続中…' : 'ルームを作る' }}
-        </button>
-        <p v-if="onlineBusy" class="mt-2 text-center text-[11px] text-sand-dim">
-          <template v-if="isDevBuild">
-            接続中…（進まないときは <code class="font-mono">npm run worker:dev</code> を確認）
-          </template>
-          <template v-else>サーバーにつないでいます…</template>
-        </p>
-        <p
-          v-else-if="onlineGame.lastError"
-          class="mt-2 text-center text-[11px] text-red-200"
-        >
-          {{ onlineGame.lastError }}
-        </p>
-
-        <div class="my-5 flex items-center gap-3">
-          <div class="h-px flex-1 bg-gold-400/15" />
-          <span class="text-xs text-sand-dim">または</span>
-          <div class="h-px flex-1 bg-gold-400/15" />
-        </div>
-
-        <div class="mb-1 flex items-center gap-2">
-          <h3 class="text-sm font-semibold text-gold-200">ルームに入る</h3>
-        </div>
-        <p class="mb-3 text-xs text-sand-dim">ホストからもらった6文字のコードを入力してください</p>
-        <label class="mb-3 block">
-          <span class="field-label">ルームコード</span>
-          <input
-            :value="roomCode"
-            type="text"
-            inputmode="text"
-            autocomplete="off"
-            spellcheck="false"
-            placeholder="例: AB7KQ2"
-            maxlength="6"
-            class="field field-mono"
-            @input="onCodeInput"
-            @keydown.enter="joinRoom"
-          />
-        </label>
-        <button
-          type="button"
-          class="btn-teal w-full"
-          :class="ctaFlash === 'join' ? 'btn-fx-press' : ''"
-          :disabled="onlineBusy"
-          @click="joinRoom"
-        >
-          {{ onlineBusy ? '接続中…' : 'ルームに入る' }}
-        </button>
-        <p
-          v-if="!onlineBusy && onlineGame.lastError"
-          class="mt-2 text-center text-[11px] text-red-200"
-        >
-          {{ onlineGame.lastError }}
-        </p>
-      </section>
-
       <!-- Dev mock nav — production builds omit entirely -->
       <details
         v-if="showDevMockNav"
-        class="mt-6 rounded-2xl border border-gold-400/10 bg-night-900/40 p-4"
+        class="mt-2 rounded-2xl border border-gold-400/10 bg-night-900/40 p-4"
       >
         <summary
           class="cursor-pointer list-none text-center text-[11px] uppercase tracking-wider text-sand-dim marker:content-none [&::-webkit-details-marker]:hidden"
