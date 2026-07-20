@@ -67,7 +67,7 @@ const stampItems = computed(() =>
           @click="emit('close')"
         />
         <div
-          class="relative z-10 mx-auto w-full max-w-lg rounded-t-2xl border border-gold-400/25 border-b-0 bg-night-900/98 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 shadow-panel"
+          class="relative z-10 mx-auto w-full max-w-lg rounded-t-2xl border border-gold-400/25 border-b-0 bg-night-900/98 px-3 pt-2 shadow-panel safe-bottom"
           @click.stop
         >
           <div class="mb-1 flex justify-center pt-1" aria-hidden="true">

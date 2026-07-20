@@ -108,7 +108,7 @@
 | `page-scroll` | Home | ルートがスクロール |
 | `page-fixed` | Lobby, Game, Result | 固定ビューポート。Lobby は本文スクロール + 底 sticky CTA。Game/Result は領域内スクロール |
 | ヘッダ | Lobby / Game / Result | `AppHeader` 同一 blur・同一 border（Game は `compact` 可） |
-| safe-area | `safe-top` はヘッダ or 切断バナーどちらか一方 | 二重 padding 禁止 |
+| safe-area | `safe-top` はヘッダ or 切断バナーどちらか一方 | 二重 padding 禁止。下端 fixed / ボトムシートは `safe-bottom`（ナビ・CTA・Help / 山札 / スタンプ等） |
 | max-width | Home `max-w-lg` / Lobby 2 カラム / Result `max-w-3xl` / Game full | Lobby はワイド活用 |
 
 ### 4.4 アイコン方針
@@ -247,6 +247,7 @@
 - デフォルト: ステッパー + 宣言 + コヨーテ の **1 行**
 - 「特殊能力」チップで展開 → セイム/チェンジ/ライドスキル/ターゲット
 - `canSame || canChange || extrasAllowed` がすべて false なら行自体非表示
+- ドックは `max-h` で上限。特殊 UI は内部スクロール、**宣言/コヨーテは sticky 下端**（全エクストラ展開でクリップしない）
 
 **チャット中も手番操作**
 

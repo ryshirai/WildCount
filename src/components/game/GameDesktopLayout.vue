@@ -244,7 +244,10 @@ const emit = defineEmits<{
           みんなの結果確認が終わるまで、次のラウンドは始まりません
         </div>
 
-        <div class="shrink-0">
+        <!-- Cap height so all-extras UI cannot push declare/coyote off-screen -->
+        <div
+          class="flex min-h-0 max-h-[min(40dvh,18rem)] shrink flex-col overflow-hidden"
+        >
           <BidControls
             v-if="
               !awaitingResultView &&

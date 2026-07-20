@@ -55,7 +55,7 @@ npm run dev
 | `page-scroll` | Home | ルートがスクロール |
 | `page-fixed` | Lobby / Game / Result | 固定ビューポート。本文 or 領域だけ内部スクロール。Lobby は底 sticky CTA |
 | ヘッダ | Lobby / Game / Result | `AppHeader`（同一 blur・border。Game は `compact` 可） |
-| safe-area | `safe-top` はヘッダ **または** 切断バナーのどちらか一方 | 二重 padding 禁止 |
+| safe-area | `safe-top` はヘッダ **または** 切断バナーのどちらか一方 | 二重 padding 禁止。下端 fixed / ボトムシートは `safe-bottom` |
 | `safe-x` / `safe-bottom` | 全画面ルート | ノッチ・ホームインジケータ |
 | max-width | Home `max-w-lg` / Lobby 2 カラム / Result `max-w-3xl` / Game full | |
 

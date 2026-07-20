@@ -256,10 +256,14 @@ const showDock = computed(
           </template>
         </div>
 
-        <!-- Full bid dock when no sheet -->
+        <!--
+          Full bid dock when no sheet.
+          max-h + min-h-0: all-extras expanded UI must not clip declare/coyote
+          (parent play column is overflow-hidden).
+        -->
         <div
           v-show="!sheetOpen && showDock"
-          class="shrink-0"
+          class="flex min-h-0 max-h-[min(48dvh,22rem)] shrink flex-col overflow-hidden"
         >
           <BidControls
             v-model="draftBid"

@@ -3324,3 +3324,70 @@
 ### 次に考えられる作業
 1. 実機でスタンプ連打・チャット往復の体感確認
 2. まだ重い場合: スタンプ画像サイズ最適化 / chat 仮想リスト
+
+---
+
+## 2026-07-20 — iPhone Safari 下端 safe-area 予防修正
+
+### 背景・目的
+- リファクタ前にあった「iPhone Safari 下部バーでボタンが押せない」再発リスクを調査済み。本線（`100dvh` + 底 flex + `safe-bottom`）は妥当だが、fixed ボトムシートに safe-area 抜けがあった。
+
+### 実施内容
+1. **HelpModal / DeckInfoModal** — パネルに `safe-bottom`（ホームインジケータ分の下余白）
+2. **AppConfirmDialog** — オーバーレイを `pb-[max(1rem,env(safe-area-inset-bottom))]` に
+3. **StampPickerSheet** — インライン pb を共有ユーティリティ `.safe-bottom` に統一
+4. **docs** — `ui-redesign.md` / `ui-mock.md` の safe-area 契約に下端ルールを追記
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/components/common/HelpModal.vue` | `safe-bottom` |
+| `src/components/game/DeckInfoModal.vue` | `safe-bottom` |
+| `src/components/common/AppConfirmDialog.vue` | safe-area 付き下 padding |
+| `src/components/game/StampPickerSheet.vue` | `.safe-bottom` 統一 |
+| `docs/ui-redesign.md` / `docs/ui-mock.md` | 下端 safe-area 契約 |
+| `docs/work-log.md` | 本エントリ |
+
+### 明示的にやっていないこと
+- 仮想キーボード（`visualViewport`）対応
+- ゲーム底ナビ / ロビー CTA（既存 `safe-bottom` のまま）
+- 実機での手動確認
+
+### 確認結果
+- 静的クラス変更のみ（ビルド未実行）
+
+### 次に考えられる作業
+1. iPhone Safari 実機でヘルプ・山札・スタンプ・確認ダイアログ・ゲーム底ナビを確認
+
+---
+
+## 2026-07-20 — 全エクストラ ON 時の宣言/コヨーテクリップ修正
+
+### 背景・目的
+- 報告: エクストラルールを全部オンにすると宣言・コヨーテが押せなくなる
+- 原因: 特殊能力 UI（セイム/チェンジ/ライド + 対象チップ）展開で `BidControls` が縦に伸び、親 `overflow-hidden` により**下端の主ボタンがクリップ**される
+
+### 実施内容
+1. **BidControls** — 特殊能力エリアを `overflow-y-auto`、ステッパー+宣言+コヨーテを `shrink-0` で常時下端に固定
+2. **GameMobileLayout** — ドックに `max-h-[min(48dvh,22rem)]` + `min-h-0` + `overflow-hidden`
+3. **GameDesktopLayout** — 同様に `max-h-[min(40dvh,18rem)]`（低窓・多人数対象チップ対策）
+4. **docs/ui-redesign.md** — ドック高さ上限と sticky 主ボタンを追記
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/components/game/BidControls.vue` | specials スクロール / primary sticky |
+| `src/components/game/GameMobileLayout.vue` | ドック max-h |
+| `src/components/game/GameDesktopLayout.vue` | ドック max-h |
+| `docs/ui-redesign.md` | 契約追記 |
+| `docs/work-log.md` | 本エントリ |
+
+### 明示的にやっていないこと
+- 特殊能力チップのレイアウト圧縮（折りたたみは既存 R4 のまま）
+- 実機 Safari での手動確認
+
+### 確認結果
+- `npm run typecheck` 成功
+
+### 次に考えられる作業
+1. 短い viewport + 全エクストラ + 特殊展開 + 対象多数で宣言/コヨーテが常に押せることを実機確認

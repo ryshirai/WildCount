@@ -48,7 +48,7 @@ function onConfirm() {
     >
       <div
         v-if="open"
-        class="fixed inset-0 z-[60] flex items-center justify-center bg-night-950/75 p-4 backdrop-blur-sm"
+        class="fixed inset-0 z-[60] flex items-center justify-center bg-night-950/75 px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-sm"
         role="dialog"
         aria-modal="true"
         :aria-labelledby="titleId"

@@ -150,7 +150,7 @@ onUnmounted(() => {
           role="dialog"
           aria-modal="true"
           aria-labelledby="deck-info-title"
-          class="panel relative z-10 flex max-h-[min(88dvh,32rem)] w-full max-w-md flex-col overflow-hidden rounded-t-2xl border-gold-400/25 shadow-panel sm:rounded-2xl"
+          class="panel relative z-10 flex max-h-[min(88dvh,32rem)] w-full max-w-md flex-col overflow-hidden rounded-t-2xl border-gold-400/25 shadow-panel safe-bottom sm:rounded-2xl"
           @click.stop
         >
           <!-- Ambient -->
