@@ -224,6 +224,63 @@ describe('onlineGame store', () => {
     expect(store.view?.phase).toBe('lobby')
   })
 
+  it('event log entries use the actor player portrait from view roster', async () => {
+    const { store, ws } = await joinHappyPath('LOGAV1')
+    // Add a second player so we can match by display name
+    ws.simulateMessage({
+      type: 'view',
+      revision: 2,
+      view: {
+        ...store.view!,
+        players: [
+          {
+            id: 'p1',
+            displayName: 'テスト',
+            ready: false,
+            connected: true,
+            isHost: true,
+            avatarIndex: 0,
+          },
+          {
+            id: 'p2',
+            displayName: 'フクロウ',
+            ready: true,
+            connected: true,
+            isHost: false,
+            avatarIndex: 1,
+          },
+        ],
+        playerCount: 2,
+      },
+    })
+
+    ws.simulateMessage({
+      type: 'event',
+      level: 'info',
+      message: 'フクロウ が 5 を宣言',
+      code: 'BID',
+    })
+
+    const entry = store.eventLog.find((e) => e.kind === 'entry' && e.name === 'フクロウ')
+    expect(entry).toBeTruthy()
+    expect(entry!.avatar).toBe('🦉')
+    expect(entry!.avatarSrc).toBe('/avatars/owl.webp')
+    expect(entry!.message).toContain('5')
+
+    // Room-level events keep the system icon (no player portrait)
+    ws.simulateMessage({
+      type: 'event',
+      level: 'info',
+      message: 'ゲームを開始しました',
+      code: 'GAME_STARTED',
+    })
+    const roomEntry = store.eventLog.find(
+      (e) => e.kind === 'entry' && e.name === 'ルーム',
+    )
+    expect(roomEntry?.avatar).toBe('📡')
+    expect(roomEntry?.avatarSrc).toBeUndefined()
+  })
+
   it('error before hello rejects join and sets lastError', async () => {
     const store = useOnlineGameStore()
     const joinP = store.joinRoom('ROOM01', 'A')

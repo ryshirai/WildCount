@@ -27,6 +27,7 @@ import {
 } from '@/online/errorMessages'
 import {
   avatarByIndex,
+  avatarSrc,
   sanitizeAvatarIndex,
 } from '@/localGame/avatarCatalog'
 import { characterStampSrc } from '@/online/stamps'
@@ -889,6 +890,33 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     }, ttlMs)
   }
 
+  /**
+   * Resolve portrait for an event-log actor by display name.
+   * Server events only carry names in the message text (no playerId).
+   */
+  function resolveLogAvatar(displayName: string): {
+    avatar: string
+    avatarSrc?: string
+  } {
+    const roster = view.value?.players
+    if (roster?.length) {
+      const p = roster.find((x) => x.displayName === displayName)
+      if (p) {
+        const meta = avatarByIndex(p.avatarIndex)
+        return { avatar: meta.emoji, avatarSrc: avatarSrc(meta.id) }
+      }
+    }
+    const seats = view.value?.game?.seats
+    if (seats?.length) {
+      const s = seats.find((x) => x.displayName === displayName)
+      if (s) {
+        const meta = avatarByIndex(s.avatarIndex)
+        return { avatar: meta.emoji, avatarSrc: avatarSrc(meta.id) }
+      }
+    }
+    return { avatar: '👤' }
+  }
+
   function pushLog(message: string, code?: string) {
     logSeq += 1
     // Round / phase dividers (server code ROUND_START / GAME_ENDED)
@@ -915,9 +943,14 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     } else if (code === 'CHALLENGE') {
       name = 'コヨーテ'
     }
+    const av =
+      name === 'ルーム' || name === 'コヨーテ'
+        ? { avatar: '📡' as const, avatarSrc: undefined }
+        : resolveLogAvatar(name)
     const item: EventLogItem = {
       id: `oe${logSeq}`,
-      avatar: '📡',
+      avatar: av.avatar,
+      avatarSrc: av.avatarSrc,
       name,
       message: body,
       timeLabel: 'たった今',

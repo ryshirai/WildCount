@@ -2924,3 +2924,33 @@
 ### 次に考えられる作業
 1. ヘルプに制限時間の説明を追加
 2. 席ごと残り持ち時間の常時表示
+
+---
+
+## 2026-07-20 — 対戦ログにプレイヤーアバターが表示されない不具合
+
+### 背景・目的
+- オンライン対戦のイベントログで、プレイヤーのアイコン（ポートレート）が出ない
+
+### 実施内容
+1. 原因: `onlineGame.pushLog` が常に `avatar: '📡'` 固定で `avatarSrc` を渡していなかった
+2. サーバーイベント文面から抽出した表示名を `view.players` / `game.seats` と照合し、`avatarIndex` → 絵文字 + `/avatars/*.webp` を設定
+3. ルーム系統イベント（名前が「ルーム」等）は従来どおり 📡
+4. 回帰テストを追加
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/stores/onlineGame.ts` | `resolveLogAvatar` + `pushLog` で avatarSrc 設定 |
+| `tests/stores/onlineGame.test.ts` | プレイヤー肖像解決のテスト |
+
+### 明示的にやっていないこと
+- サーバーイベントに `playerId` を載せるプロトコル拡張（同名プレイヤー時の曖昧さは残る）
+- ローカル対戦ログ（既に profile から avatarSrc 設定済み）
+
+### 確認結果
+- `npm test -- tests/stores/onlineGame.test.ts` 全パス（13）
+- `npm run typecheck` 成功
+
+### 次に考えられる作業
+1. event に `actorPlayerId` を載せて名前照合を不要にする
