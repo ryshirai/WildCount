@@ -1,4 +1,4 @@
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { mockGameRoom } from '@/data/mockGame'
@@ -26,6 +26,7 @@ import {
   type UseChallengeRevealOptions,
 } from '@/composables/useChallengeReveal'
 import {
+  LAST_SECOND_MS,
   shouldShowBidCutIn,
   type RaiseIntensity,
 } from '@/utils/resultDrama'
@@ -43,6 +44,8 @@ import {
   type RaiseClassification,
   type RaiseTier,
 } from '@/utils/bidDrama'
+import { remainingForPlayer } from '@/online/clockDisplay'
+import { resetCoyoteDramaSession } from '@/utils/coyoteDramaContext'
 
 export type ExtraFxState = {
   key: string
@@ -266,8 +269,44 @@ export function useGameSession() {
   const dramaDeduper = createDramaEventDeduper()
   /** Last bid that landed a cut-in this round (for seq identity) */
   let lastBidFxRound: number | null = null
+  /**
+   * D3: last successful bid landed with ≤ LAST_SECOND_MS on the active clock.
+   * Client-only; frozen into coyote drama context at challenge.
+   */
+  const lastSecondBid = ref(false)
+  /** Rolling sample of remaining ms per player (turn may advance in same WS tick as bid). */
+  const lastKnownRemainingMs = new Map<string, number>()
+  let clockSampleTimer: ReturnType<typeof setInterval> | null = null
+
+  function sampleTurnClockRemaining() {
+    const clock = onlineGame.view?.clock
+    if (!clock?.currentTurnPlayerId || clock.turnStartedAt == null) return
+    const rem = remainingForPlayer(
+      clock,
+      clock.currentTurnPlayerId,
+      Date.now(),
+    )
+    lastKnownRemainingMs.set(clock.currentTurnPlayerId, rem.totalMs)
+  }
+
+  function stopClockSampling() {
+    if (clockSampleTimer != null) {
+      clearInterval(clockSampleTimer)
+      clockSampleTimer = null
+    }
+  }
+
+  function startClockSampling() {
+    stopClockSampling()
+    sampleTurnClockRemaining()
+    clockSampleTimer = setInterval(sampleTurnClockRemaining, 200)
+  }
 
   const roomCode = computed(() => onlineGame.roomCode)
+
+  const roundBidCountForReveal = computed(
+    () => gameView.value?.roundBidCount ?? 0,
+  )
 
   const reveal = useChallengeReveal({
     pendingResult,
@@ -285,6 +324,9 @@ export function useGameSession() {
       bidderAvatarSrc: mockResult.bidderAvatarSrc,
       bidValue: mockResult.bidValue,
     },
+    roundBidCount: roundBidCountForReveal,
+    lastSecondBid: computed(() => lastSecondBid.value),
+    // Coyote sequence uses module-level deduper (survives GameView remount)
   } satisfies UseChallengeRevealOptions)
 
   function playExtraFx(payload: {
@@ -532,6 +574,10 @@ export function useGameSession() {
     void bootstrap()
   })
 
+  onUnmounted(() => {
+    stopClockSampling()
+  })
+
   async function bootstrap() {
     // Production: reject UI mock query
     if (!allowUiMock && route.query.mock === '1') {
@@ -607,6 +653,7 @@ export function useGameSession() {
   )
 
   // D1: open / hard raise → BidDeclareCutIn via classifyRaise + identity dedupe
+  // D3: track LAST SECOND when a bid lands with ≤1s on the turn clock
   watch(
     () =>
       [
@@ -625,6 +672,7 @@ export function useGameSession() {
       if (round != null && lastBidFxRound != null && round !== lastBidFxRound) {
         prevBidForFx = next ?? null
         lastBidFxRound = round
+        lastSecondBid.value = false
         // Allow cut-in ids for the new round (keep old ids so remount mid-round is safe)
         return
       }
@@ -633,6 +681,32 @@ export function useGameSession() {
       prevBidForFx = next ?? null
       if (next == null || next === prev) return
       if (typeof next !== 'number') return
+
+      // LAST SECOND: use last sampled remaining for the bidder (turn may already advance)
+      const actorId =
+        typeof lastBidderId === 'string' && lastBidderId
+          ? lastBidderId
+          : onlineGame.view?.clock?.currentTurnPlayerId
+      if (actorId && lastKnownRemainingMs.has(actorId)) {
+        const ms = lastKnownRemainingMs.get(actorId)!
+        lastSecondBid.value = ms > 0 && ms <= LAST_SECOND_MS
+      } else {
+        // Fallback: sample active turn now (best-effort if actor still current)
+        sampleTurnClockRemaining()
+        const clock = onlineGame.view?.clock
+        if (clock?.currentTurnPlayerId) {
+          const rem = remainingForPlayer(
+            clock,
+            clock.currentTurnPlayerId,
+            Date.now(),
+          )
+          lastSecondBid.value =
+            rem.totalMs > 0 && rem.totalMs <= LAST_SECOND_MS
+        } else {
+          lastSecondBid.value = false
+        }
+      }
+
       const previous = typeof prev === 'number' ? prev : null
       const raise: RaiseClassification = classifyRaise(previous, next)
       const intensity = raiseIntensityFromTier(raise)
@@ -677,10 +751,32 @@ export function useGameSession() {
     () => room.value?.roomCode ?? null,
     (code, prevCode) => {
       if (code === prevCode) return
+      resetCoyoteDramaSession()
+      lastSecondBid.value = false
+      lastKnownRemainingMs.clear()
       dramaDeduper.clear()
       prevBidForFx = undefined
       lastBidFxRound = null
     },
+  )
+
+  // D3: sample turn remaining while an online timed clock is live
+  watch(
+    () =>
+      [
+        isOnline.value,
+        onlineGame.view?.clock?.currentTurnPlayerId ?? null,
+        onlineGame.view?.clock?.turnStartedAt ?? null,
+        pendingResult.value != null,
+      ] as const,
+    ([online, turnPlayer, startedAt, inResult]) => {
+      if (online && turnPlayer && startedAt != null && !inResult) {
+        startClockSampling()
+      } else {
+        stopClockSampling()
+      }
+    },
+    { immediate: true },
   )
 
   // Drop bid cut-in immediately when coyote starts

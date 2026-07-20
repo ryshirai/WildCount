@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Result screen after game-side card reveal.
+ * Result screen after game-side card reveal (D3: hold + rare tags + once-only).
  * Focus: verdict + calculation steps (cards are a static recap).
  */
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
@@ -19,13 +19,24 @@ import RevealCardTile from '@/components/game/RevealCardTile.vue'
 import { allowLocalPlay, allowUiMock } from '@/config/runtime'
 import type { ResultMock } from '@/types/game'
 import {
+  coyoteChallengeKey,
+  getCoyoteDramaContext,
+  getCoyoteSequenceDeduper,
+  markResultSequencePlayed,
+} from '@/utils/coyoteDramaContext'
+import {
   classifyMargin,
+  classifyRareTags,
   confettiDensityFor,
   isExtremeNumber,
   marginChipLabel,
+  preSlamHoldMs,
+  rareTagLabel,
+  resultSequenceEventId,
   verdictDetailFor,
   verdictTitleFor,
   type MarginTier,
+  type RareTag,
 } from '@/utils/resultDrama'
 
 const router = useRouter()
@@ -86,6 +97,48 @@ const eliminated = computed(
 
 const selfIsLoser = computed(() => result.value?.selfIsLoser === true)
 
+/** D3 rare tags from public result + frozen COYOTE context */
+const rareTags = computed<RareTag[]>(() => {
+  const r = result.value
+  if (!r) return []
+  const ctx = getCoyoteDramaContext()
+  const key = coyoteChallengeKey({
+    round: r.round,
+    bidValue: r.bidValue,
+    challengerName: r.challengerName,
+    finalTotal: r.finalTotal,
+  })
+  const match = ctx && ctx.challengeKey === key
+  return classifyRareTags({
+    finalTotal: r.finalTotal,
+    bidValue: r.bidValue,
+    cards: r.cards,
+    livesAfter: r.livesAfter,
+    eliminated: eliminated.value,
+    lastSecondBid: match ? ctx.lastSecondBid : false,
+    roundBidCount: match
+      ? ctx.roundBidCount
+      : (isOnline.value
+          ? onlineGame.gameView?.roundBidCount
+          : undefined) ?? null,
+  })
+})
+
+/** Prefer English rare tags; fall back to Japanese margin chip when none */
+const showJapaneseDramaChip = computed(() => {
+  if (!dramaChip.value) return false
+  // PERFECT/CLUTCH already cover exact/clutch
+  if (rareTags.value.includes('perfect') || rareTags.value.includes('clutch')) {
+    return false
+  }
+  return true
+})
+
+const hasWildReversal = computed(() => rareTags.value.includes('wild_reversal'))
+const hasMaxHeat = computed(() => rareTags.value.includes('max_heat'))
+const hasSurvived = computed(() => rareTags.value.includes('survived'))
+const hasLastSecond = computed(() => rareTags.value.includes('last_second'))
+
 const verdictTitle = computed(() => {
   if (!result.value) return ''
   return verdictTitleFor({
@@ -118,9 +171,13 @@ const showConfetti = ref(false)
 const totalRevealDone = ref(false)
 /** Full-screen vignette flash on verdict */
 const showVignette = ref(false)
+/** D3: hold beat after calc before slam */
+const holdingBeforeSlam = ref(false)
 
 let stepTimers: ReturnType<typeof setTimeout>[] = []
+let holdTimer: ReturnType<typeof setTimeout> | null = null
 let countRaf = 0
+const resultDeduper = getCoyoteSequenceDeduper()
 
 const STEP_INTERVAL_MS = 480
 const STEP_START_MS = 220
@@ -134,9 +191,29 @@ const countUpMs = computed(() =>
     : COUNT_UP_MS_BASE,
 )
 
+function prefersReducedMotion(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  )
+}
+
+function isTabHidden(): boolean {
+  return typeof document !== 'undefined' && document.visibilityState === 'hidden'
+}
+
+function clearHoldTimer() {
+  if (holdTimer != null) {
+    clearTimeout(holdTimer)
+    holdTimer = null
+  }
+  holdingBeforeSlam.value = false
+}
+
 function clearStepTimers() {
   for (const t of stepTimers) clearTimeout(t)
   stepTimers = []
+  clearHoldTimer()
   if (countRaf) {
     cancelAnimationFrame(countRaf)
     countRaf = 0
@@ -144,9 +221,7 @@ function clearStepTimers() {
 }
 
 function playVerdictSfx() {
-  if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
-    return
-  }
+  if (isTabHidden()) return
   playSfx('result_slam')
   // Self-centric win/lose from public selfIsLoser; no private hand info
   const lose = selfIsLoser.value
@@ -156,13 +231,25 @@ function playVerdictSfx() {
   }, 120)
 }
 
+/** Jump to final total + life UI (skip / remount / hidden). */
+function snapToFinalVerdict(playSfxOnReveal = false) {
+  clearStepTimers()
+  const r = result.value
+  if (!r) return
+  activeStepIndex.value = r.calcSteps.length
+  calcDone.value = true
+  displayTotal.value = r.finalTotal
+  totalRevealDone.value = true
+  showConfetti.value = true
+  showVignette.value = true
+  holdingBeforeSlam.value = false
+  if (playSfxOnReveal) playVerdictSfx()
+}
+
 function animateTotalTo(target: number) {
   if (countRaf) cancelAnimationFrame(countRaf)
   totalRevealDone.value = false
-  const prefersReduce =
-    typeof window !== 'undefined' &&
-    window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  if (prefersReduce) {
+  if (prefersReducedMotion()) {
     displayTotal.value = target
     totalRevealDone.value = true
     showConfetti.value = true
@@ -198,7 +285,22 @@ function onCalcDone() {
   calcDone.value = true
   const r = result.value
   if (!r) return
-  animateTotalTo(r.finalTotal)
+
+  // Tab hidden or reduced motion: skip hold, still slam quickly
+  if (isTabHidden() || prefersReducedMotion()) {
+    animateTotalTo(r.finalTotal)
+    return
+  }
+
+  // Plan §4.7: ~500ms hold (longer for clutch/exact) before total slam
+  clearHoldTimer()
+  holdingBeforeSlam.value = true
+  const holdMs = preSlamHoldMs(marginTier.value)
+  holdTimer = setTimeout(() => {
+    holdTimer = null
+    holdingBeforeSlam.value = false
+    animateTotalTo(r.finalTotal)
+  }, holdMs)
 }
 
 function runCalcSequence() {
@@ -209,9 +311,38 @@ function runCalcSequence() {
   showVignette.value = false
   totalRevealDone.value = false
   displayTotal.value = null
+  holdingBeforeSlam.value = false
 
   const r = result.value
   if (!r) return
+
+  const challengeKey = coyoteChallengeKey({
+    round: r.round,
+    bidValue: r.bidValue,
+    challengerName: r.challengerName,
+    finalTotal: r.finalTotal,
+  })
+  const seqId = resultSequenceEventId({
+    round: r.round,
+    bidValue: r.bidValue,
+    finalTotal: r.finalTotal,
+    challengerName: r.challengerName,
+    lifeLostName: r.lifeLostName,
+  })
+
+  // Same challenge already finished result sequence → final state only
+  if (!resultDeduper.tryConsume(seqId)) {
+    snapToFinalVerdict(false)
+    markResultSequencePlayed(challengeKey)
+    return
+  }
+  markResultSequencePlayed(challengeKey)
+
+  // Hidden tab: converge immediately
+  if (isTabHidden()) {
+    snapToFinalVerdict(false)
+    return
+  }
 
   const steps = r.calcSteps
   if (steps.length === 0) {
@@ -241,18 +372,18 @@ function stepClass(i: number) {
 }
 
 function skipCalc() {
-  clearStepTimers()
-  if (result.value) {
-    activeStepIndex.value = result.value.calcSteps.length
-    onCalcDone()
-  }
+  // Skip → correct final total, win/loss, life (plan D3 acceptance)
+  snapToFinalVerdict(true)
 }
 
 /** Self-perspective: did "あなた" survive / win the challenge? */
 const confettiPalette = computed(() => {
   if (localMeta.value.isGameOver) return 'gold' as const
   if (!result.value) return 'mixed' as const
-  if (marginTier.value === 'exact') return 'mixed' as const
+  if (marginTier.value === 'exact' || rareTags.value.includes('perfect')) {
+    return 'mixed' as const
+  }
+  if (hasWildReversal.value) return 'mixed' as const
   // Challenge success → teal; bidder held → gold
   return result.value.bidderWins ? ('gold' as const) : ('teal' as const)
 })
@@ -261,6 +392,7 @@ const confettiDensity = computed(() =>
   confettiDensityFor({
     isGameOver: localMeta.value.isGameOver,
     tier: marginTier.value,
+    rareTags: rareTags.value,
   }),
 )
 
@@ -497,14 +629,30 @@ async function playAgain() {
           class="font-display font-bold text-gold-200"
           :class="[
             localMeta.isGameOver ? 'text-xl sm:text-2xl' : 'text-2xl sm:text-3xl',
-            totalRevealDone && marginTier === 'exact' ? 'total-slam total-slam--exact' : '',
+            totalRevealDone && (marginTier === 'exact' || rareTags.includes('perfect'))
+              ? 'total-slam total-slam--exact total-slam--perfect'
+              : '',
             totalRevealDone && marginTier === 'clutch' ? 'total-slam--clutch' : '',
+            totalRevealDone && hasWildReversal ? 'total-slam--reversal' : '',
+            totalRevealDone && hasMaxHeat ? 'total-slam--max-heat' : '',
           ]"
         >
           {{ verdictTitle }}
         </h2>
+        <!-- D3 rare tags (PERFECT / CLUTCH / WILD REVERSAL / …) -->
         <div
-          v-if="totalRevealDone && dramaChip"
+          v-if="totalRevealDone && rareTags.length"
+          class="mt-2 flex flex-wrap items-center justify-center gap-1.5"
+        >
+          <span
+            v-for="tag in rareTags"
+            :key="tag"
+            class="rare-tag-chip"
+            :class="`rare-tag-chip--${tag}`"
+          >{{ rareTagLabel(tag) }}</span>
+        </div>
+        <div
+          v-else-if="totalRevealDone && showJapaneseDramaChip && dramaChip"
           class="mt-2 flex justify-center"
         >
           <span
@@ -512,6 +660,13 @@ async function playAgain() {
             :class="`drama-tier-chip--${marginTier}`"
           >{{ dramaChip }}</span>
         </div>
+        <p
+          v-if="holdingBeforeSlam"
+          class="mt-2 text-[11px] tracking-wider text-sand-dim/80"
+          aria-hidden="true"
+        >
+          …
+        </p>
         <p class="mt-2 text-sm text-sand-dim">{{ verdictDetail }}</p>
 
         <div class="mt-5 flex flex-wrap items-center justify-center gap-4 sm:gap-8">
@@ -561,13 +716,19 @@ async function playAgain() {
             <span
               class="font-display text-4xl font-bold tabular-nums text-gold-100 transition-opacity duration-300"
               :class="[
-                calcDone ? 'opacity-100' : 'opacity-40',
+                calcDone || holdingBeforeSlam ? 'opacity-100' : 'opacity-40',
+                holdingBeforeSlam ? 'total-hold-pulse' : '',
                 totalRevealDone ? 'total-slam' : '',
-                totalRevealDone && marginTier === 'exact' ? 'total-slam--exact' : '',
+                totalRevealDone && (marginTier === 'exact' || rareTags.includes('perfect'))
+                  ? 'total-slam--exact total-slam--perfect'
+                  : '',
                 totalRevealDone && marginTier === 'clutch' ? 'total-slam--clutch' : '',
+                totalRevealDone && hasWildReversal ? 'total-slam--reversal' : '',
+                totalRevealDone && hasMaxHeat ? 'total-slam--max-heat' : '',
+                totalRevealDone && hasLastSecond ? 'total-slam--last-second' : '',
               ]"
             >
-              {{ displayTotal ?? '—' }}
+              {{ displayTotal ?? (holdingBeforeSlam ? '…' : '—') }}
             </span>
           </div>
         </div>
@@ -579,6 +740,8 @@ async function playAgain() {
           :class="[
             eliminated ? 'life-lost-panel--ko' : '',
             lifeLossAmount > 1 ? 'life-lost-panel--double' : '',
+            hasSurvived ? 'life-lost-panel--survived' : '',
+            hasWildReversal ? 'life-lost-panel--reversal' : '',
           ]"
           role="status"
         >
@@ -619,6 +782,13 @@ async function playAgain() {
               aria-hidden="true"
               >♥</span
             >
+            <!-- SURVIVED: remaining life re-lights -->
+            <span
+              v-if="hasSurvived"
+              class="heart-survive life-lost-heart text-4xl leading-none text-rose-300 sm:text-5xl"
+              aria-hidden="true"
+              >♥</span
+            >
           </div>
 
           <p class="mt-3 text-sm text-red-200/90 sm:text-base">
@@ -630,23 +800,42 @@ async function playAgain() {
                 class="ml-1.5 rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-200"
                 >ダブル</span
               >
+              <span
+                v-if="hasSurvived"
+                class="ml-1.5 rounded-full bg-teal-soft/20 px-2 py-0.5 text-[10px] font-bold text-teal-soft"
+                >残り 1</span
+              >
             </template>
           </p>
         </div>
       </section>
 
       <!-- Calculation steps (main animation on this screen) -->
-      <section class="panel mb-5 p-4 sm:mb-6 sm:p-5">
+      <section
+        class="panel mb-5 p-4 sm:mb-6 sm:p-5"
+        :class="hasWildReversal && totalRevealDone ? 'result-calc--reversal' : ''"
+      >
         <h3 class="mb-1 text-sm font-semibold text-gold-200">合計の出し方</h3>
         <p class="mb-3 text-[11px] text-sand-dim sm:mb-4">
           特殊札の効果を、決まった順番で適用した結果です
+          <span v-if="hasWildReversal" class="text-violet-300"> · 特殊札で勝敗が逆転</span>
         </p>
         <ol class="space-y-2.5 sm:space-y-3">
           <li
             v-for="(step, i) in result.calcSteps"
             :key="step.id"
             class="calc-step"
-            :class="stepClass(i)"
+            :class="[
+              stepClass(i),
+              hasWildReversal &&
+              (step.id === 'double' ||
+                step.id === 'half' ||
+                step.id === 'multiplier' ||
+                step.id === 'max_to_zero') &&
+              i <= activeStepIndex
+                ? 'calc-step--special-hit'
+                : '',
+            ]"
           >
             <span class="calc-step__badge">
               <template v-if="i < activeStepIndex">✓</template>

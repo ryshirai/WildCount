@@ -1,11 +1,19 @@
 import { computed, onUnmounted, ref, watch, type ComputedRef, type Ref } from 'vue'
 import type { Router } from 'vue-router'
-import { playSfx } from '@/audio'
+import { playSfx, silenceSfx } from '@/audio'
 import type { ResultViewModel } from '@/mappers/toResultView'
 import type { RevealedCard } from '@/types/game'
+import { coyoteCutInEventId } from '@/utils/bidDrama'
+import {
+  coyoteChallengeKey,
+  freezeCoyoteDramaContext,
+  getCoyoteSequenceDeduper,
+  markCoyoteSequencePlayed,
+} from '@/utils/coyoteDramaContext'
 import {
   cardRevealStaggerMs,
   classifyMargin,
+  COYOTE_SILENCE_MS,
 } from '@/utils/resultDrama'
 
 const CARD_STAGGER_MS_DEFAULT = 100
@@ -49,11 +57,29 @@ export interface UseChallengeRevealOptions {
     bidderAvatarSrc?: string
     bidValue: number
   }
+  /**
+   * Public consecutive bids when COYOTE fires (HEAT freeze).
+   * Prefer live gameView.roundBidCount.
+   */
+  roundBidCount?: ComputedRef<number>
+  /** Client flag: last bid landed with ≤1s remaining. */
+  lastSecondBid?: ComputedRef<boolean>
+}
+
+function prefersReducedMotion(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  )
+}
+
+function isTabHidden(): boolean {
+  return typeof document !== 'undefined' && document.visibilityState === 'hidden'
 }
 
 /**
- * Post-challenge UI FSM: coyote cut-in → staggered card reveal → ResultView.
- * Behavior preserved from GameView (R3 structural extract).
+ * Post-challenge UI FSM (D3): silence → coyote cut-in → staggered cards → Result.
+ * Same challenge identity plays once (dedupe); skip / hidden / remount converge.
  */
 export function useChallengeReveal(options: UseChallengeRevealOptions) {
   const {
@@ -64,7 +90,12 @@ export function useChallengeReveal(options: UseChallengeRevealOptions) {
     router,
     mockResultCards,
     mockResultMeta,
+    roundBidCount,
+    lastSecondBid,
   } = options
+
+  /** Module-level: survives GameView remount / reconnect within session */
+  const deduper = getCoyoteSequenceDeduper()
 
   const cutInVisible = ref(false)
   const cutInPlayed = ref(false)
@@ -76,6 +107,7 @@ export function useChallengeReveal(options: UseChallengeRevealOptions) {
   const mockRevealCards = ref<RevealedCard[] | null>(null)
 
   let cardTimers: ReturnType<typeof setTimeout>[] = []
+  let silenceTimer: ReturnType<typeof setTimeout> | null = null
 
   const cutInPayload = computed(() => {
     if (mockCutIn.value) return mockCutIn.value
@@ -126,6 +158,13 @@ export function useChallengeReveal(options: UseChallengeRevealOptions) {
     }
   })
 
+  function clearSilenceTimer() {
+    if (silenceTimer != null) {
+      clearTimeout(silenceTimer)
+      silenceTimer = null
+    }
+  }
+
   function clearCardTimers() {
     for (const t of cardTimers) clearTimeout(t)
     cardTimers = []
@@ -148,6 +187,12 @@ export function useChallengeReveal(options: UseChallengeRevealOptions) {
     cardsRevealDone.value = false
     const n = cards.length
     if (n === 0) {
+      cardsRevealDone.value = true
+      return
+    }
+    // Reduced motion / hidden: jump to final flips
+    if (prefersReducedMotion() || isTabHidden()) {
+      revealedCount.value = n
       cardsRevealDone.value = true
       return
     }
@@ -177,7 +222,19 @@ export function useChallengeReveal(options: UseChallengeRevealOptions) {
     cardsRevealDone.value = true
   }
 
+  /** Safe final table state (reconnect / remount / already-played sequence). */
+  function snapToCardsRevealed() {
+    clearSilenceTimer()
+    clearCardTimers()
+    cutInVisible.value = false
+    cutInPlayed.value = true
+    mockCutIn.value = null
+    revealedCount.value = revealCards.value.length
+    cardsRevealDone.value = true
+  }
+
   function resetPostChallengeUi() {
+    clearSilenceTimer()
     clearCardTimers()
     cutInVisible.value = false
     cutInPlayed.value = false
@@ -187,22 +244,98 @@ export function useChallengeReveal(options: UseChallengeRevealOptions) {
     mockCutIn.value = null
   }
 
+  function freezeFromPending(r: ResultViewModel) {
+    const key = coyoteChallengeKey({
+      round: r.round,
+      bidValue: r.bidValue,
+      challengerName: r.challengerName,
+      finalTotal: r.finalTotal,
+    })
+    freezeCoyoteDramaContext({
+      challengeKey: key,
+      round: r.round,
+      bidValue: r.bidValue,
+      finalTotal: r.finalTotal,
+      roundBidCount: roundBidCount?.value ?? 0,
+      lastSecondBid: lastSecondBid?.value === true,
+    })
+    return key
+  }
+
+  function showCutInAndPlaySfx() {
+    cutInVisible.value = true
+    if (!isTabHidden()) {
+      playSfx('coyote')
+    }
+  }
+
+  /**
+   * Start silence → cut-in for a new challenge identity.
+   * Returns false if this identity was already consumed (caller should snap).
+   */
+  function beginCoyoteSequence(opts: {
+    eventId: string
+    challengeKey: string
+  }): boolean {
+    if (!deduper.tryConsume(opts.eventId)) {
+      markCoyoteSequencePlayed(opts.challengeKey)
+      return false
+    }
+    markCoyoteSequencePlayed(opts.challengeKey)
+    cutInPlayed.value = true
+    revealedCount.value = 0
+    cardsRevealDone.value = false
+
+    // Tab hidden: no cut-in animation; converge to cards done
+    if (isTabHidden()) {
+      cutInVisible.value = false
+      skipCardReveal()
+      return true
+    }
+
+    // Reduced motion: skip silence delay, still show short cut-in
+    if (prefersReducedMotion()) {
+      silenceSfx(0)
+      showCutInAndPlaySfx()
+      return true
+    }
+
+    // Plan §4.7: stop lower layers ~250ms then CoyoteCutIn
+    silenceSfx(COYOTE_SILENCE_MS)
+    clearSilenceTimer()
+    silenceTimer = setTimeout(() => {
+      silenceTimer = null
+      showCutInAndPlaySfx()
+    }, COYOTE_SILENCE_MS)
+    return true
+  }
+
   /** Fire cut-in only for a new challenge identity (not peer view broadcasts) */
   watch(
     () => {
       const r = pendingResult.value
       if (!r) return null
-      return `${r.round}:${r.bidValue}:${r.challengerName}:${r.finalTotal}`
+      return coyoteChallengeKey({
+        round: r.round,
+        bidValue: r.bidValue,
+        challengerName: r.challengerName,
+        finalTotal: r.finalTotal,
+      })
     },
     (key, prevKey) => {
       if (key && key !== prevKey) {
-        cutInVisible.value = true
-        cutInPlayed.value = true
-        revealedCount.value = 0
-        cardsRevealDone.value = false
-        // D2: COYOTE sting (public challenge only)
-        if (typeof document === 'undefined' || document.visibilityState !== 'hidden') {
-          playSfx('coyote')
+        const r = pendingResult.value
+        if (!r) return
+        freezeFromPending(r)
+        const eventId = coyoteCutInEventId({
+          round: r.round,
+          bidValue: r.bidValue,
+          challengerId: r.challengerName,
+        })
+        const started = beginCoyoteSequence({ eventId, challengeKey: key })
+        if (!started) {
+          // Already played this challenge (remount / reconnect)
+          snapToCardsRevealed()
         }
       }
       if (!key) {
@@ -215,13 +348,12 @@ export function useChallengeReveal(options: UseChallengeRevealOptions) {
   // D2: card flip ticks as reveal advances
   watch(revealedCount, (n, prev) => {
     if (typeof prev !== 'number' || n <= prev) return
-    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
-      return
-    }
+    if (isTabHidden()) return
     playSfx('card_flip')
   })
 
   function onCutInDone() {
+    clearSilenceTimer()
     cutInVisible.value = false
     mockCutIn.value = null
     // After impact: flip cards on the game table, then offer “結果を見る”
@@ -249,17 +381,55 @@ export function useChallengeReveal(options: UseChallengeRevealOptions) {
 
   /**
    * DEV mock: start cut-in → card flip → 結果を見る without a real engine.
-   * Uses mockResultCards when provided.
+   * Uses mockResultCards when provided. Re-previews always allowed.
    */
   function startMockChallenge(payload: MockCutInPayload) {
+    clearSilenceTimer()
+    clearCardTimers()
     mockRevealCards.value = mockResultCards ? [...mockResultCards] : []
     revealedCount.value = 0
     cardsRevealDone.value = false
+    cutInVisible.value = false
+    cutInPlayed.value = true
     mockCutIn.value = payload
-    playSfx('coyote')
+
+    const challengeKey = `mock:${payload.challengerName}:${payload.bidValue}`
+    const eventId = coyoteCutInEventId({
+      round: 0,
+      bidValue: payload.bidValue,
+      challengerId: `mock:${payload.challengerName}`,
+    })
+    freezeCoyoteDramaContext({
+      challengeKey,
+      round: 0,
+      bidValue: payload.bidValue,
+      finalTotal: 0,
+      roundBidCount: roundBidCount?.value ?? 0,
+      lastSecondBid: lastSecondBid?.value === true,
+    })
+    // Allow re-trigger from DEV mock button
+    deduper.forget(eventId)
+    deduper.tryConsume(eventId)
+    markCoyoteSequencePlayed(challengeKey)
+
+    if (isTabHidden()) {
+      snapToCardsRevealed()
+      return
+    }
+    if (prefersReducedMotion()) {
+      silenceSfx(0)
+      showCutInAndPlaySfx()
+      return
+    }
+    silenceSfx(COYOTE_SILENCE_MS)
+    silenceTimer = setTimeout(() => {
+      silenceTimer = null
+      showCutInAndPlaySfx()
+    }, COYOTE_SILENCE_MS)
   }
 
   onUnmounted(() => {
+    clearSilenceTimer()
     clearCardTimers()
   })
 
@@ -279,5 +449,6 @@ export function useChallengeReveal(options: UseChallengeRevealOptions) {
     startMockChallenge,
     resetPostChallengeUi,
     clearCardTimers,
+    snapToCardsRevealed,
   }
 }

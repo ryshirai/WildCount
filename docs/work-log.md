@@ -3694,3 +3694,47 @@
 1. D3: COYOTE 解放シーケンスとレア決着のタイミング統合
 2. 実プレイで音量・ピッチ・クールダウンを調整
 3. D4: 触覚（初期 OFF）
+
+## 2026-07-20 — ドーパミン D3（COYOTE シーケンス + レア決着）
+
+### 背景・目的
+- `docs/gameplay-dopamine-plan.md` の D3 を実装し、COYOTE 発動から合計 slam・勝敗までを一本の解放シーケンスにする
+- PERFECT / CLUTCH / WILD REVERSAL / LAST SECOND / SURVIVED / MAX HEAT を公開情報のみで接続
+- 同一チャレンジの二重再生を防ぎ、スキップ・再接続・タブ非表示では最終状態へ収束させる
+
+### 実施内容
+1. **レア分類** — `classifyRareTags` / `isWildReversal` / `naiveNumberSum` / `preSlamHoldMs` 等（`resultDrama.ts`）
+2. **セッション凍結** — `coyoteDramaContext.ts`（roundBidCount・LAST SECOND・sequence flags + module deduper）
+3. **COYOTE FSM** — `useChallengeReveal`: silence 250ms → cut-in → 札 stagger。dedupe で一度だけ。hidden / remount は snap
+4. **SFX** — `silenceSfx` で下位音を duck（COYOTE 前）
+5. **LAST SECOND** — オンライン時計を 200ms サンプルし、宣言着弾時の残り ≤1s を記録
+6. **結果** — `ResultView`: calc 後 hold（exact/clutch 長め）→ slam。レアチップ・confetti 強化・SURVIVED ハート再点灯。skip は最終合計/勝敗/ライフへ
+7. **ヘルプ / docs** — helpContent・plan・backlog 追随
+8. テスト — レア境界を `resultDrama.test.ts` に追加
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/utils/resultDrama.ts` | レアタグ・尺・confetti 拡張 |
+| `src/utils/coyoteDramaContext.ts` | セッション凍結（新規） |
+| `src/composables/useChallengeReveal.ts` | silence / dedupe / snap |
+| `src/composables/useGameSession.ts` | LAST SECOND サンプル・reset |
+| `src/views/ResultView.vue` | hold / レア UI / once-only |
+| `src/audio/sfxEngine.ts` | `silence()` |
+| `src/styles/main.css` | rare-tag / slam variants |
+| `tests/utils/resultDrama.test.ts` | D3 境界 |
+| `docs/gameplay-dopamine-plan.md` / `backlog.md` | D3 完了 |
+
+### 明示的にやっていないこと
+- 触覚（D4）
+- 演出プリセット（ひかえめ / WILD）UI
+- LAST SECOND のサーバ同期（クライアント時計サンプルのみ）
+- ルールエンジン / Worker への演出フィールド追加
+
+### 確認結果
+- `npm test` 244 緑 / `typecheck` / `lint` / `build` 成功
+
+### 次に考えられる作業
+1. D4: 触覚（初期 OFF）
+2. 実プレイで hold 尺・silence・レア閾値を調整
+3. LAST SECOND をサーバ snapshot に載せるか検討

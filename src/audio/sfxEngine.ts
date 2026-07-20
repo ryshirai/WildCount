@@ -209,6 +209,23 @@ export class SfxEngine {
   }
 
   /**
+   * D3: duck lower-priority voices for ~silenceMs before COYOTE cut-in.
+   * Does not schedule audio nodes; only raises duck gate (priority 1).
+   */
+  silence(ms = 250): void {
+    if (!this.policy.enabled) return
+    const until = this.now() + Math.max(0, ms)
+    if (
+      until >= this.policy.duckUntilMs ||
+      this.policy.duckPriority == null ||
+      this.policy.duckPriority > 1
+    ) {
+      this.policy.duckUntilMs = until
+      this.policy.duckPriority = 1
+    }
+  }
+
+  /**
    * Play a catalog SFX. Returns whether audio was scheduled.
    * Never throws; failures are silent no-ops.
    */
@@ -285,4 +302,9 @@ export function __setSfxEngineForTests(engine: SfxEngine | null): void {
 /** Convenience. */
 export function playSfx(id: SfxId, opts?: PlaySfxOptions): SfxPlayResult {
   return getSfxEngine().play(id, opts)
+}
+
+/** D3: duck lower layers before COYOTE. */
+export function silenceSfx(ms = 250): void {
+  getSfxEngine().silence(ms)
 }

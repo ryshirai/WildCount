@@ -944,6 +944,17 @@
   .reveal-seat--self,
   .result-cards-pulse,
   .drama-tier-chip,
+  .rare-tag-chip,
+  .total-hold-pulse,
+  .total-slam--perfect,
+  .total-slam--reversal,
+  .total-slam--max-heat,
+  .total-slam--last-second,
+  .heart-survive,
+  .life-lost-panel--survived,
+  .life-lost-panel--reversal,
+  .result-calc--reversal,
+  .calc-step--special-hit,
   .bid-cutin--in,
   .bid-cutin__slash,
   .bid-cutin__card,
@@ -2307,6 +2318,74 @@
   }
 }
 
+/* D3 rare tags */
+.rare-tag-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  padding: 0.22rem 0.7rem;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  animation: drama-tier-pop 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.rare-tag-chip--perfect {
+  color: #fffef5;
+  background: linear-gradient(135deg, rgba(245, 230, 184, 0.35), rgba(201, 168, 76, 0.25));
+  border: 1px solid rgba(255, 250, 230, 0.65);
+  box-shadow: 0 0 22px rgba(245, 230, 184, 0.4);
+}
+
+.rare-tag-chip--clutch {
+  color: #fecaca;
+  background: rgba(248, 113, 113, 0.18);
+  border: 1px solid rgba(252, 165, 165, 0.5);
+}
+
+.rare-tag-chip--wild_reversal {
+  color: #e9d5ff;
+  background: linear-gradient(120deg, rgba(139, 92, 246, 0.28), rgba(45, 212, 191, 0.18));
+  border: 1px solid rgba(167, 139, 250, 0.55);
+  box-shadow: 0 0 18px rgba(139, 92, 246, 0.3);
+}
+
+.rare-tag-chip--last_second {
+  color: #fde68a;
+  background: rgba(245, 158, 11, 0.2);
+  border: 1px solid rgba(251, 191, 36, 0.55);
+}
+
+.rare-tag-chip--survived {
+  color: #99f6e4;
+  background: rgba(45, 212, 191, 0.16);
+  border: 1px solid rgba(94, 207, 207, 0.5);
+}
+
+.rare-tag-chip--max_heat {
+  color: #ffedd5;
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.35), rgba(220, 38, 38, 0.28));
+  border: 1px solid rgba(251, 146, 60, 0.65);
+  box-shadow: 0 0 20px rgba(249, 115, 22, 0.35);
+}
+
+/* Pre-slam hold pulse */
+@keyframes total-hold-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+    filter: brightness(1);
+  }
+  50% {
+    opacity: 0.85;
+    filter: brightness(1.25);
+  }
+}
+
+.total-hold-pulse {
+  animation: total-hold-pulse 0.7s ease-in-out infinite;
+}
+
 .total-slam--exact {
   animation: total-slam-exact 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
   text-shadow:
@@ -2314,8 +2393,117 @@
     0 0 48px rgba(201, 168, 76, 0.45);
 }
 
+.total-slam--perfect {
+  text-shadow:
+    0 0 28px rgba(255, 250, 230, 0.9),
+    0 0 56px rgba(201, 168, 76, 0.55),
+    0 0 4px rgba(255, 255, 255, 0.5);
+}
+
 .total-slam--clutch {
   animation: total-slam-clutch 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes total-slam-reversal {
+  0% {
+    transform: scale(0.75);
+    filter: hue-rotate(80deg) brightness(1.5);
+    color: #c4b5fd;
+  }
+  45% {
+    transform: scale(1.16);
+    filter: hue-rotate(0deg) brightness(1.25);
+  }
+  100% {
+    transform: scale(1);
+    filter: none;
+  }
+}
+
+.total-slam--reversal {
+  animation: total-slam-reversal 0.75s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes total-slam-max-heat {
+  0% {
+    transform: scale(0.55);
+    filter: brightness(2) saturate(1.4);
+  }
+  40% {
+    transform: scale(1.22);
+  }
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+}
+
+.total-slam--max-heat {
+  animation: total-slam-max-heat 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+  text-shadow:
+    0 0 20px rgba(249, 115, 22, 0.7),
+    0 0 40px rgba(220, 38, 38, 0.4);
+}
+
+@keyframes total-slam-last-second {
+  0% {
+    transform: scale(0.8) rotate(-2deg);
+  }
+  30% {
+    transform: scale(1.2) rotate(2deg);
+  }
+  100% {
+    transform: scale(1) rotate(0);
+  }
+}
+
+.total-slam--last-second {
+  animation: total-slam-last-second 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes heart-survive {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+    filter: grayscale(1);
+  }
+  50% {
+    transform: scale(1.35);
+    opacity: 1;
+    filter: brightness(1.4);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+    filter: none;
+  }
+}
+
+.heart-survive {
+  animation: heart-survive 0.85s 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;
+  display: inline-block;
+}
+
+.life-lost-panel--survived {
+  border-color: rgba(94, 207, 207, 0.45);
+  box-shadow: 0 0 32px rgba(42, 138, 138, 0.2);
+}
+
+.life-lost-panel--reversal {
+  border-color: rgba(167, 139, 250, 0.45);
+}
+
+.result-calc--reversal {
+  box-shadow: inset 0 0 0 1px rgba(139, 92, 246, 0.2);
+}
+
+.calc-step--special-hit {
+  border-radius: 0.75rem;
+  background: linear-gradient(
+    90deg,
+    rgba(139, 92, 246, 0.12),
+    transparent 70%
+  );
 }
 
 @keyframes total-slam-exact {

@@ -87,7 +87,7 @@
 | **UX-14** | **done** | 効果音（入力 / 宣言 / 手番 / 特殊能力 / コヨーテ / 勝敗）+ 任意トグル | D2 完了。`src/audio/*` 手続き音 + ミュート/音量 |
 | UX-15 | planned | 触覚フィードバック（vibration） | `gameplay-dopamine-plan.md` D4。モバイル、OFF デフォルト |
 | UX-16 | idea | 席ごと残り持ち時間の常時表示 | 中央時計は UX-13 済み。席 UI へのミラーは未 |
-| UX-17 | planned | ゲーム中ドーパミン演出（HEAT / RALLY / RAISE / COYOTE 解放） | 正本: `docs/gameplay-dopamine-plan.md`。**D0·D1·D2 済**。次は D3（COYOTE シーケンス） |
+| UX-17 | planned | ゲーム中ドーパミン演出（HEAT / RALLY / RAISE / COYOTE 解放） | 正本: `docs/gameplay-dopamine-plan.md`。**D0–D3 済**。次は D4（触覚） |
 
 ---
 
@@ -141,4 +141,4 @@
 3. Phase 1 スライスの ID（P1-x）は `phase1-multiplayer.md` §10 と揃える  
 4. エクストラルールの ID（ER-x）は `docs/extra-rules.md` §4 と揃える  
 
-最終更新: 2026-07-20（ドーパミン D2: SFX 基盤 + イベント接続）
+最終更新: 2026-07-20（ドーパミン D3: COYOTE シーケンス + レア決着）

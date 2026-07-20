@@ -2,7 +2,7 @@
 
 作成日: 2026-07-20
 
-状態: 計画（D0・D1・D2 完了）
+状態: 計画（D0・D1・D2・D3 完了）
 
 関連: `docs/design-polish-plan.md` / `docs/ui-mock.md` / `docs/ui-redesign.md` / `docs/backlog.md`
 
@@ -265,12 +265,22 @@ COYOTE / 結果
 - 音だけで非公開情報を伝えない
 - 同時イベントでクリップや過大音量が発生しない
 
-### D3 — COYOTE とレア決着
+### D3 — COYOTE とレア決着 ✅
 
 1. 無音、公開、ホールド、合計 slam のタイミングを統合
 2. PERFECT / CLUTCH / WILD REVERSAL / LAST SECOND を接続
 3. スキップ、再接続、途中 view 更新の収束を実装
 4. 既存 result drama / confetti と強度を統合
+
+実装:
+
+- レア分類・尺定数: `src/utils/resultDrama.ts`（`classifyRareTags` / `isWildReversal` / `preSlamHoldMs` 等）
+- セッション凍結: `src/utils/coyoteDramaContext.ts`（LAST SECOND / roundBidCount / sequence flags）
+- 無音 → cut-in → 札: `useChallengeReveal` + `silenceSfx`（`COYOTE_SILENCE_MS`）
+- 結果 hold → slam: `ResultView`（exact/clutch は長め hold）
+- 二重再生防止: `coyoteCutInEventId` / `resultSequenceEventId` + shared deduper
+- スキップ・タブ非表示・再マウント → 最終状態へ snap
+- テスト: `tests/utils/resultDrama.test.ts`（レア境界）
 
 完了条件:
 

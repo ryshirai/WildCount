@@ -6,6 +6,7 @@ export {
   SfxEngine,
   getSfxEngine,
   playSfx,
+  silenceSfx,
   __setSfxEngineForTests,
   type SfxPlayResult,
   type SfxEngineOptions,

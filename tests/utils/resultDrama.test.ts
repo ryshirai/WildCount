@@ -2,10 +2,24 @@ import { describe, expect, it } from 'vitest'
 import {
   cardRevealStaggerMs,
   classifyMargin,
+  classifyRareTags,
   confettiDensityFor,
+  COYOTE_SILENCE_MS,
+  hasAffectingSpecials,
   isExtremeNumber,
+  isMaxHeat,
+  isSurvived,
+  isWildReversal,
+  LAST_SECOND_MS,
   marginChipLabel,
+  MAX_HEAT_BID_COUNT,
+  naiveNumberSum,
+  preSlamHoldMs,
+  PRE_SLAM_HOLD_CLUTCH_MS,
+  PRE_SLAM_HOLD_MS,
   raiseIntensity,
+  rareTagLabel,
+  resultSequenceEventId,
   shouldShowBidCutIn,
   verdictDetailFor,
   verdictTitleFor,
@@ -138,9 +152,152 @@ describe('isExtremeNumber / confetti / stagger', () => {
     expect(confettiDensityFor({ isGameOver: false, tier: 'clear' })).toBe('md')
   })
 
+  it('confetti density boosted by max heat rare tag', () => {
+    expect(
+      confettiDensityFor({
+        isGameOver: false,
+        tier: 'clear',
+        rareTags: ['max_heat'],
+      }),
+    ).toBe('lg')
+  })
+
   it('slower stagger for clutch/exact', () => {
     expect(cardRevealStaggerMs('exact')).toBe(130)
     expect(cardRevealStaggerMs('clutch')).toBe(130)
     expect(cardRevealStaggerMs('clear')).toBe(100)
+  })
+})
+
+describe('D3 rare tags / timing', () => {
+  it('timing constants are positive', () => {
+    expect(COYOTE_SILENCE_MS).toBe(250)
+    expect(PRE_SLAM_HOLD_MS).toBe(500)
+    expect(PRE_SLAM_HOLD_CLUTCH_MS).toBeGreaterThan(PRE_SLAM_HOLD_MS)
+    expect(LAST_SECOND_MS).toBe(1000)
+    expect(MAX_HEAT_BID_COUNT).toBe(9)
+  })
+
+  it('preSlamHoldMs longer for exact/clutch', () => {
+    expect(preSlamHoldMs('exact')).toBe(PRE_SLAM_HOLD_CLUTCH_MS)
+    expect(preSlamHoldMs('clutch')).toBe(PRE_SLAM_HOLD_CLUTCH_MS)
+    expect(preSlamHoldMs('clear')).toBe(PRE_SLAM_HOLD_MS)
+    expect(preSlamHoldMs('blowout')).toBe(PRE_SLAM_HOLD_MS)
+  })
+
+  it('naiveNumberSum ignores pure specials', () => {
+    expect(
+      naiveNumberSum([
+        { kind: 'number', value: 5 },
+        { kind: 'number', value: -2 },
+        { kind: 'double', value: null },
+        { kind: 'max_to_zero', value: null },
+        { kind: 'zero_mix', value: 0 },
+      ]),
+    ).toBe(3)
+  })
+
+  it('isWildReversal when specials flip win/loss', () => {
+    // naive 20 >= bid 18 → bidder would win; final 10 < 18 → bidder loses
+    expect(
+      isWildReversal({
+        cards: [
+          { kind: 'number', value: 20 },
+          { kind: 'half', value: null },
+        ],
+        bidValue: 18,
+        finalTotal: 10,
+      }),
+    ).toBe(true)
+
+    // No specials → never reversal
+    expect(
+      isWildReversal({
+        cards: [{ kind: 'number', value: 10 }],
+        bidValue: 12,
+        finalTotal: 10,
+      }),
+    ).toBe(false)
+
+    // Specials but same winner (naive 12 >= 10 and final 24 >= 10)
+    expect(
+      isWildReversal({
+        cards: [
+          { kind: 'number', value: 12 },
+          { kind: 'double', value: null },
+        ],
+        bidValue: 10,
+        finalTotal: 24,
+      }),
+    ).toBe(false)
+  })
+
+  it('hasAffectingSpecials detects double/half/max_to_zero only', () => {
+    expect(hasAffectingSpecials([{ kind: 'redraw' }])).toBe(false)
+    expect(hasAffectingSpecials([{ kind: 'double' }])).toBe(true)
+  })
+
+  it('isSurvived / isMaxHeat boundaries', () => {
+    expect(isSurvived(1, false)).toBe(true)
+    expect(isSurvived(1, true)).toBe(false)
+    expect(isSurvived(0)).toBe(false)
+    expect(isSurvived(2)).toBe(false)
+    expect(isMaxHeat(MAX_HEAT_BID_COUNT)).toBe(true)
+    expect(isMaxHeat(MAX_HEAT_BID_COUNT - 1)).toBe(false)
+    expect(isMaxHeat(null)).toBe(false)
+  })
+
+  it('classifyRareTags stacks perfect + context tags', () => {
+    const tags = classifyRareTags({
+      finalTotal: 18,
+      bidValue: 18,
+      cards: [
+        { kind: 'number', value: 20 },
+        { kind: 'half', value: null },
+      ],
+      livesAfter: 1,
+      eliminated: false,
+      lastSecondBid: true,
+      roundBidCount: 12,
+    })
+    // exact → perfect; wild_reversal (20>=18 vs 18>=18? wait final 18 = bid, bidder wins; naive 20 >= 18 bidder wins → same, no reversal)
+    expect(tags).toContain('perfect')
+    expect(tags).toContain('last_second')
+    expect(tags).toContain('survived')
+    expect(tags).toContain('max_heat')
+    expect(tags).not.toContain('clutch')
+  })
+
+  it('classifyRareTags wild reversal with clutch', () => {
+    // naive 5 < bid 10 → bidder loses; final 12 >= 10 → bidder wins; abs margin 2 → clutch
+    const tags = classifyRareTags({
+      finalTotal: 12,
+      bidValue: 10,
+      cards: [
+        { kind: 'number', value: 5 },
+        { kind: 'double', value: null },
+      ],
+    })
+    expect(tags).toContain('clutch')
+    expect(tags).toContain('wild_reversal')
+  })
+
+  it('rareTagLabel and resultSequenceEventId are stable', () => {
+    expect(rareTagLabel('perfect')).toBe('PERFECT')
+    expect(rareTagLabel('wild_reversal')).toBe('WILD REVERSAL')
+    const a = resultSequenceEventId({
+      round: 2,
+      bidValue: 10,
+      finalTotal: 9,
+      challengerName: 'A',
+    })
+    const b = resultSequenceEventId({
+      round: 2,
+      bidValue: 10,
+      finalTotal: 9,
+      challengerName: 'A',
+    })
+    expect(a).toBe(b)
+    expect(a).toContain('result_verdict:')
   })
 })
