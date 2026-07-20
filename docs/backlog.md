@@ -88,6 +88,7 @@
 | **UX-15** | **done** | 触覚フィードバック（vibration） | D4 完了。`src/haptics/*`。初期 OFF。手番 / WILD CALL / COYOTE / 自分のライフ喪失 |
 | UX-16 | idea | 席ごと残り持ち時間の常時表示 | 中央時計は UX-13 済み。席 UI へのミラーは未 |
 | UX-17 | **done** | ゲーム中ドーパミン演出（HEAT / RALLY / RAISE / COYOTE 解放 + 触覚） | 正本: `docs/gameplay-dopamine-plan.md`。**D0–D4 済** |
+| **UX-18** | **done** | 場のカード hover/tap で効果説明（自分の札は非公開のまま） | `BidCard` + `cardDescriptions.ts`。mystery は「非公開」のみ |
 
 ---
 
@@ -141,4 +142,4 @@
 3. Phase 1 スライスの ID（P1-x）は `phase1-multiplayer.md` §10 と揃える  
 4. エクストラルールの ID（ER-x）は `docs/extra-rules.md` §4 と揃える  
 
-最終更新: 2026-07-20（ドーパミン D4: 触覚フィードバック）
+最終更新: 2026-07-20（UX-18: 場カード説明 tooltip）

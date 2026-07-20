@@ -3832,3 +3832,52 @@
 
 ### 確認結果
 - build 成功
+
+## 2026-07-20 — 場のカード説明（hover / tap）
+
+### 背景・目的
+- 場に出ている他プレイヤーの札の効果を、ホバーまたはタップですぐ確認したい
+- 自分の札（おでこ・mystery）は引き続き非公開のままにする
+
+### 実施内容
+1. `describeCardFace` で面ラベル→短い名前・効果文を解決（特殊札 + 数字）
+2. `BidCard` にホバー（fine pointer）/ タップ・クリックで Teleport ポップオーバー
+3. mystery は「非公開」のみ表示（札の中身は出さない）
+4. 外側タップ・Esc・スクロール位置追従
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/data/cardDescriptions.ts` | 説明ルックアップ |
+| `src/components/game/BidCard.vue` | ツールチップ UI |
+| `tests/data/cardDescriptions.test.ts` | 単体テスト |
+
+### 明示的にやっていないこと
+- 結果画面 `RevealCardTile` への同機能
+- ヘルプ本文への操作説明追記
+
+### 確認結果
+- `vitest` cardDescriptions / typecheck / lint / build 成功
+
+### 次に考えられる作業
+1. 実機（モバイルカルーセル）でポップオーバー位置を確認
+2. 結果公開タイルにも同様の説明を足すか検討
+
+## 2026-07-20 — カード説明 tooltip のモバイル見切れ修正
+
+### 背景・目的
+- スマホで場カードの説明ポップオーバーが画面端で見切れていた
+
+### 実施内容
+1. `translate(-50%)` 中心配置をやめ、実測サイズで left/top を計算
+2. visualViewport + 余白で上下左右をクランプ
+3. 上側が狭いとき（カルーセル席）は下側表示を優先
+4. 長い文言は折り返し（`overflow-wrap`）
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/components/game/BidCard.vue` | placePopover を viewport クランプに変更 |
+
+### 確認結果
+- typecheck / lint 成功
