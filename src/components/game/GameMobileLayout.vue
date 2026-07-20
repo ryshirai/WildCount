@@ -126,18 +126,18 @@ const showDock = computed(
         再接続
       </button>
     </div>
-    <div class="shrink-0" :class="showOnlineDisconnect ? '' : 'safe-top'">
-      <GameHeader
-        mobile
-        :room-code="room.roomCode"
-        :player-count="room.playerCount"
-        :round="room.round"
-        :connection-status="room.connectionStatus"
-        @help="emit('help')"
-        @deck="emit('deck')"
-        @leave="emit('leave')"
-      />
-    </div>
+    <GameHeader
+      class="shrink-0"
+      mobile
+      :room-code="room.roomCode"
+      :player-count="room.playerCount"
+      :round="room.round"
+      :connection-status="room.connectionStatus"
+      :safe-top="!showOnlineDisconnect"
+      @help="emit('help')"
+      @deck="emit('deck')"
+      @leave="emit('leave')"
+    />
 
     <!-- Pace + clock + declared (merged; no separate meta strip) -->
     <div

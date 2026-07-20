@@ -3196,3 +3196,46 @@
 1. **R5** Game デスクトップ + SeatContent
 2. **R6** docs / デッド CSS 掃除
 3. **HOLD-5** 本番デプロイ（ユーザー確認後）
+
+## 2026-07-20 — R5 Game デスクトップ磨き + 席共通化
+
+### 背景・目的
+- 全面 UI リデザイン Phase R5（`docs/ui-redesign.md` §5.3.2 / §6 R5）
+- AppHeader シェル統一、席表示ロジック共通化、PC テーブル密度向上
+
+### 実施内容
+1. **GameHeader → AppHeader**: デスクトップ/モバイルとも共通シェル。`compact` / `safeTop` を AppHeader に追加（切断バナー時は safe-top をバナー側へ）
+2. **StatusChip**: ルームコード・人数・ラウンド・接続をチップ統一（Lobby/Result と同系統）
+3. **SeatContent**: hand / status / bid を抽出。`PlayerSeat` と `MobilePlayerCarousel` が共有
+4. **テーブル盤**: `.game-table-felt` 楕円で砂漠背景と席カードのコントラスト改善
+5. **右レール**: タブを gold アクティブ + night 背景に揃え、余白をやや圧縮
+6. **10 人席**: PlayerCircle の scale/半径を 8–10 人向けに調整
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/components/common/AppHeader.vue` | `compact` / `safeTop` props |
+| `src/components/game/GameHeader.vue` | AppHeader + StatusChip シェル |
+| `src/components/game/SeatContent.vue` | 新規: 席 hand/status/bid 共通 |
+| `src/components/game/PlayerSeat.vue` | SeatContent 利用 |
+| `src/components/game/MobilePlayerCarousel.vue` | SeatContent 利用 |
+| `src/components/game/GameDesktopLayout.vue` | table felt・rail・safeTop |
+| `src/components/game/GameMobileLayout.vue` | safeTop 連動 |
+| `src/components/game/PlayerCircle.vue` | 大人数 scale |
+| `src/styles/main.css` | `.game-table-felt` |
+| `docs/backlog.md` | R5 done |
+| `docs/work-log.md` | 本エントリ |
+
+### 明示的にやっていないこと
+- docs 全体ポリッシュ・デッド CSS 掃除（R6）
+- ルール / Worker / 演出 keyframe 変更
+- 本番デプロイ（HOLD-5）
+
+### 確認結果
+- `npm test` 167 passed
+- `npm run typecheck` / `lint` / `build` 成功
+
+### 次に考えられる作業
+1. **R6** docs / デッド CSS 掃除
+2. **HOLD-5** 本番デプロイ（ユーザー確認後）
+3. UX-2 / TEST-1 / OPS-1（任意）

@@ -1,13 +1,25 @@
 <script setup lang="ts">
+/**
+ * Game chrome header — AppHeader shell (R5).
+ * Desktop: brand + room/meta chips left, actions right.
+ * Mobile: compact single row (R4) with connection StatusChip.
+ */
+import AppHeader from '@/components/common/AppHeader.vue'
+import AppLogo from '@/components/common/AppLogo.vue'
 import StatusChip from '@/components/common/StatusChip.vue'
 
-defineProps<{
-  roomCode: string
-  playerCount: number
-  round: number
-  mobile?: boolean
-  connectionStatus?: 'good' | 'reconnect' | 'offline'
-}>()
+withDefaults(
+  defineProps<{
+    roomCode: string
+    playerCount: number
+    round: number
+    mobile?: boolean
+    connectionStatus?: 'good' | 'reconnect' | 'offline'
+    /** When false, parent banner owns safe-top (disconnect strip above). */
+    safeTop?: boolean
+  }>(),
+  { mobile: false, safeTop: true },
+)
 
 const emit = defineEmits<{
   help: []
@@ -31,43 +43,49 @@ function connectionVariant(
 </script>
 
 <template>
-  <!-- Desktop header -->
-  <header
-    v-if="!mobile"
-    class="flex items-center justify-between gap-4 border-b border-gold-400/15 bg-night-900/70 px-4 py-3 backdrop-blur-md sm:px-6"
-  >
-    <div class="flex min-w-0 items-center gap-4">
-      <div class="flex items-center gap-2.5">
-        <div
-          class="h-9 w-9 shrink-0 overflow-hidden rounded-full ring-1 ring-gold-400/40 shadow-gold-glow"
-        >
-          <img
-            src="/brand/logo-mark.webp"
-            alt=""
-            width="36"
-            height="36"
-            class="h-full w-full object-cover"
-            decoding="async"
-          />
+  <AppHeader :sticky="false" :safe-top="safeTop" :compact="mobile">
+    <template #brand>
+      <!-- Desktop: logo + room meta near brand (scan left→right) -->
+      <div
+        v-if="!mobile"
+        class="flex min-w-0 items-center gap-3 sm:gap-4"
+      >
+        <AppLogo size="sm" />
+        <div class="hidden items-center gap-2 sm:flex">
+          <span class="text-xs text-sand-dim">ルーム</span>
+          <StatusChip class="font-mono tracking-wider" :label="roomCode" />
         </div>
-        <h1 class="font-display text-xl font-bold tracking-wide text-gold-200">
-          Wild Count
-        </h1>
+        <StatusChip variant="muted" :label="`${playerCount}人`" />
+        <StatusChip variant="muted" :label="`ラウンド ${round}`" />
       </div>
 
-      <div class="hidden items-center gap-2 sm:flex">
-        <span class="text-xs text-sand-dim">ルームコード</span>
-        <span class="chip font-mono tracking-wider">{{ roomCode }}</span>
+      <!-- Mobile: mark + code + round + connection -->
+      <div v-else class="flex min-w-0 items-center gap-1.5">
+        <AppLogo size="sm" :show-wordmark="false" />
+        <StatusChip
+          class="!px-1.5 !py-0.5 font-mono text-[10px] tracking-wider"
+          :label="roomCode"
+          :title="`ルーム ${roomCode}`"
+        />
+        <StatusChip
+          variant="muted"
+          class="!px-1.5 !py-0.5 text-[10px]"
+          :label="`R${round}`"
+        />
+        <StatusChip
+          v-if="connectionStatus"
+          :variant="connectionVariant(connectionStatus)"
+          class="!px-1.5 !py-0.5 text-[10px]"
+          :label="connectionLabel[connectionStatus]"
+        />
       </div>
+    </template>
 
-      <StatusChip variant="muted">{{ playerCount }}人</StatusChip>
-      <StatusChip variant="muted">ラウンド {{ round }}</StatusChip>
-    </div>
-
-    <div class="flex items-center gap-2">
+    <template #actions>
       <button
         type="button"
         class="btn-ghost btn-icon"
+        :class="mobile ? '!p-1.5 text-sm font-bold' : 'text-sm font-bold'"
         title="遊び方・ルール"
         aria-label="遊び方・ルール"
         @click="emit('help')"
@@ -76,7 +94,8 @@ function connectionVariant(
       </button>
       <button
         type="button"
-        class="btn-ghost btn-icon font-display text-sm font-bold"
+        class="btn-ghost btn-icon font-display font-bold"
+        :class="mobile ? '!p-1.5 text-xs' : 'text-sm'"
         title="この対戦の山札"
         aria-label="この対戦の山札"
         @click="emit('deck')"
@@ -85,79 +104,14 @@ function connectionVariant(
       </button>
       <button
         type="button"
-        class="btn-ghost btn-sm"
+        class="btn-ghost"
+        :class="mobile ? '!px-1.5 !py-1.5 text-[11px] font-medium' : 'btn-sm'"
         title="ゲームを終了して退出"
         aria-label="ゲームを終了して退出"
         @click="emit('leave')"
       >
         退出
       </button>
-    </div>
-  </header>
-
-  <!-- Mobile: single row (R4) — no sub-row -->
-  <header
-    v-else
-    class="flex items-center gap-1.5 border-b border-gold-400/15 bg-night-900/80 px-2 py-1.5 backdrop-blur-md"
-  >
-    <div
-      class="h-7 w-7 shrink-0 overflow-hidden rounded-full ring-1 ring-gold-400/35"
-    >
-      <img
-        src="/brand/logo-mark.webp"
-        alt=""
-        width="28"
-        height="28"
-        class="h-full w-full object-cover"
-        decoding="async"
-      />
-    </div>
-
-    <span
-      class="chip !px-1.5 !py-0.5 font-mono text-[10px] tracking-wider"
-      :title="`ルーム ${roomCode}`"
-    >
-      {{ roomCode }}
-    </span>
-    <StatusChip variant="muted" class="!px-1.5 !py-0.5 text-[10px]">
-      R{{ round }}
-    </StatusChip>
-    <StatusChip
-      v-if="connectionStatus"
-      :variant="connectionVariant(connectionStatus)"
-      class="!px-1.5 !py-0.5 text-[10px]"
-    >
-      {{ connectionLabel[connectionStatus] }}
-    </StatusChip>
-
-    <div class="ml-auto flex shrink-0 items-center gap-0">
-      <button
-        type="button"
-        class="btn-ghost btn-icon !p-1.5 text-sm font-bold"
-        title="遊び方・ルール"
-        aria-label="遊び方・ルール"
-        @click="emit('help')"
-      >
-        ?
-      </button>
-      <button
-        type="button"
-        class="btn-ghost btn-icon !p-1.5 font-display text-xs font-bold"
-        title="この対戦の山札"
-        aria-label="この対戦の山札"
-        @click="emit('deck')"
-      >
-        山
-      </button>
-      <button
-        type="button"
-        class="btn-ghost !px-1.5 !py-1.5 text-[11px] font-medium"
-        title="ゲームを終了して退出"
-        aria-label="ゲームを終了して退出"
-        @click="emit('leave')"
-      >
-        退出
-      </button>
-    </div>
-  </header>
+    </template>
+  </AppHeader>
 </template>

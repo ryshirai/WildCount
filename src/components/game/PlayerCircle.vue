@@ -15,10 +15,11 @@ const props = defineProps<{
  */
 const seatPositions = computed(() => {
   const n = props.players.length
-  // Leave room for seat content (≈80–100px half-extent at md)
-  const rx = n <= 4 ? 36 : n <= 6 ? 38 : 40
-  const ry = n <= 4 ? 34 : n <= 6 ? 36 : 38
-  const scale = n <= 4 ? 1 : n <= 6 ? 0.92 : 0.82
+  // Leave room for seat content (≈80–100px half-extent at md).
+  // Larger tables tighten radius less / scale more so 8–10 seats stay readable (R5).
+  const rx = n <= 4 ? 36 : n <= 6 ? 38 : n <= 8 ? 40 : 41
+  const ry = n <= 4 ? 34 : n <= 6 ? 36 : n <= 8 ? 38 : 39
+  const scale = n <= 4 ? 1 : n <= 6 ? 0.92 : n <= 8 ? 0.82 : 0.72
 
   return props.players.map((player, i) => {
     // Start at top (-90°), go clockwise

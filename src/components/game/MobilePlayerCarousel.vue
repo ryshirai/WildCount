@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { nextTick, ref, watch } from 'vue'
 import type { PlayerSeat } from '@/types/game'
-import HandTiles from './HandTiles.vue'
 import LifeHearts from './LifeHearts.vue'
 import PlayerAvatar from './PlayerAvatar.vue'
+import SeatContent from './SeatContent.vue'
 
 const props = defineProps<{
   players: PlayerSeat[]
@@ -92,58 +92,9 @@ watch(
           size="sm"
           hide-name
         />
-        <!-- Lives under avatar -->
         <LifeHearts :lives="player.lives" :max-visible="3" size-class="text-[9px]" />
 
-        <!-- Hand: multi-card fan when draw1 -->
-        <HandTiles
-          v-if="player.lives > 0 && player.handCount > 0"
-          :labels="player.handHidden ? null : player.handLabels"
-          :count="player.handCount"
-          :mystery="player.handHidden"
-          :emphasized="player.isCurrentTurn || player.isSelf"
-          compact
-        />
-        <div
-          v-else
-          class="card-tile-mystery !h-10 !w-8 !text-sm opacity-50"
-        >—</div>
-
-        <!-- Status under card (min 10px — R4) -->
-        <span
-          v-if="player.lives <= 0"
-          class="seat-chip-out !px-1 !text-[10px]"
-        >脱落</span>
-        <span
-          v-else-if="player.connected === false"
-          class="seat-chip-out !px-1 !text-[10px]"
-          title="再接続待ち"
-        >切断</span>
-        <span
-          v-else-if="player.isCurrentTurn"
-          class="seat-chip-turn !px-1 !text-[10px]"
-        >手番</span>
-        <span
-          v-else-if="player.hasDeclared"
-          class="seat-chip-declared !px-1 !text-[10px]"
-        >済</span>
-        <span
-          v-else-if="player.isSelf"
-          class="seat-chip-self !px-1 !text-[10px]"
-        >あなた</span>
-        <span
-          v-else
-          class="seat-chip-wait !px-1 !text-[10px]"
-        >待機</span>
-
-        <div
-          v-if="player.lives > 0 && player.bid != null"
-          :key="`mbid-${player.id}-${player.bid}`"
-          class="bid-chip-sm bid-chip--pop"
-          :title="`宣言 ${player.bid}`"
-        >
-          {{ player.bid }}
-        </div>
+        <SeatContent :player="player" compact />
       </div>
     </div>
   </div>

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * Desktop / tablet game table layout (lg+).
- * R3: extracted from GameView template — appearance unchanged.
+ * R3: extracted from GameView. R5: AppHeader shell, table felt, rail density.
  */
 import type { GameRoomMock, RevealedCard } from '@/types/game'
 import type { CoyoteBanner } from '@/composables/useChallengeReveal'
@@ -106,16 +106,16 @@ const emit = defineEmits<{
         再接続
       </button>
     </div>
-    <div class="shrink-0" :class="showOnlineDisconnect ? '' : 'safe-top'">
-      <GameHeader
-        :room-code="room.roomCode"
-        :player-count="room.playerCount"
-        :round="room.round"
-        @help="emit('help')"
-        @deck="emit('deck')"
-        @leave="emit('leave')"
-      />
-    </div>
+    <GameHeader
+      class="shrink-0"
+      :room-code="room.roomCode"
+      :player-count="room.playerCount"
+      :round="room.round"
+      :safe-top="!showOnlineDisconnect"
+      @help="emit('help')"
+      @deck="emit('deck')"
+      @leave="emit('leave')"
+    />
 
     <!-- Status under header -->
     <div
@@ -176,8 +176,11 @@ const emit = defineEmits<{
         <div
           class="relative flex min-h-0 flex-1 items-center justify-center px-2 py-2 sm:px-4 sm:py-3"
         >
+          <!-- Soft table felt under seats / bid (R5) -->
+          <div class="game-table-felt pointer-events-none absolute z-0" aria-hidden="true" />
+
           <div
-            class="pointer-events-none absolute inset-0 z-0 flex items-center justify-center"
+            class="pointer-events-none absolute inset-0 z-[1] flex items-center justify-center"
           >
             <CurrentBidDisplay
               :current-bid="room.currentBid"
@@ -270,22 +273,23 @@ const emit = defineEmits<{
         </div>
       </main>
 
-      <div
-        class="flex w-72 min-h-0 shrink-0 flex-col border-l border-gold-400/10 p-3 xl:w-80"
+      <!-- Side rail: log / chat (R5 density + AppHeader tone) -->
+      <aside
+        class="flex w-72 min-h-0 shrink-0 flex-col border-l border-gold-400/15 bg-night-950/35 p-2.5 xl:w-80 xl:p-3"
       >
         <div
-          class="mb-2 flex shrink-0 gap-1 rounded-xl border border-gold-400/15 bg-night-900/50 p-1"
+          class="mb-2 flex shrink-0 gap-0.5 rounded-lg border border-gold-400/15 bg-night-900/80 p-0.5 backdrop-blur-md"
           role="tablist"
           aria-label="サイドパネル"
         >
           <button
             type="button"
             role="tab"
-            class="flex-1 rounded-lg px-2 py-1.5 text-xs font-medium transition"
+            class="flex-1 rounded-md px-2 py-1.5 text-xs font-medium transition"
             :class="
               desktopSideTab === 'log'
-                ? 'bg-night-700 text-gold-200'
-                : 'text-sand-dim hover:text-sand'
+                ? 'bg-gold-400/15 text-gold-200 shadow-sm ring-1 ring-gold-400/25'
+                : 'text-sand-dim hover:bg-night-800/80 hover:text-sand'
             "
             :aria-selected="desktopSideTab === 'log'"
             @click="desktopSideTab = 'log'"
@@ -295,11 +299,11 @@ const emit = defineEmits<{
           <button
             type="button"
             role="tab"
-            class="flex-1 rounded-lg px-2 py-1.5 text-xs font-medium transition"
+            class="flex-1 rounded-md px-2 py-1.5 text-xs font-medium transition"
             :class="
               desktopSideTab === 'chat'
-                ? 'bg-night-700 text-gold-200'
-                : 'text-sand-dim hover:text-sand'
+                ? 'bg-gold-400/15 text-gold-200 shadow-sm ring-1 ring-gold-400/25'
+                : 'text-sand-dim hover:bg-night-800/80 hover:text-sand'
             "
             :aria-selected="desktopSideTab === 'chat'"
             @click="desktopSideTab = 'chat'"
@@ -324,7 +328,7 @@ const emit = defineEmits<{
           @send="(t) => emit('sendChat', t)"
           @reaction="(id) => emit('reaction', id)"
         />
-      </div>
+      </aside>
     </div>
   </div>
 </template>
