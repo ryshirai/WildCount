@@ -142,9 +142,10 @@ export const useLocalGameStore = defineStore('localGame', () => {
       avatarSrc: profile.avatarSrc,
       name: profile.name,
       message,
-      timeLabel: 'たった今',
+      ts: Date.now(),
       kind: 'entry',
     }
+    // Newest first (top) — same flow as chat UI
     eventLog.value = [item, ...eventLog.value].slice(0, MAX_LOG)
   }
 
@@ -156,7 +157,7 @@ export const useLocalGameStore = defineStore('localGame', () => {
       avatar: '·',
       name: '',
       message,
-      timeLabel: '',
+      ts: Date.now(),
       kind: 'separator',
     }
     eventLog.value = [item, ...eventLog.value].slice(0, MAX_LOG)

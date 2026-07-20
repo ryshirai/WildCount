@@ -102,7 +102,10 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
   /** Preferred avatar catalog index (persisted). Sent on join / lobby update. */
   const avatarIndex = ref(loadSavedAvatarIndex())
   const eventLog = ref<EventLogItem[]>([])
-  /** Room chat lines (newest last). Filled by chat_history + chat. */
+  /**
+   * Room chat lines from the wire (oldest → newest).
+   * ChatPanel displays newest-first (top).
+   */
   const chatMessages = ref<ChatMessage[]>([])
   /** Ephemeral floating stamps (live chat only; not re-shown from history). */
   const floatingReactions = ref<FloatingReaction[]>([])
@@ -998,6 +1001,7 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
 
   function pushLog(message: string, code?: string) {
     logSeq += 1
+    const ts = Date.now()
     // Round / phase dividers (server code ROUND_START / GAME_ENDED)
     if (code === 'ROUND_START' || code === 'GAME_ENDED') {
       const item: EventLogItem = {
@@ -1005,9 +1009,10 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
         avatar: '·',
         name: '',
         message,
-        timeLabel: '',
+        ts,
         kind: 'separator',
       }
+      // Newest first (top) — same flow as chat UI
       eventLog.value = [item, ...eventLog.value].slice(0, 40)
       return
     }
@@ -1032,7 +1037,7 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
       avatarSrc: av.avatarSrc,
       name,
       message: body,
-      timeLabel: 'たった今',
+      ts,
       kind: 'entry',
     }
     eventLog.value = [item, ...eventLog.value].slice(0, 40)

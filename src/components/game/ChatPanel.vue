@@ -73,9 +73,12 @@ function avatarOf(playerId: string) {
   return { avatar: '👤' as const, avatarSrc: undefined, avatarId: undefined }
 }
 
-/** Precompute per-row data once per messages change (avoid N× template calls). */
-const displayRows = computed(() =>
-  props.messages.map((m) => {
+/**
+ * Wire/store order is oldest → newest; UI shows newest first (top),
+ * same as the event log.
+ */
+const displayRows = computed(() => {
+  const rows = props.messages.map((m) => {
     const av = avatarOf(m.playerId)
     const isStamp = m.kind === 'stamp'
     return {
@@ -93,8 +96,9 @@ const displayRows = computed(() =>
       avatarSrc: av.avatarSrc,
       time: formatTime(m.ts),
     }
-  }),
-)
+  })
+  return rows.reverse()
+})
 
 const pickerItems = computed(() => {
   const av = props.selfAvatarId ?? 'self'
@@ -112,14 +116,14 @@ function onSubmit() {
   draft.value = ''
   stampOpen.value = false
   emit('send', text)
-  void scrollToBottom()
+  void scrollToTop()
 }
 
 function onPickStamp(stampId: StampId) {
   if (props.disabled) return
   stampOpen.value = false
   emit('reaction', stampId)
-  void scrollToBottom()
+  void scrollToTop()
 }
 
 function toggleStampPicker() {
@@ -127,16 +131,17 @@ function toggleStampPicker() {
   stampOpen.value = !stampOpen.value
 }
 
-async function scrollToBottom() {
+/** Newest messages are at the top — keep viewport pinned to the latest. */
+async function scrollToTop() {
   await nextTick()
   const el = listEl.value
-  if (el) el.scrollTop = el.scrollHeight
+  if (el) el.scrollTop = 0
 }
 
 watch(
   () => props.messages.length,
   () => {
-    void scrollToBottom()
+    void scrollToTop()
   },
 )
 </script>

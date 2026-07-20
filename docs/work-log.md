@@ -4459,3 +4459,62 @@
 ### 次に考えられる作業
 1. 残枚が少ないときの視覚強調
 2. 捨て札枚数も出して「次シャッフルまで」感を出す
+
+---
+
+## 2026-07-20 — 対戦ログの流れ・相対時刻
+
+### 背景・目的
+- 対戦ログとチャットで時系列の向きが逆（ログは新しいものが上、チャットは下）
+- ログの時刻が常に「たった今」のまま進まない（push 時の固定文字列）
+
+### 実施内容
+1. `EventLogItem.timeLabel` をやめ、`ts`（epoch ms）を保持。UI で相対表示
+2. local / online の `pushLog` を末尾追加（古い→新しい）に変更。上限は `slice(-MAX_LOG)`
+3. `EventLog.vue`: チャット同様に新着で下端スクロール。30 秒ごとに now を更新して「N分前」へ進める
+4. `formatRelativeTimeJa` ユーティリティ + 単体テスト
+5. mock ログを時系列（古い→新しい）に並べ替え
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/types/game.ts` | `timeLabel` → `ts` |
+| `src/utils/relativeTime.ts` | 相対時刻（ja） |
+| `src/stores/localGame.ts` / `onlineGame.ts` | append + `ts` |
+| `src/components/game/EventLog.vue` | 動的ラベル・スクロール |
+| `src/data/mockGame.ts` | 時系列 mock |
+| `tests/utils/relativeTime.test.ts` | ユーティリティテスト |
+
+### 明示的にやっていないこと
+- チャット側の相対時刻化（現状は HH:mm）
+- ログの永続化 / 再接続時の履歴復元
+
+### 確認結果
+- `relativeTime` / localGame / onlineGame テストパス
+- `npm run typecheck` パス
+
+### 次に考えられる作業
+1. チャットも相対時刻に揃えるか検討
+2. ログが長いときの「最新へ」ボタン
+
+---
+
+## 2026-07-20 — ログ／チャットを新しい順（上）
+
+### 背景・目的
+- 前回「チャットと同じ古い→新しい」に揃えたが、新しい行は**上**に来てほしいという希望
+
+### 実施内容
+1. 対戦ログ: 先頭挿入に戻す（新しいものが上）
+2. チャット: ワイヤ順は従来どおり、表示時に reverse して新しいものが上
+3. 両方とも新着時に `scrollTop = 0`
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/stores/localGame.ts` / `onlineGame.ts` | ログ先頭挿入 |
+| `src/components/game/EventLog.vue` / `ChatPanel.vue` | 上固定スクロール・チャット reverse |
+| `src/data/mockGame.ts` | mock も新しい順 |
+
+### 確認結果
+- typecheck / 関連テストパス

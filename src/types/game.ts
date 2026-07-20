@@ -51,7 +51,11 @@ export interface EventLogItem {
   avatarSrc?: string
   name: string
   message: string
-  timeLabel: string
+  /**
+   * Epoch ms when the event was recorded.
+   * Relative label (たった今 / N分前 …) is derived in EventLog — not stored as a frozen string.
+   */
+  ts: number
   /**
    * `separator` = round / phase divider (e.g. 第2ラウンド開始).
    * Default `entry` = player action line rendered as 「{name}が{message}」.
