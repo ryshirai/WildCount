@@ -3440,3 +3440,47 @@
 1. 実プレイで閾値（clutch 2 / hard raise 5 / extreme 15）を調整
 2. UX-14 SFX（宣言 / コヨーテ / 勝敗）
 3. 任意: ピンチ席 / 決勝チップ
+
+---
+
+## 2026-07-20 — 勝利条件: 一人脱落で終了（デフォルト）+ 勝ち残りはルーム設定
+
+### 背景・目的
+- これまで常に「最後の1人まで勝ち残り」だった
+- デフォルトを「誰か1人でもライフ全損したら試合終了」に変更し、既存の勝ち残りはホストがルーム設定で選べるようにする
+
+### 実施内容
+1. **ドメイン** — `GameConfig.winCondition: 'first_elimination' | 'last_standing'`（デフォルト `first_elimination`）
+   - `evaluateGameEnd()` で終了判定を共通化
+   - チャレンジ / 強制脱落の両方で使用
+   - first_elimination で生存が複数いる場合は `winnerId = null` のまま `game_over`
+2. **Worker / プロトコル** — `set_win_condition`、RoomState / PlayerView に `winCondition`
+   - `PendingResultSnapshot.isGameOver` を追加（sole winner なし終了に対応）
+3. **ロビー UI** — `WinConditionPanel`（一人脱落 / 勝ち残り）をルーム設定に追加
+4. **結果画面** — sole winner なしのとき「脱落者が出たため終了」表示
+5. **docs** — `game-rules.md` / ヘルプ文言を更新
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/domain/game/types.ts` / `resolve.ts` / `engine.ts` | winCondition + evaluateGameEnd |
+| `worker/types.ts` / `roomLogic.ts` / `GameRoom.ts` / `maskedView.ts` | wire + ルーム設定 |
+| `src/online/protocol.ts` / `stores/onlineGame.ts` | クライアント同期 |
+| `src/components/lobby/WinConditionPanel.vue` | ロビー設定 UI |
+| `src/views/LobbyView.vue` / `ResultView.vue` | 設定・結果表示 |
+| `src/mappers/toResultView.ts` / `onlineToResultView.ts` | isGameOver フラグ |
+| `docs/game-rules.md` / `src/data/helpContent.ts` | 仕様・ヘルプ |
+| `tests/**` / `worker/*.test.ts` | 終了条件テスト |
+
+### 明示的にやっていないこと
+- 初期ライフをルーム設定 UI から変える機能
+- 複数勝者の個別表彰・ランキング
+- オフラインデモの勝利条件 UI（デフォルト first_elimination のみ）
+
+### 確認結果
+- `npm run typecheck` / `npm test`（189）/ `npm run build` 成功
+
+### 次に考えられる作業
+1. オフラインデモでも勝利条件を選べるようにする
+2. 結果画面で生存者一覧を出す（first_elimination 用）
+3. 初期ライフのルーム設定 UI

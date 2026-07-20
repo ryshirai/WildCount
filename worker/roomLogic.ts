@@ -5,6 +5,7 @@
 import {
   cloneDeckComposition,
   DEFAULT_EXTRA_RULES,
+  DEFAULT_WIN_CONDITION,
   forceEliminatePlayer,
   GameError,
   STANDARD_DECK,
@@ -12,6 +13,7 @@ import {
   type DeckComposition,
   type ExtraRulesConfig,
   type GameState,
+  type WinCondition,
 } from '../src/domain/game'
 import {
   createInitialClock,
@@ -59,6 +61,7 @@ import {
   type StampId,
   type WireDeckComposition,
   type WireExtraRules,
+  type WireWinCondition,
 } from './types'
 
 // Re-export clock types for GameRoom consumers
@@ -128,6 +131,11 @@ export interface RoomState {
    */
   timeControl: WireTimeControl | null
   /**
+   * Match end condition for the next startGame.
+   * Host edits via set_win_condition in lobby. Rematch keeps this value.
+   */
+  winCondition: WinCondition
+  /**
    * Live bank + turn timer while status === 'playing' and timeControl is set.
    * Cleared in lobby / rematch.
    */
@@ -159,6 +167,7 @@ export function createEmptyRoom(roomCode: string, now = Date.now()): RoomState {
     deck: cloneDeckComposition(STANDARD_DECK),
     extraRules: { ...DEFAULT_EXTRA_RULES },
     timeControl: DEFAULT_TIME_CONTROL,
+    winCondition: DEFAULT_WIN_CONDITION,
     clock: null,
   }
 }
@@ -436,6 +445,13 @@ export function parseClientMessage(raw: unknown): ClientMessage | { error: strin
       }
       return { type: 'set_time_control', timeControl: parsed.timeControl }
     }
+    case 'set_win_condition': {
+      const parsed = parseWireWinCondition(msg.winCondition)
+      if ('error' in parsed) {
+        return { error: parsed.error }
+      }
+      return { type: 'set_win_condition', winCondition: parsed.winCondition }
+    }
     case 'resume': {
       if (typeof msg.resumeToken !== 'string' || !msg.resumeToken) {
         return { error: 'resumeToken required' }
@@ -541,6 +557,7 @@ export function buildPlayerView(
   const deck = room.deck ?? cloneDeckComposition(STANDARD_DECK)
   const extraRules = room.extraRules ?? { ...DEFAULT_EXTRA_RULES }
   const timeControl = room.timeControl ?? null
+  const winCondition = room.winCondition ?? DEFAULT_WIN_CONDITION
   const clock =
     room.clock && isTimeControlEnabled(timeControl)
       ? toWireClock(room.clock)
@@ -559,6 +576,7 @@ export function buildPlayerView(
     deck: toWireDeck(deck),
     extraRules: toWireExtraRules(extraRules),
     timeControl,
+    winCondition: toWireWinCondition(winCondition),
     clock,
     game: room.game
       ? buildMaskedGame(
@@ -633,6 +651,32 @@ export function applySetExtraRules(
   extraRules: WireExtraRules,
 ): void {
   room.extraRules = { ...extraRules }
+}
+
+export function toWireWinCondition(
+  condition: WinCondition,
+): WireWinCondition {
+  return condition === 'last_standing' ? 'last_standing' : 'first_elimination'
+}
+
+export function parseWireWinCondition(
+  raw: unknown,
+): { winCondition: WireWinCondition } | { error: string } {
+  if (raw === 'first_elimination' || raw === 'last_standing') {
+    return { winCondition: raw }
+  }
+  return {
+    error:
+      '勝利条件は「一人脱落で終了」または「勝ち残り」を選んでください',
+  }
+}
+
+export function applySetWinCondition(
+  room: RoomState,
+  winCondition: WireWinCondition,
+): void {
+  room.winCondition =
+    winCondition === 'last_standing' ? 'last_standing' : 'first_elimination'
 }
 
 /**
@@ -919,6 +963,9 @@ export function ensureLifecycleFields(room: RoomState): void {
   if (!room.deck) room.deck = cloneDeckComposition(STANDARD_DECK)
   if (!room.extraRules) room.extraRules = { ...DEFAULT_EXTRA_RULES }
   if (room.timeControl === undefined) room.timeControl = DEFAULT_TIME_CONTROL
+  if (room.winCondition === undefined) {
+    room.winCondition = DEFAULT_WIN_CONDITION
+  }
   if (room.clock === undefined) room.clock = null
 }
 

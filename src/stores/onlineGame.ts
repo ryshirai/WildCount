@@ -18,6 +18,7 @@ import type {
   WireDeckComposition,
   WireExtraRules,
   WireTimeControl,
+  WireWinCondition,
 } from '@/online/protocol'
 import {
   formatHttpErrorBody,
@@ -1082,6 +1083,12 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     send({ type: 'set_time_control', timeControl })
   }
 
+  /** Host only, lobby: apply match end condition. */
+  function setWinCondition(winCondition: WireWinCondition): void {
+    clearError()
+    send({ type: 'set_win_condition', winCondition })
+  }
+
   function sendAction(action: ClientGameAction): void {
     clearError()
     const actionId =
@@ -1323,6 +1330,7 @@ export const useOnlineGameStore = defineStore('onlineGame', () => {
     setDeck,
     setExtraRules,
     setTimeControl,
+    setWinCondition,
     placeBid,
     playSame,
     playChange,

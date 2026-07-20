@@ -118,6 +118,53 @@ describe('toResultView', () => {
     expect(vm.selfIsLoser).toBe(false)
   })
 
+  it('marks game over without sole winner when isGameOver flag is set', () => {
+    const outcome: ChallengeOutcome = {
+      bid: 10,
+      actualTotal: 5,
+      calculation: {
+        steps: [{ id: 's1', title: '合計', detail: '5', totalAfter: 5 }],
+        finalTotal: 5,
+        adjustedCards: [],
+        doubleCount: 0,
+        halfCount: 0,
+        maxToZeroApplied: false,
+        rawNumberSum: 5,
+      },
+      bidderWins: false,
+      loserRole: 'bidder',
+      loserId: 'bot1',
+      bidderId: 'bot1',
+      challengerId: SELF_ID,
+      lifeLoss: 1,
+    }
+
+    const players: Player[] = [
+      { id: SELF_ID, seatIndex: 0, lives: 2, alive: true },
+      { id: 'bot1', seatIndex: 1, lives: 0, alive: false },
+      { id: 'bot2', seatIndex: 2, lives: 3, alive: true },
+    ]
+
+    const vm = toResultView({
+      outcome,
+      hands: {
+        [SELF_ID]: [{ id: 'c1', kind: 'number', value: 3 }],
+        bot1: [{ id: 'c2', kind: 'number', value: 2 }],
+        bot2: [{ id: 'c3', kind: 'number', value: 1 }],
+      },
+      players,
+      round: 1,
+      profiles: DEFAULT_PROFILES,
+      winnerId: null,
+      isGameOver: true,
+    })
+
+    expect(vm.isGameOver).toBe(true)
+    expect(vm.winnerId).toBeNull()
+    expect(vm.winnerName).toBeNull()
+    expect(vm.eliminated).toBe(true)
+  })
+
   it('marks selfIsLoser when local player lost the challenge', () => {
     const outcome: ChallengeOutcome = {
       bid: 10,

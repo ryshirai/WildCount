@@ -31,6 +31,7 @@ function sampleView(): PlayerView {
       lifeDouble: false,
     },
     timeControl: null,
+    winCondition: 'first_elimination',
     players: [
       {
         id: 'a',

@@ -13,6 +13,7 @@ import {
   applyDueHostTransfer,
   applyResultDismiss,
   applySetDeck,
+  applySetWinCondition,
   buildPlayerView,
   canHostStart,
   clearDisconnectDeadline,
@@ -156,6 +157,39 @@ describe('roomLogic', () => {
     expect(parseClientMessage({ type: 'set_deck' })).toMatchObject({
       error: expect.any(String),
     })
+  })
+
+  it('parses set_win_condition and rejects invalid values', () => {
+    expect(
+      parseClientMessage({
+        type: 'set_win_condition',
+        winCondition: 'last_standing',
+      }),
+    ).toEqual({ type: 'set_win_condition', winCondition: 'last_standing' })
+    expect(
+      parseClientMessage({
+        type: 'set_win_condition',
+        winCondition: 'first_elimination',
+      }),
+    ).toEqual({
+      type: 'set_win_condition',
+      winCondition: 'first_elimination',
+    })
+    expect(
+      parseClientMessage({
+        type: 'set_win_condition',
+        winCondition: 'best_of_three',
+      }),
+    ).toMatchObject({ error: expect.any(String) })
+  })
+
+  it('createEmptyRoom defaults winCondition to first_elimination', () => {
+    const room = createEmptyRoom('WIN01')
+    expect(room.winCondition).toBe('first_elimination')
+    expect(buildPlayerView(room, null).winCondition).toBe('first_elimination')
+    applySetWinCondition(room, 'last_standing')
+    expect(room.winCondition).toBe('last_standing')
+    expect(buildPlayerView(room, null).winCondition).toBe('last_standing')
   })
 
   it('createEmptyRoom defaults to standard deck; set_deck updates view', () => {

@@ -5,6 +5,7 @@ import type {
   ChallengeOutcome,
   Player,
   PlayerId,
+  WinCondition,
 } from './types'
 
 /**
@@ -63,6 +64,45 @@ export function alivePlayers(players: readonly Player[]): Player[] {
 export function soleSurvivor(players: readonly Player[]): Player | null {
   const alive = alivePlayers(players)
   return alive.length === 1 ? alive[0]! : null
+}
+
+export interface GameEndEvaluation {
+  gameOver: boolean
+  /**
+   * Sole survivor when exactly one remains; null when 0 or 2+ alive
+   * (multi-survivor end is possible under first_elimination).
+   */
+  winnerId: PlayerId | null
+}
+
+/**
+ * Decide whether the match should end given current lives and win condition.
+ *
+ * - last_standing: ends when ≤1 player is alive
+ * - first_elimination: ends when any player is eliminated (lives ≤ 0)
+ */
+export function evaluateGameEnd(
+  players: readonly Player[],
+  winCondition: WinCondition,
+): GameEndEvaluation {
+  const alive = alivePlayers(players)
+  if (alive.length === 0) {
+    return { gameOver: true, winnerId: null }
+  }
+  if (winCondition === 'last_standing') {
+    if (alive.length === 1) {
+      return { gameOver: true, winnerId: alive[0]!.id }
+    }
+    return { gameOver: false, winnerId: null }
+  }
+  // first_elimination
+  if (alive.length < players.length) {
+    return {
+      gameOver: true,
+      winnerId: alive.length === 1 ? alive[0]!.id : null,
+    }
+  }
+  return { gameOver: false, winnerId: null }
 }
 
 /** Flatten all hand cards for total calculation / discard. */

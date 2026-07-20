@@ -32,6 +32,11 @@ export interface StartLocalGameOptions {
   selfId?: PlayerId
   initialLives?: number
   deck?: string
+  /**
+   * Match end condition.
+   * Default first_elimination (any player at 0 lives ends the match).
+   */
+  winCondition?: 'first_elimination' | 'last_standing'
   /** Fixed seed for reproducible deals (default 42). */
   seed?: number
   roomCode?: string
@@ -198,6 +203,7 @@ export const useLocalGameStore = defineStore('localGame', () => {
         config: {
           initialLives: options.initialLives ?? 3,
           deck: options.deck ?? 'standard',
+          winCondition: options.winCondition,
         },
       },
       rng,
@@ -287,6 +293,7 @@ export const useLocalGameStore = defineStore('localGame', () => {
       selfId: selfId.value,
       profiles: profiles.value,
       winnerId: state.value.winnerId,
+      isGameOver: state.value.phase === 'game_over',
     })
 
     const challenger = getProfile(actorId, profiles.value)

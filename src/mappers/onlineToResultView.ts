@@ -98,7 +98,9 @@ export function onlineToResultView(
     selfIsLoser: outcome.loserId === selfId,
     winnerId: snap.winnerId,
     winnerName: winner?.name ?? null,
-    isGameOver: snap.winnerId != null,
+    isGameOver:
+      snap.isGameOver === true ||
+      snap.winnerId != null,
     loserId: outcome.loserId,
   }
 }

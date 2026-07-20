@@ -18,8 +18,13 @@ export interface ToResultViewInput {
   roomCode?: string
   selfId?: PlayerId
   profiles?: readonly PlayerProfile[]
-  /** Set when this challenge ended the game. */
+  /** Sole survivor when this challenge ended the game (null if multi-survivor end). */
   winnerId?: PlayerId | null
+  /**
+   * Explicit game-over flag. Prefer this when winnerId may be null
+   * (first_elimination with 2+ survivors).
+   */
+  isGameOver?: boolean
 }
 
 export interface ResultViewModel extends ResultMock {
@@ -110,7 +115,10 @@ export function toResultView(input: ToResultViewInput): ResultViewModel {
     selfIsLoser: outcome.loserId === selfId,
     winnerId: winnerId ?? null,
     winnerName: winnerProfile?.name ?? null,
-    isGameOver: winnerId != null,
+    // Caller may pass winnerId null under first_elimination with 2+ survivors;
+    // still mark game over when explicitly requested via a non-null winner OR
+    // when the engine set phase game_over (winnerId can be null).
+    isGameOver: winnerId != null || input.isGameOver === true,
     loserId: outcome.loserId,
   }
 }

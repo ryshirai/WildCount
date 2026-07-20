@@ -58,6 +58,7 @@ describe('maskedView', () => {
     const snap = buildPendingResultSnapshot({
       round: 1,
       winnerId: null,
+      isGameOver: false,
       hands,
       outcome: {
         bid: 10,

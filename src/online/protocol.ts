@@ -52,6 +52,8 @@ export type ClientMessage =
   | { type: 'set_extra_rules'; extraRules: WireExtraRules }
   /** Host only, lobby: set turn time control (`null` = unlimited) */
   | { type: 'set_time_control'; timeControl: WireTimeControl | null }
+  /** Host only, lobby: set match end condition */
+  | { type: 'set_win_condition'; winCondition: WireWinCondition }
 
 /** Mirror of worker / domain ExtraRulesConfig (turn actions only; 1/2 is deck). */
 export interface WireExtraRules {
@@ -62,6 +64,13 @@ export interface WireExtraRules {
   draw1: boolean
   lifeDouble: boolean
 }
+
+/**
+ * Match end condition.
+ * - first_elimination (default): any player at 0 lives ends the match
+ * - last_standing: continue until one survivor remains
+ */
+export type WireWinCondition = 'first_elimination' | 'last_standing'
 
 /**
  * Room time control: main bank + per-turn temporary time.
@@ -235,6 +244,12 @@ export interface PendingResultSnapshot {
   /** Per player: one or more revealed cards */
   hands: Record<string, WireCard | WireCard[]>
   winnerId: string | null
+  /**
+   * True when this challenge ended the match.
+   * Prefer this over `winnerId != null` — first_elimination can end with
+   * multiple survivors and a null winnerId.
+   */
+  isGameOver?: boolean
   bidderId: string
   challengerId: string
   loserId: string
@@ -256,6 +271,8 @@ export interface PlayerView {
   extraRules: WireExtraRules
   /** Turn time control (`null` = unlimited) */
   timeControl: WireTimeControl | null
+  /** Match end condition (default first_elimination) */
+  winCondition: WireWinCondition
   /** Live clock while playing with timeControl set */
   clock?: WireClockSnapshot
   game?: MaskedGamePayload

@@ -10,8 +10,8 @@ import {
   alivePlayers,
   allHandCards,
   applyLifeLoss,
+  evaluateGameEnd,
   resolveChallenge,
-  soleSurvivor,
 } from './resolve'
 import { describeIllegal, getLegalMoves } from './validate'
 import type {
@@ -25,8 +25,13 @@ import type {
   PlayerId,
   StartGameInput,
   TurnDirection,
+  WinCondition,
 } from './types'
-import { DEFAULT_EXTRA_RULES, GameError } from './types'
+import {
+  DEFAULT_EXTRA_RULES,
+  DEFAULT_WIN_CONDITION,
+  GameError,
+} from './types'
 
 export const DEFAULT_CONFIG: GameConfig = {
   initialLives: 3,
@@ -34,6 +39,12 @@ export const DEFAULT_CONFIG: GameConfig = {
   minOpeningBid: 1,
   deck: STANDARD_DECK,
   extraRules: DEFAULT_EXTRA_RULES,
+  winCondition: DEFAULT_WIN_CONDITION,
+}
+
+function resolveWinCondition(raw: unknown): WinCondition {
+  if (raw === 'last_standing' || raw === 'first_elimination') return raw
+  return DEFAULT_WIN_CONDITION
 }
 
 const MIN_PLAYERS = 2
@@ -74,6 +85,7 @@ export function createInitialState(input: StartGameInput): GameState {
     minOpeningBid: raw.minOpeningBid ?? DEFAULT_CONFIG.minOpeningBid,
     deck,
     extraRules,
+    winCondition: resolveWinCondition(raw.winCondition),
   }
 
   const players: Player[] = ids.map((id, seatIndex) => ({
@@ -427,12 +439,12 @@ function doChallenge(state: GameState, _rng: RandomSource): GameState {
   })
 
   const players = applyLifeLoss(state.players, outcome.loserId, lifeLoss)
-  const winner = soleSurvivor(players)
+  const end = evaluateGameEnd(players, state.config.winCondition)
 
   // Spent hands → discard after reveal
   const discard = [...state.discard, ...cards]
 
-  if (winner) {
+  if (end.gameOver) {
     return {
       ...state,
       phase: 'game_over',
@@ -440,7 +452,7 @@ function doChallenge(state: GameState, _rng: RandomSource): GameState {
       hands: {},
       discard,
       lastOutcome: outcome,
-      winnerId: winner.id,
+      winnerId: end.winnerId,
       currentBid: null,
       currentBidderId: null,
       currentTurnPlayerId: null,
@@ -475,8 +487,9 @@ function doChallenge(state: GameState, _rng: RandomSource): GameState {
  *
  * - Sets lives to 0 and alive=false
  * - Keeps this round's hand so a later challenge still counts their card
+ *   (only when the match continues — last_standing with 2+ still alive)
  * - Advances the turn if it was theirs
- * - Ends the game when one survivor remains (or zero survivors)
+ * - Ends the game per config.winCondition (first elim or last standing)
  *
  * No-op when already dead, lobby, or game_over.
  */
@@ -495,10 +508,9 @@ export function forceEliminatePlayer(
   const players: Player[] = state.players.map((p) =>
     p.id === playerId ? { ...p, lives: 0, alive: false } : p,
   )
-  const winner = soleSurvivor(players)
-  const living = alivePlayers(players)
+  const end = evaluateGameEnd(players, state.config.winCondition)
 
-  if (winner) {
+  if (end.gameOver) {
     // Hand cards discarded without reveal when game ends by forfeit mid-round
     const discarded = [...state.discard, ...allHandCards(state.hands)]
     return {
@@ -507,24 +519,7 @@ export function forceEliminatePlayer(
       players,
       hands: {},
       discard: discarded,
-      winnerId: winner.id,
-      currentBid: null,
-      currentBidderId: null,
-      currentTurnPlayerId: null,
-      pendingChangeRebid: null,
-      revision: state.revision + 1,
-    }
-  }
-
-  if (living.length === 0) {
-    const discarded = [...state.discard, ...allHandCards(state.hands)]
-    return {
-      ...state,
-      phase: 'game_over',
-      players,
-      hands: {},
-      discard: discarded,
-      winnerId: null,
+      winnerId: end.winnerId,
       currentBid: null,
       currentBidderId: null,
       currentTurnPlayerId: null,

@@ -125,6 +125,10 @@ export type ClientMessage =
    * `null` = unlimited (no clock).
    */
   | { type: 'set_time_control'; timeControl: WireTimeControl | null }
+  /**
+   * Host only, lobby only: set match end condition for the next game.
+   */
+  | { type: 'set_win_condition'; winCondition: WireWinCondition }
 
 /** Wire shape of domain ExtraRulesConfig (turn actions only; 1/2 is deck). */
 export interface WireExtraRules {
@@ -135,6 +139,12 @@ export interface WireExtraRules {
   draw1: boolean
   lifeDouble: boolean
 }
+
+/**
+ * Match end condition (domain WinCondition).
+ * Default first_elimination — any player at 0 lives ends the match.
+ */
+export type WireWinCondition = 'first_elimination' | 'last_standing'
 
 /**
  * Room time control (持ち時間 + 毎ターン一時時間).
@@ -243,6 +253,11 @@ export interface PlayerView {
    * `null` = unlimited.
    */
   timeControl: WireTimeControl | null
+  /**
+   * Match end condition for the next / current game (lobby-configurable).
+   * Default first_elimination.
+   */
+  winCondition: WireWinCondition
   /**
    * Live clock while playing with timeControl set.
    * Clients interpolate remaining from turnStartedAt + bank/temp.

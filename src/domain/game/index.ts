@@ -28,8 +28,13 @@ export type {
   GameAction,
   StartGameInput,
   LegalMove,
+  WinCondition,
 } from './types'
-export { GameError, DEFAULT_EXTRA_RULES } from './types'
+export {
+  GameError,
+  DEFAULT_EXTRA_RULES,
+  DEFAULT_WIN_CONDITION,
+} from './types'
 
 export {
   createDeck,
@@ -64,8 +69,10 @@ export {
   applyLifeLoss,
   alivePlayers,
   soleSurvivor,
+  evaluateGameEnd,
   allHandCards,
 } from './resolve'
+export type { GameEndEvaluation } from './resolve'
 
 export {
   createInitialState,

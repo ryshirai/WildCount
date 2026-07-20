@@ -178,6 +178,15 @@ export type BidExtraAction =
 // Game config & phase
 // ---------------------------------------------------------------------------
 
+/**
+ * When the match ends after life loss / force-eliminate.
+ * - `first_elimination` (default): any player reaching 0 lives ends the game
+ * - `last_standing`: classic last-survivor; continues until one remains
+ */
+export type WinCondition = 'first_elimination' | 'last_standing'
+
+export const DEFAULT_WIN_CONDITION: WinCondition = 'first_elimination'
+
 export interface GameConfig {
   /** Default 3 */
   initialLives: number
@@ -194,6 +203,11 @@ export interface GameConfig {
   deck: DeckComposition
   /** Extra rules toggles (default all false). */
   extraRules: ExtraRulesConfig
+  /**
+   * Match end condition (default: first_elimination).
+   * Host can switch to last_standing in the lobby.
+   */
+  winCondition: WinCondition
 }
 
 export type GamePhase =
@@ -277,6 +291,7 @@ export interface StartGameInput {
   config?: Omit<Partial<GameConfig>, 'deck' | 'extraRules'> & {
     deck?: DeckComposition | string
     extraRules?: Partial<ExtraRulesConfig>
+    winCondition?: WinCondition
   }
 }
 

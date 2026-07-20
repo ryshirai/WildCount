@@ -86,6 +86,11 @@ export interface PendingResultSnapshot {
   /** Full hands at challenge time — includes everyone's cards for result UI */
   hands: Record<string, WireCard[]>
   winnerId: string | null
+  /**
+   * True when this challenge ended the match.
+   * May be true with winnerId null under first_elimination (2+ survivors).
+   */
+  isGameOver: boolean
   bidderId: string
   challengerId: string
   loserId: string
@@ -199,6 +204,7 @@ export function buildPendingResultSnapshot(args: {
   hands: Readonly<Record<PlayerId, readonly Card[]>>
   round: number
   winnerId: string | null
+  isGameOver: boolean
 }): PendingResultSnapshot {
   const hands: Record<string, WireCard[]> = {}
   for (const [id, cards] of Object.entries(args.hands)) {
@@ -209,6 +215,7 @@ export function buildPendingResultSnapshot(args: {
     outcome: args.outcome,
     hands,
     winnerId: args.winnerId,
+    isGameOver: args.isGameOver,
     bidderId: args.outcome.bidderId,
     challengerId: args.outcome.challengerId,
     loserId: args.outcome.loserId,

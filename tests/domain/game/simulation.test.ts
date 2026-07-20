@@ -64,11 +64,15 @@ function playRandomLegal(
   return applyAction(state, { type: 'PLACE_BID', value }, rng)
 }
 
-function runOneGame(seed: number, playerCount: number): GameState {
+function runOneGame(
+  seed: number,
+  playerCount: number,
+  winCondition: 'first_elimination' | 'last_standing' = 'last_standing',
+): GameState {
   const rng = seedRandom(seed)
   const ids = Array.from({ length: playerCount }, (_, i) => `p${i}`)
   let state = startGame(
-    { playerIds: ids, config: { initialLives: 3 } },
+    { playerIds: ids, config: { initialLives: 3, winCondition } },
     rng,
   )
 
@@ -84,7 +88,7 @@ function runOneGame(seed: number, playerCount: number): GameState {
 
 describe('simulation', () => {
   it(
-    `runs ${GAME_COUNT} seeded games without exceptions`,
+    `runs ${GAME_COUNT} seeded last_standing games without exceptions`,
     () => {
       let totalRounds = 0
       const winners = new Map<string, number>()
@@ -92,7 +96,7 @@ describe('simulation', () => {
       for (let i = 0; i < GAME_COUNT; i++) {
         // Mix player counts 2–10
         const playerCount = 2 + (i % 9)
-        const final = runOneGame(i * 9973 + 42, playerCount)
+        const final = runOneGame(i * 9973 + 42, playerCount, 'last_standing')
 
         expect(final.phase).toBe('game_over')
         expect(final.winnerId).toBeTruthy()
@@ -106,11 +110,27 @@ describe('simulation', () => {
       // Sanity: games made progress
       expect(totalRounds).toBeGreaterThan(GAME_COUNT)
       // Determinism smoke: re-run first seed
-      const a = runOneGame(42, 2)
-      const b = runOneGame(42, 2)
+      const a = runOneGame(42, 2, 'last_standing')
+      const b = runOneGame(42, 2, 'last_standing')
       expect(a.winnerId).toBe(b.winnerId)
       expect(a.round).toBe(b.round)
     },
     120_000,
   )
+
+  it('first_elimination games end when anyone is eliminated', () => {
+    for (let i = 0; i < 20; i++) {
+      const playerCount = 3 + (i % 4)
+      const final = runOneGame(i * 1337 + 9, playerCount, 'first_elimination')
+      expect(final.phase).toBe('game_over')
+      const alive = final.players.filter((p) => p.alive)
+      expect(alive.length).toBeGreaterThanOrEqual(1)
+      expect(alive.length).toBeLessThan(playerCount)
+      if (alive.length === 1) {
+        expect(final.winnerId).toBe(alive[0]!.id)
+      } else {
+        expect(final.winnerId).toBeNull()
+      }
+    }
+  })
 })

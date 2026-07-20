@@ -112,7 +112,7 @@ describe('startGame / bidding', () => {
     expect(Object.keys(state.hands).length).toBeGreaterThanOrEqual(2)
   })
 
-  it('forceEliminatePlayer drops lives and can end the game', () => {
+  it('forceEliminatePlayer ends match on first elimination (default)', () => {
     const rng = seedRandom(3)
     let state = startGame(
       { playerIds: ['a', 'b', 'c'], config: { initialLives: 2 } },
@@ -122,24 +122,57 @@ describe('startGame / bidding', () => {
     state = forceEliminatePlayer(state, turn)
     expect(state.players.find((p) => p.id === turn)?.alive).toBe(false)
     expect(state.players.find((p) => p.id === turn)?.lives).toBe(0)
-    // Hand kept for this round's total
+    // Default winCondition = first_elimination → match ends immediately
+    expect(state.phase).toBe('game_over')
+    expect(state.players.filter((p) => p.alive)).toHaveLength(2)
+    expect(state.winnerId).toBeNull()
+  })
+
+  it('forceEliminatePlayer with last_standing continues until one remains', () => {
+    const rng = seedRandom(3)
+    let state = startGame(
+      {
+        playerIds: ['a', 'b', 'c'],
+        config: { initialLives: 2, winCondition: 'last_standing' },
+      },
+      rng,
+    )
+    const turn = state.currentTurnPlayerId!
+    state = forceEliminatePlayer(state, turn)
+    expect(state.players.find((p) => p.id === turn)?.alive).toBe(false)
+    // Hand kept for this round's total while match continues
     expect(state.hands[turn]).toBeTruthy()
     expect(state.currentTurnPlayerId).not.toBe(turn)
     expect(state.phase).toBe('bidding')
 
-    // Eliminate until one remains
     const remaining = state.players.filter((p) => p.alive).map((p) => p.id)
     state = forceEliminatePlayer(state, remaining[0]!)
     expect(state.phase).toBe('game_over')
     expect(state.winnerId).toBe(remaining[1]!)
   })
 
-  it('life 0 eliminates; last remaining player wins', () => {
+  it('first_elimination ends when any player hits 0 lives (multi-survivor ok)', () => {
     const rng = seedRandom(7)
     let state = startGame(
       {
         playerIds: ['a', 'b', 'c'],
-        config: { initialLives: 1 },
+        config: { initialLives: 1, winCondition: 'first_elimination' },
+      },
+      rng,
+    )
+
+    state = playOneForcedChallenge(state, rng)
+    expect(state.phase).toBe('game_over')
+    expect(state.players.filter((p) => p.alive)).toHaveLength(2)
+    expect(state.winnerId).toBeNull()
+  })
+
+  it('last_standing: life 0 eliminates; last remaining player wins', () => {
+    const rng = seedRandom(7)
+    let state = startGame(
+      {
+        playerIds: ['a', 'b', 'c'],
+        config: { initialLives: 1, winCondition: 'last_standing' },
       },
       rng,
     )

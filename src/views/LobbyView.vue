@@ -15,11 +15,13 @@ import PlayerAvatar from '@/components/game/PlayerAvatar.vue'
 import DeckSettingsPanel from '@/components/lobby/DeckSettingsPanel.vue'
 import ExtraRulesPanel from '@/components/lobby/ExtraRulesPanel.vue'
 import TimeControlPanel from '@/components/lobby/TimeControlPanel.vue'
+import WinConditionPanel from '@/components/lobby/WinConditionPanel.vue'
 import type { StampId } from '@/online/stamps'
 import type {
   WireDeckComposition,
   WireExtraRules,
   WireTimeControl,
+  WireWinCondition,
 } from '@/online/protocol'
 import { allowLocalPlay } from '@/config/runtime'
 import { mockLobby } from '@/data/mockLobby'
@@ -161,7 +163,7 @@ const selfReady = computed(() => {
 /** One-line summary for the collapsed「ルーム設定」header. */
 const settingsSummary = computed(() => {
   const view = onlineGame.view
-  if (!view) return '山札・ルール・制限時間'
+  if (!view) return '山札・勝利条件・ルール・制限時間'
   const deck = view.deck
   let deckPart = '山札'
   if (deck) {
@@ -177,6 +179,8 @@ const settingsSummary = computed(() => {
     const label = deck.label?.trim() || '山札'
     deckPart = `${label} ${total}枚`
   }
+  const winPart =
+    view.winCondition === 'last_standing' ? '勝ち残り' : '一人脱落'
   const er = view.extraRules
   const extraKeys: (keyof WireExtraRules)[] = [
     'same',
@@ -200,7 +204,7 @@ const settingsSummary = computed(() => {
         : `${tc.mainSeconds}秒`
     timePart = `${main}+${tc.turnSeconds}秒`
   }
-  return `${deckPart} · ${extraPart} · ${timePart}`
+  return `${deckPart} · ${winPart} · ${extraPart} · ${timePart}`
 })
 
 function showToast(msg: string) {
@@ -507,6 +511,23 @@ function applyTimeControl(tc: WireTimeControl | null) {
     tc == null
       ? '制限時間をオフにしました'
       : `制限時間を反映しました（${tc.mainSeconds >= 60 && tc.mainSeconds % 60 === 0 ? `${tc.mainSeconds / 60}分` : `${tc.mainSeconds}秒`} + ${tc.turnSeconds}秒）`,
+  )
+}
+
+function applyWinCondition(condition: WireWinCondition) {
+  if (!isOnline.value || !isHost.value) {
+    showToast('勝利条件を変えられるのはホストだけです')
+    return
+  }
+  if (onlineGame.connection !== 'open') {
+    showToast('つながっているときだけ変更できます')
+    return
+  }
+  onlineGame.setWinCondition(condition)
+  showToast(
+    condition === 'last_standing'
+      ? '勝利条件を「勝ち残り」にしました'
+      : '勝利条件を「一人脱落で終了」にしました',
   )
 }
 
@@ -826,6 +847,12 @@ watch(
                   :editable="isHost"
                   :disabled="onlineGame.connection !== 'open'"
                   @apply="applyDeck"
+                />
+                <WinConditionPanel
+                  :win-condition="onlineGame.view?.winCondition"
+                  :editable="isHost"
+                  :disabled="onlineGame.connection !== 'open'"
+                  @apply="applyWinCondition"
                 />
                 <ExtraRulesPanel
                   :extra-rules="onlineGame.view?.extraRules"

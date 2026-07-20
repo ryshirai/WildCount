@@ -209,6 +209,7 @@ describe('onlineGame store', () => {
           lifeDouble: false,
         },
         timeControl: null,
+        winCondition: 'first_elimination',
       },
     })
     await joinP

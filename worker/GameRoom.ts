@@ -24,6 +24,7 @@ import {
   applySetDeck,
   applySetExtraRules,
   applySetTimeControl,
+  applySetWinCondition,
   buildPlayerView,
   clearDisconnectDeadline,
   createEmptyRoom,
@@ -53,6 +54,7 @@ import {
   type WireDeckComposition,
   type WireExtraRules,
   type WireTimeControl,
+  type WireWinCondition,
 } from './types'
 
 const STORAGE_ROOM = 'room'
@@ -267,6 +269,9 @@ export class GameRoom {
         return
       case 'set_time_control':
         await this.handleSetTimeControl(ws, room, msg.timeControl)
+        return
+      case 'set_win_condition':
+        await this.handleSetWinCondition(ws, room, msg.winCondition)
         return
       default:
         this.send(ws, {
@@ -930,6 +935,56 @@ export class GameRoom {
     this.broadcastView(room)
   }
 
+  private async handleSetWinCondition(
+    ws: WebSocket,
+    room: RoomState,
+    winCondition: WireWinCondition,
+  ): Promise<void> {
+    const playerId = this.playerIdOf(ws)
+    if (!playerId) {
+      this.send(ws, {
+        type: 'error',
+        code: 'BAD_REQUEST',
+        message: 'Join the room first',
+      })
+      return
+    }
+
+    if (playerId !== room.hostId) {
+      this.send(ws, {
+        type: 'error',
+        code: 'UNAUTHORIZED',
+        message: 'Only the host can change the win condition',
+      })
+      return
+    }
+
+    if (room.status !== 'open') {
+      this.send(ws, {
+        type: 'error',
+        code: 'GAME_ALREADY_STARTED',
+        message: 'Cannot change win condition after start',
+      })
+      return
+    }
+
+    applySetWinCondition(room, winCondition)
+    room.lastActivityAt = Date.now()
+    room.revision += 1
+    await this.saveRoom(room)
+    const label =
+      winCondition === 'last_standing'
+        ? '勝ち残り（最後の1人）'
+        : '一人脱落で終了'
+    this.broadcast(room, {
+      type: 'event',
+      level: 'info',
+      message: `勝利条件を更新しました（${label}）`,
+      code: 'WIN_CONDITION_UPDATED',
+    })
+    this.broadcastView(room)
+  }
+
   private async handleStart(ws: WebSocket, room: RoomState): Promise<void> {
     const playerId = this.playerIdOf(ws)
     if (!playerId) {
@@ -987,6 +1042,7 @@ export class GameRoom {
           config: {
             deck: room.deck,
             extraRules: room.extraRules ?? undefined,
+            winCondition: room.winCondition ?? undefined,
           },
         },
         seedRandom(seed),
@@ -1280,6 +1336,7 @@ export class GameRoom {
         hands: handsSnapshot,
         round: challengedRound,
         winnerId: room.game.winnerId,
+        isGameOver: room.game.phase === 'game_over',
       })
       room.resultAcks = {}
       // Stay at round_end until all connected dismiss (START_ROUND then)
@@ -1636,6 +1693,7 @@ export class GameRoom {
           hands: handsSnapshot,
           round: challengedRound,
           winnerId: room.game.winnerId,
+          isGameOver: room.game.phase === 'game_over',
         })
         room.resultAcks = {}
         room.bidHistory = []

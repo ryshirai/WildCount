@@ -450,17 +450,26 @@ async function playAgain() {
             : '',
         ]"
       >
-        <!-- Game-over winner (integrated; no second panel) -->
+        <!-- Game-over (sole winner or multi-survivor first-elimination end) -->
         <template v-if="localMeta.isGameOver">
-          <p class="mb-1 text-xs tracking-[0.18em] text-sand-dim">勝者</p>
+          <p class="mb-1 text-xs tracking-[0.18em] text-sand-dim">
+            {{ localMeta.winnerName ? '勝者' : '試合終了' }}
+          </p>
           <h2
             class="font-display text-2xl font-bold text-gold-100 sm:text-3xl"
             :class="totalRevealDone || showConfetti ? 'total-slam' : ''"
           >
-            {{ localMeta.winnerName ?? '勝者' }} の勝利！
+            <template v-if="localMeta.winnerName">
+              {{ localMeta.winnerName }} の勝利！
+            </template>
+            <template v-else> 脱落者が出たため終了 </template>
           </h2>
           <p class="mt-2 text-xs text-sand-dim">
-            最後の1人が生き残りました。下の「もう一度遊ぶ」から再戦できます。
+            {{
+              localMeta.winnerName
+                ? '最後の1人が生き残りました。下の「もう一度遊ぶ」から再戦できます。'
+                : '誰かがライフを失い切ったため試合が終わりました。下の「もう一度遊ぶ」から再戦できます。'
+            }}
           </p>
           <div class="my-4 h-px w-full bg-gold-400/15" />
         </template>
