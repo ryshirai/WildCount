@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppConfirmDialog from '@/components/common/AppConfirmDialog.vue'
 import AppHeader from '@/components/common/AppHeader.vue'
@@ -35,8 +35,13 @@ import { useLocalGameStore } from '@/stores/localGame'
 import { useOnlineGameStore } from '@/stores/onlineGame'
 import type { LobbyPlayer } from '@/types/game'
 
-/** Room settings accordion (default collapsed — start without scrolling). */
+/**
+ * Room settings detail: modal only (not inline accordion).
+ * Keeps PC right column height stable; chat stays visible.
+ */
 const settingsOpen = ref(false)
+/** Compact profile: full edit (name + icon catalog) only in modal */
+const profileEditOpen = ref(false)
 
 const router = useRouter()
 const route = useRoute()
@@ -111,6 +116,9 @@ const players = computed<LobbyPlayer[]>(() => {
 
 const maxPlayers = computed(() => onlineGame.view?.maxPlayers ?? 10)
 const readyCount = computed(() => players.value.filter((p) => p.isReady).length)
+const emptySeatCount = computed(() =>
+  Math.max(0, maxPlayers.value - players.value.length),
+)
 const canStart = computed(() => {
   if (isOnline.value) return onlineGame.canStart
   return isHost.value && players.value.length >= 2
@@ -130,13 +138,20 @@ const selfReady = computed(() => {
   return me?.isReady ?? false
 })
 
-/** One-line summary for the collapsed「ルーム設定」header. */
-const settingsSummary = computed(() => {
+const selfPlayer = computed(() => players.value.find((p) => p.isSelf))
+
+const selectedAvatarMeta = computed(
+  () => AVATAR_ASSETS[avatarDraft.value] ?? AVATAR_ASSETS[0]!,
+)
+
+/** Tags for collapsed room settings (readable chips, not one long sentence). */
+const settingsTags = computed((): string[] => {
   const view = onlineGame.view
-  if (!view) return '山札・勝利条件・ルール・制限時間'
+  if (!view) return ['山札', '勝利条件', 'ルール', '制限時間']
+  const tags: string[] = []
   const deck = view.deck
-  let deckPart = '山札'
   if (deck) {
+    tags.push(deck.label?.trim() || '山札')
     const num = deck.numbers.reduce((s, n) => s + n.count, 0)
     const sp = deck.specials
     const total =
@@ -146,11 +161,11 @@ const settingsSummary = computed(() => {
       sp.max_to_zero +
       sp.redraw +
       sp.zero_mix
-    const label = deck.label?.trim() || '山札'
-    deckPart = `${label} ${total}枚`
+    if (total > 0) tags.push(`${total}枚`)
+  } else {
+    tags.push('山札')
   }
-  const winPart =
-    view.winCondition === 'last_standing' ? '勝ち残り' : '一人脱落'
+  tags.push(view.winCondition === 'last_standing' ? '勝ち残り' : '一人脱落')
   const er = view.extraRules
   const extraKeys: (keyof WireExtraRules)[] = [
     'same',
@@ -160,22 +175,37 @@ const settingsSummary = computed(() => {
     'draw1',
     'lifeDouble',
   ]
-  const extraOn = er
-    ? extraKeys.filter((k) => er[k]).length
-    : 0
-  const extraPart =
-    extraOn === 0 ? 'エクストラなし' : `エクストラ ${extraOn}`
+  const extraOn = er ? extraKeys.filter((k) => er[k]).length : 0
+  tags.push(extraOn === 0 ? 'エクストラなし' : `エクストラ ${extraOn}`)
   const tc = view.timeControl
-  let timePart = '制限なし'
   if (tc) {
     const main =
       tc.mainSeconds >= 60 && tc.mainSeconds % 60 === 0
         ? `${tc.mainSeconds / 60}分`
         : `${tc.mainSeconds}秒`
-    timePart = `${main}+${tc.turnSeconds}秒`
+    tags.push(`${main}+${tc.turnSeconds}秒`)
+  } else {
+    tags.push('制限なし')
   }
-  return `${deckPart} · ${winPart} · ${extraPart} · ${timePart}`
+  return tags
 })
+
+/** Why the host cannot start yet (shown near the start button, not inside it). */
+const startBlockedReason = computed((): string | null => {
+  if (!isHost.value) return null
+  if (players.value.length < 2) return '開始には2人以上必要です'
+  if (isOnline.value && readyCount.value < players.value.length) {
+    return `全員の準備完了が必要です（${readyCount.value}/${players.value.length}）`
+  }
+  if (!canStart.value) return 'まだ開始できません'
+  return null
+})
+
+const allReady = computed(
+  () =>
+    players.value.length >= 2 &&
+    readyCount.value >= players.value.length,
+)
 
 function showToast(msg: string) {
   toast.value = msg
@@ -411,6 +441,60 @@ function onSendReaction(stampId: StampId) {
   onlineGame.sendReaction(stampId)
 }
 
+function openProfileEdit() {
+  if (!isOnline.value) return
+  settingsOpen.value = false
+  profileEditOpen.value = true
+}
+
+function closeProfileEdit() {
+  profileEditOpen.value = false
+}
+
+function openSettings() {
+  if (!isOnline.value) return
+  profileEditOpen.value = false
+  settingsOpen.value = true
+}
+
+function closeSettings() {
+  settingsOpen.value = false
+}
+
+function onLobbyModalKeydown(e: KeyboardEvent) {
+  if (e.key !== 'Escape') return
+  if (profileEditOpen.value) {
+    e.preventDefault()
+    closeProfileEdit()
+    return
+  }
+  if (settingsOpen.value) {
+    e.preventDefault()
+    closeSettings()
+  }
+}
+
+const anyLobbyModalOpen = computed(
+  () => profileEditOpen.value || settingsOpen.value,
+)
+
+watch(anyLobbyModalOpen, (isOpen) => {
+  if (isOpen) {
+    document.documentElement.style.overflow = 'hidden'
+    window.addEventListener('keydown', onLobbyModalKeydown)
+  } else {
+    document.documentElement.style.overflow = ''
+    window.removeEventListener('keydown', onLobbyModalKeydown)
+  }
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', onLobbyModalKeydown)
+  if (anyLobbyModalOpen.value) {
+    document.documentElement.style.overflow = ''
+  }
+})
+
 function applyDisplayName() {
   if (!isOnline.value) return
   const next = nameDraft.value.trim().replace(/\s+/g, ' ').slice(0, 12)
@@ -548,8 +632,8 @@ watch(
 
 <template>
   <!--
-    R2 shell: fixed chrome (header + sticky CTA) + scrollable body.
-    Host can start without scrolling when settings stay collapsed.
+    Lobby shell: fixed chrome (header + sticky CTA) + scrollable body.
+    Priority: participants → ready → capacity → code → start → chat → settings → profile.
   -->
   <div class="page-fixed desert-bg safe-x">
     <AppHeader :sticky="false">
@@ -571,12 +655,12 @@ watch(
 
     <div class="min-h-0 flex-1 overflow-y-auto">
       <div
-        class="relative mx-auto w-full max-w-2xl px-4 py-5 lg:max-w-4xl lg:py-6"
+        class="relative mx-auto w-full max-w-lg px-4 py-4 sm:max-w-2xl sm:py-5 lg:max-w-[1100px] lg:py-6"
       >
         <!-- Disconnect / reconnect (P1-4) -->
         <div
           v-if="showDisconnectBanner"
-          class="mb-4 flex flex-col gap-2 rounded-2xl border border-red-400/30 bg-red-950/40 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+          class="mb-3 flex flex-col gap-2 rounded-2xl border border-red-400/30 bg-red-950/40 px-4 py-3 sm:mb-4 sm:flex-row sm:items-center sm:justify-between"
         >
           <p class="text-sm text-red-100">
             {{
@@ -598,7 +682,7 @@ watch(
 
         <div
           v-if="isOnline && resumeFailed && !onlineGame.view"
-          class="mb-4 rounded-2xl border border-gold-400/20 bg-night-900/60 px-4 py-3 text-center text-sm text-sand-dim"
+          class="mb-3 rounded-2xl border border-gold-400/20 bg-night-900/60 px-4 py-3 text-center text-sm text-sand-dim sm:mb-4"
         >
           ルームにつなげませんでした。ホームからコードを入れ直すか、少し待ってからもう一度どうぞ。
           <button
@@ -610,230 +694,203 @@ watch(
           </button>
         </div>
 
-        <!-- Room code hero -->
-        <section class="panel mb-4 p-4 text-center sm:mb-5 sm:p-5">
-          <p class="mb-1 text-xs text-sand-dim">ルームコード</p>
-          <div class="mb-2 flex items-center justify-center gap-2">
+        <!-- Compact room header: code + copy + capacity (one row on PC) -->
+        <header
+          class="mb-4 flex flex-col gap-2 rounded-2xl border border-gold-400/20 bg-night-800/70 px-3 py-2.5 sm:mb-5 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-4 sm:py-3"
+          aria-label="ルーム情報"
+        >
+          <div class="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
+            <span class="shrink-0 text-[11px] text-sand-dim sm:text-xs">
+              ルームコード
+            </span>
             <span
-              class="font-mono text-3xl font-bold tracking-[0.25em] text-gold-200 sm:text-4xl"
+              class="font-mono text-xl font-bold tracking-[0.22em] text-gold-200 sm:text-2xl sm:tracking-[0.28em]"
             >
               {{ roomCode }}
             </span>
+            <button
+              type="button"
+              class="btn-ghost btn-sm relative shrink-0"
+              :class="copied ? 'copy-flash' : ''"
+              @click="copyCode"
+            >
+              <FxSparkleBurst v-if="copied" density="sm" palette="gold" />
+              {{ copied ? 'コピー済み' : 'コピー' }}
+            </button>
           </div>
-          <button
-            type="button"
-            class="btn-ghost btn-sm relative"
-            :class="copied ? 'copy-flash' : ''"
-            @click="copyCode"
+          <div
+            class="flex flex-wrap items-center gap-2 text-xs sm:justify-end sm:text-sm"
           >
-            <FxSparkleBurst v-if="copied" density="sm" palette="gold" />
-            {{ copied ? 'コピー済み' : 'コードをコピー' }}
-          </button>
-          <p class="mt-2 text-xs text-sand-dim">
-            このコードを友だちに送って、ルームに入ってもらいましょう
-          </p>
-        </section>
-
-        <!-- Profile (online) — secondary to start/gather -->
-        <section
-          v-if="isOnline"
-          class="panel mb-4 space-y-4 p-4 sm:mb-5 sm:p-5"
-        >
-          <label class="block">
-            <span class="field-label !text-gold-200">表示名</span>
-            <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <input
-                v-model="nameDraft"
-                type="text"
-                maxlength="12"
-                autocomplete="nickname"
-                placeholder="例: コヨーテ"
-                class="field min-w-0 flex-1 !py-2.5"
-                @keydown.enter.prevent="applyDisplayName"
-              />
-              <button
-                type="button"
-                class="btn-ghost btn-sm shrink-0"
-                :disabled="onlineGame.connection !== 'open'"
-                @click="applyDisplayName"
-              >
-                変更する
-              </button>
-            </div>
-            <p class="mt-1.5 text-[11px] text-sand-dim">
-              最大12文字。席とチャットに表示されます
-            </p>
-          </label>
-
-          <div>
-            <AvatarPicker
-              v-model="avatarDraft"
-              label="アイコン"
-              :disabled="onlineGame.connection !== 'open'"
-              @update:model-value="onAvatarPick"
-            />
-            <p class="mt-1.5 text-[11px] text-sand-dim">
-              タップですぐ反映。カタログ 15 種・他の人と被っても構いません
-            </p>
+            <span class="chip chip-muted !py-0.5">
+              参加者 {{ players.length }}/{{ maxPlayers }}
+            </span>
+            <span
+              class="chip !py-0.5"
+              :class="allReady ? 'chip-teal' : 'chip-muted'"
+            >
+              準備 {{ readyCount }}/{{ players.length || 0 }}
+            </span>
           </div>
-        </section>
+        </header>
 
         <!--
-          Main IA: lg 2-col (players | chat + settings).
-          SP: players first, then settings accordion, then chat.
+          Main IA: lg 2-col (participants hero | settings + chat).
+          SP: participants first, then settings, then chat.
         -->
         <div
-          class="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:items-start lg:gap-5"
+          class="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.9fr)] lg:items-start lg:gap-5"
         >
           <!-- Left: participants (hero) -->
-          <section class="panel order-1 p-4 sm:p-5 lg:order-none">
-            <div class="mb-4 flex items-center justify-between gap-2">
-              <h2 class="text-sm font-semibold text-gold-200">参加者</h2>
-              <span class="chip chip-muted">
-                {{ players.length }} / {{ maxPlayers }}人
-              </span>
+          <section class="order-1 min-w-0 lg:order-none" aria-label="参加者">
+            <div class="mb-3 flex items-end justify-between gap-2">
+              <h2 class="text-base font-semibold text-gold-200 sm:text-lg">
+                参加者
+              </h2>
+              <p class="text-xs text-sand-dim sm:text-sm">
+                <span class="font-semibold text-sand">{{ players.length }}</span>
+                <span class="text-sand-dim"> / {{ maxPlayers }}人</span>
+                <span class="mx-1.5 text-gold-400/40" aria-hidden="true">·</span>
+                準備
+                <span
+                  class="font-semibold"
+                  :class="allReady ? 'text-teal-soft' : 'text-sand'"
+                >
+                  {{ readyCount }}
+                </span>
+                / {{ players.length || 0 }}
+              </p>
             </div>
 
-            <ul class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3">
+            <ul
+              class="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 lg:grid-cols-2 xl:grid-cols-3"
+            >
               <li
                 v-for="p in players"
                 :key="p.id"
-                class="lobby-join-in flex flex-col items-center rounded-xl border border-gold-400/15 bg-night-900/50 px-3 py-4"
+                class="lobby-join-in relative flex flex-col items-center rounded-xl border bg-night-900/45 px-2.5 py-3.5 sm:px-3 sm:py-4"
                 :class="[
-                  p.isSelf ? 'ring-1 ring-teal-soft/50' : '',
+                  p.isReady
+                    ? 'lobby-seat--ready border-teal-soft/45 shadow-[0_0_0_1px_rgba(42,138,138,0.18)]'
+                    : 'border-gold-400/15',
+                  p.isSelf && !p.isReady ? 'ring-1 ring-teal-soft/35' : '',
                   isOnline && 'connected' in p && !p.connected
                     ? 'opacity-50'
                     : '',
                 ]"
               >
-                <PlayerAvatar
-                  :avatar="p.avatar"
-                  :avatar-src="p.avatarSrc"
-                  :name="p.name"
-                  :self="p.isSelf"
-                  size="md"
-                >
-                  <template #status>
-                    <div
-                      class="mt-0.5 flex flex-wrap items-center justify-center gap-1"
-                    >
-                      <span
-                        v-if="p.isHost"
-                        class="rounded bg-gold-400/20 px-1.5 py-0.5 text-[10px] font-medium text-gold-200"
-                      >
-                        ホスト
-                      </span>
-                      <span
-                        v-if="isOnline && 'connected' in p && !p.connected"
-                        class="rounded bg-night-700 px-1.5 py-0.5 text-[10px] text-sand-dim"
-                      >
-                        切断
-                      </span>
-                      <span
-                        :key="`${p.id}-ready-${p.isReady}`"
-                        class="rounded px-1.5 py-0.5 text-[10px]"
-                        :class="[
-                          p.isReady
-                            ? 'lobby-ready-pop bg-teal-deep/50 text-teal-soft'
-                            : 'bg-night-700 text-sand-dim',
-                        ]"
-                      >
-                        {{ p.isReady ? '✓ 準備OK' : '待機中' }}
-                      </span>
-                    </div>
-                  </template>
-                </PlayerAvatar>
-              </li>
-
-              <li
-                v-for="n in Math.min(2, maxPlayers - players.length)"
-                :key="`empty-${n}`"
-                class="flex flex-col items-center justify-center rounded-xl border border-dashed border-gold-400/15 bg-night-900/20 px-3 py-6 text-center"
-              >
-                <span class="mb-1 text-2xl opacity-40" aria-hidden="true">＋</span>
-                <span class="text-[11px] text-sand-dim">空き席</span>
-              </li>
-            </ul>
-
-            <p class="mt-4 text-center text-xs text-sand-dim">
-              準備完了 {{ readyCount }} / {{ players.length }}
-              <template v-if="isOnline">
-                <span v-if="isHost && readyCount < players.length">
-                  · 全員の準備完了後に開始できます
-                </span>
-                <span v-else-if="!isHost"> · ホストの開始待ちです</span>
-              </template>
-              <span v-else-if="!isHost"> · ホストの開始待ちです</span>
-            </p>
-          </section>
-
-          <!-- Right column: settings accordion + chat -->
-          <div
-            v-if="isOnline"
-            class="order-2 flex flex-col gap-4 lg:order-none"
-          >
-            <!-- Room settings: single accordion (default collapsed) -->
-            <section class="panel overflow-hidden p-0" aria-label="ルーム設定">
-              <button
-                type="button"
-                class="flex w-full items-start justify-between gap-3 px-4 py-3.5 text-left sm:px-5 sm:py-4"
-                :aria-expanded="settingsOpen"
-                @click="settingsOpen = !settingsOpen"
-              >
-                <div class="min-w-0">
-                  <p class="text-sm font-semibold text-gold-200">ルーム設定</p>
-                  <p class="mt-0.5 truncate text-[11px] text-sand-dim">
-                    {{ settingsSummary }}
-                  </p>
+                <!-- Ready check badge on avatar -->
+                <div class="relative mb-1">
+                  <PlayerAvatar
+                    :avatar="p.avatar"
+                    :avatar-src="p.avatarSrc"
+                    :name="p.name"
+                    :self="p.isSelf"
+                    :highlighted="false"
+                    size="md"
+                    hide-name
+                  />
+                  <span
+                    v-if="p.isReady"
+                    :key="`${p.id}-ready-badge-${p.isReady}`"
+                    class="lobby-ready-pop absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-teal-deep text-[11px] font-bold text-gold-100 ring-2 ring-night-900"
+                    aria-hidden="true"
+                    title="準備完了"
+                  >
+                    ✓
+                  </span>
                 </div>
+
+                <p
+                  class="max-w-full truncate text-center text-sm font-semibold leading-tight"
+                  :class="p.isSelf ? 'text-teal-soft' : 'text-sand'"
+                >
+                  {{ p.name }}
+                </p>
+
+                <div
+                  class="mt-1.5 flex min-h-[1.25rem] flex-wrap items-center justify-center gap-1"
+                >
+                  <span
+                    v-if="p.isHost"
+                    class="rounded bg-gold-400/20 px-1.5 py-0.5 text-[10px] font-medium text-gold-200"
+                  >
+                    ホスト
+                  </span>
+                  <span
+                    v-if="isOnline && 'connected' in p && !p.connected"
+                    class="rounded bg-night-700 px-1.5 py-0.5 text-[10px] text-sand-dim"
+                  >
+                    切断
+                  </span>
+                  <span
+                    :key="`${p.id}-ready-${p.isReady}`"
+                    class="rounded px-1.5 py-0.5 text-[10px]"
+                    :class="
+                      p.isReady
+                        ? 'lobby-ready-pop bg-teal-deep/45 text-teal-soft'
+                        : 'bg-night-700/80 text-sand-dim'
+                    "
+                  >
+                    {{ p.isReady ? '準備OK' : '待機中' }}
+                  </span>
+                </div>
+              </li>
+
+              <!-- Empty seats: waiting, not actionable “+” -->
+              <li
+                v-for="n in emptySeatCount"
+                :key="`empty-${n}`"
+                class="flex flex-col items-center justify-center rounded-xl border border-dashed border-gold-400/12 bg-night-900/15 px-2.5 py-4 text-center sm:py-5"
+              >
                 <span
-                  class="shrink-0 text-xs text-sand-dim"
+                  class="mb-2 flex h-12 w-12 items-center justify-center rounded-full border border-dashed border-gold-400/20 bg-night-900/30 text-sand-dim/50 sm:h-14 sm:w-14"
                   aria-hidden="true"
                 >
-                  {{ settingsOpen ? '閉じる' : '開く' }}
+                  <span class="text-lg opacity-60">·</span>
+                </span>
+                <span class="text-[11px] text-sand-dim/80">参加待ち</span>
+              </li>
+            </ul>
+          </section>
+
+          <!-- Right column: settings summary + chat (detail opens modal — no page stretch) -->
+          <div
+            v-if="isOnline"
+            class="order-2 flex min-w-0 flex-col gap-3 lg:order-none lg:gap-4"
+          >
+            <!-- Room settings: tags only; full panels in modal -->
+            <section
+              class="overflow-hidden rounded-2xl border border-gold-400/20 bg-night-800/70"
+              aria-label="ルーム設定"
+            >
+              <button
+                type="button"
+                class="flex w-full items-start justify-between gap-3 px-3.5 py-3 text-left sm:px-4 sm:py-3.5"
+                :aria-expanded="settingsOpen"
+                aria-haspopup="dialog"
+                @click="openSettings"
+              >
+                <div class="min-w-0 flex-1">
+                  <p class="text-sm font-semibold text-gold-200">ルーム設定</p>
+                  <div class="mt-1.5 flex flex-wrap gap-1.5">
+                    <span
+                      v-for="(tag, i) in settingsTags"
+                      :key="`${tag}-${i}`"
+                      class="inline-flex rounded-full border border-gold-400/20 bg-night-900/50 px-2 py-0.5 text-[10px] font-medium text-sand-dim sm:text-[11px]"
+                    >
+                      {{ tag }}
+                    </span>
+                  </div>
+                </div>
+                <span class="shrink-0 pt-0.5 text-xs text-sand-dim">
+                  {{ isHost ? '変更' : '設定を見る' }}
                 </span>
               </button>
-
-              <div
-                v-if="settingsOpen"
-                class="space-y-3 border-t border-gold-400/15 px-3 pb-4 pt-3 sm:px-4"
-              >
-                <p
-                  v-if="!isHost"
-                  class="rounded-xl border border-gold-400/10 bg-night-900/50 px-3 py-2 text-[11px] text-sand-dim"
-                >
-                  閲覧のみ。変更できるのはホストだけです
-                </p>
-                <DeckSettingsPanel
-                  :deck="onlineGame.view?.deck"
-                  :editable="isHost"
-                  :disabled="onlineGame.connection !== 'open'"
-                  @apply="applyDeck"
-                />
-                <WinConditionPanel
-                  :win-condition="onlineGame.view?.winCondition"
-                  :editable="isHost"
-                  :disabled="onlineGame.connection !== 'open'"
-                  @apply="applyWinCondition"
-                />
-                <ExtraRulesPanel
-                  :extra-rules="onlineGame.view?.extraRules"
-                  :editable="isHost"
-                  :disabled="onlineGame.connection !== 'open'"
-                  @apply="applyExtraRules"
-                />
-                <TimeControlPanel
-                  :time-control="onlineGame.view?.timeControl"
-                  :editable="isHost"
-                  :disabled="onlineGame.connection !== 'open'"
-                  @apply="applyTimeControl"
-                />
-              </div>
             </section>
 
-            <!-- Chat (fixed height; stamps via ChatPanel) -->
+            <!-- Chat (fills right column; not pushed by settings expand) -->
             <section
-              class="h-52 min-h-[12rem] sm:h-60 lg:h-64"
+              class="h-48 min-h-[11rem] sm:h-56 lg:h-[min(28rem,52vh)] lg:min-h-[18rem]"
               aria-label="ルームチャット"
             >
               <ChatPanel
@@ -853,62 +910,277 @@ watch(
       </div>
     </div>
 
-    <!-- Sticky CTA bar: always visible (leave is header-only) -->
+    <!-- Sticky action bar: profile (aux) · ready · start · dissolve (danger, right) -->
     <div
       class="z-20 shrink-0 border-t border-gold-400/15 bg-night-900/95 backdrop-blur-md safe-bottom"
       role="region"
       aria-label="ロビー操作"
     >
       <div
-        class="mx-auto flex w-full max-w-2xl flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-center sm:gap-3 lg:max-w-4xl"
+        class="mx-auto flex w-full max-w-lg flex-col gap-2.5 px-4 py-2.5 sm:max-w-2xl sm:py-3 lg:max-w-[1100px] lg:flex-row lg:items-center lg:gap-4"
       >
-        <button
-          v-if="isOnline"
-          type="button"
-          class="w-full sm:w-auto sm:min-w-[8.5rem]"
-          :class="selfReady ? 'btn-ghost' : 'btn-teal'"
-          :disabled="onlineGame.connection !== 'open'"
-          @click="toggleReady"
-        >
-          {{ selfReady ? '✓ 準備OK' : '準備完了' }}
-        </button>
-
-        <button
-          v-if="isHost"
-          type="button"
-          class="btn-gold w-full sm:min-w-[12rem] sm:flex-1 sm:max-w-xs"
-          :disabled="!canStart || starting"
-          @click="startGame"
-        >
-          {{
-            starting
-              ? '開始中…'
-              : isOnline && readyCount < players.length
-                ? `開始（準備 ${readyCount}/${players.length}）`
-                : 'ゲームを開始'
-          }}
-        </button>
+        <!-- Compact profile summary (online only) — auxiliary, not hero -->
         <div
-          v-else
-          class="w-full rounded-xl border border-gold-400/20 bg-night-800/60 px-4 py-3 text-center text-sm text-sand-dim sm:min-w-[12rem] sm:max-w-xs"
+          v-if="isOnline"
+          class="flex min-w-0 items-center gap-2.5 rounded-xl border border-gold-400/12 bg-night-900/40 px-2.5 py-1.5 lg:max-w-[14rem] lg:shrink-0"
         >
-          {{
-            isOnline && readyCount < players.length
-              ? '全員の準備完了を待っています…'
-              : 'ホストの開始を待っています…'
-          }}
+          <button
+            type="button"
+            class="relative h-9 w-9 shrink-0 overflow-hidden rounded-full border border-teal-soft/50 bg-night-900/80 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-300 disabled:cursor-not-allowed disabled:opacity-50"
+            :disabled="onlineGame.connection !== 'open'"
+            :aria-label="`${selectedAvatarMeta.name} — プロフィールを変更`"
+            @click="openProfileEdit"
+          >
+            <img
+              :src="avatarSrc(selectedAvatarMeta.id)"
+              :alt="selectedAvatarMeta.name"
+              class="h-full w-full object-cover"
+              draggable="false"
+            />
+          </button>
+          <div class="min-w-0 flex-1">
+            <p class="truncate text-sm font-medium leading-tight text-sand">
+              {{ nameDraft.trim() || selfPlayer?.name || 'プレイヤー' }}
+            </p>
+            <p class="truncate text-[10px] text-sand-dim">
+              {{ selectedAvatarMeta.name }}
+            </p>
+          </div>
+          <button
+            type="button"
+            class="btn-ghost btn-sm shrink-0 !px-2"
+            :disabled="onlineGame.connection !== 'open'"
+            @click="openProfileEdit"
+          >
+            変更
+          </button>
         </div>
 
-        <button
-          v-if="isOnline && isHost"
-          type="button"
-          class="btn-danger btn-sm w-full sm:w-auto"
-          @click="requestDissolveRoom"
+        <div
+          class="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:gap-3"
         >
-          ルームを解散
-        </button>
+          <button
+            v-if="isOnline"
+            type="button"
+            class="w-full sm:w-auto sm:min-w-[8.5rem]"
+            :class="selfReady ? 'btn-ghost' : 'btn-teal'"
+            :disabled="onlineGame.connection !== 'open'"
+            @click="toggleReady"
+          >
+            {{ selfReady ? '✓ 準備OK' : '準備完了' }}
+          </button>
+
+          <div class="flex min-w-0 flex-1 flex-col gap-1 sm:items-stretch">
+            <button
+              v-if="isHost"
+              type="button"
+              class="w-full sm:min-w-[11rem]"
+              :class="
+                canStart && !starting
+                  ? 'btn-gold'
+                  : 'btn-ghost opacity-70'
+              "
+              :disabled="!canStart || starting"
+              @click="startGame"
+            >
+              {{ starting ? '開始中…' : 'ゲームを開始' }}
+            </button>
+            <div
+              v-else
+              class="w-full rounded-xl border border-gold-400/20 bg-night-800/60 px-4 py-2.5 text-center text-sm text-sand-dim sm:min-w-[11rem]"
+            >
+              {{
+                isOnline && readyCount < players.length
+                  ? '全員の準備完了を待っています…'
+                  : 'ホストの開始を待っています…'
+              }}
+            </div>
+            <p
+              v-if="isHost && startBlockedReason"
+              class="text-center text-[11px] text-sand-dim sm:text-left"
+            >
+              {{ startBlockedReason }}
+            </p>
+            <p
+              v-else-if="isHost && canStart"
+              class="text-center text-[11px] text-teal-soft/90 sm:text-left"
+            >
+              全員準備完了 — 開始できます
+            </p>
+            <p
+              v-else-if="isOnline && !isHost"
+              class="text-center text-[11px] text-sand-dim sm:text-left"
+            >
+              準備 {{ readyCount }}/{{ players.length }}
+            </p>
+          </div>
+
+          <button
+            v-if="isOnline && isHost"
+            type="button"
+            class="btn-sm w-full border border-red-400/45 bg-transparent px-3 py-2 text-red-200 transition hover:border-red-400/65 hover:bg-red-950/35 sm:ml-auto sm:w-auto"
+            @click="requestDissolveRoom"
+          >
+            ルームを解散
+          </button>
+        </div>
       </div>
     </div>
+
+    <!-- Room settings modal (PC/SP: no inline expand, keeps lobby height stable) -->
+    <Teleport to="body">
+      <div
+        v-if="settingsOpen && isOnline"
+        class="fixed inset-0 z-[80] flex items-end justify-center sm:items-center"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="lobby-settings-title"
+      >
+        <button
+          type="button"
+          class="absolute inset-0 bg-night-950/75"
+          aria-label="閉じる"
+          @click="closeSettings"
+        />
+        <div
+          class="relative z-10 flex max-h-[min(88dvh,40rem)] w-full max-w-lg flex-col rounded-t-2xl border border-gold-400/25 bg-night-800 shadow-panel sm:mx-4 sm:rounded-2xl lg:max-w-xl"
+        >
+          <div
+            class="flex shrink-0 items-center justify-between gap-3 border-b border-gold-400/15 px-4 py-3 sm:px-5"
+          >
+            <div class="min-w-0">
+              <h2
+                id="lobby-settings-title"
+                class="text-sm font-semibold text-gold-200 sm:text-base"
+              >
+                ルーム設定
+              </h2>
+              <p class="mt-0.5 text-[11px] text-sand-dim">
+                {{
+                  isHost
+                    ? '山札・勝利条件・ルール・制限時間を変更できます'
+                    : '閲覧のみ。変更できるのはホストだけです'
+                }}
+              </p>
+            </div>
+            <button
+              type="button"
+              class="btn-ghost btn-sm shrink-0"
+              @click="closeSettings"
+            >
+              閉じる
+            </button>
+          </div>
+          <div class="min-h-0 flex-1 space-y-3 overflow-y-auto p-3 sm:p-4">
+            <p
+              v-if="!isHost"
+              class="rounded-xl border border-gold-400/10 bg-night-900/50 px-3 py-2 text-[11px] text-sand-dim"
+            >
+              閲覧のみ。変更できるのはホストだけです
+            </p>
+            <DeckSettingsPanel
+              :deck="onlineGame.view?.deck"
+              :editable="isHost"
+              :disabled="onlineGame.connection !== 'open'"
+              @apply="applyDeck"
+            />
+            <WinConditionPanel
+              :win-condition="onlineGame.view?.winCondition"
+              :editable="isHost"
+              :disabled="onlineGame.connection !== 'open'"
+              @apply="applyWinCondition"
+            />
+            <ExtraRulesPanel
+              :extra-rules="onlineGame.view?.extraRules"
+              :editable="isHost"
+              :disabled="onlineGame.connection !== 'open'"
+              @apply="applyExtraRules"
+            />
+            <TimeControlPanel
+              :time-control="onlineGame.view?.timeControl"
+              :editable="isHost"
+              :disabled="onlineGame.connection !== 'open'"
+              @apply="applyTimeControl"
+            />
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- Profile edit modal (name + icon catalog) -->
+    <Teleport to="body">
+      <div
+        v-if="profileEditOpen && isOnline"
+        class="fixed inset-0 z-[80] flex items-end justify-center sm:items-center"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="lobby-profile-edit-title"
+      >
+        <button
+          type="button"
+          class="absolute inset-0 bg-night-950/75"
+          aria-label="閉じる"
+          @click="closeProfileEdit"
+        />
+        <div
+          class="relative z-10 flex max-h-[min(88dvh,40rem)] w-full max-w-md flex-col rounded-t-2xl border border-gold-400/25 bg-night-800 shadow-panel sm:mx-4 sm:rounded-2xl"
+        >
+          <div
+            class="flex shrink-0 items-center justify-between gap-3 border-b border-gold-400/15 px-4 py-3 sm:px-5"
+          >
+            <h2
+              id="lobby-profile-edit-title"
+              class="text-sm font-semibold text-gold-200 sm:text-base"
+            >
+              プロフィールを変更
+            </h2>
+            <button
+              type="button"
+              class="btn-ghost btn-sm"
+              @click="closeProfileEdit"
+            >
+              閉じる
+            </button>
+          </div>
+          <div class="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-5">
+            <label class="block">
+              <span class="field-label">表示名</span>
+              <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <input
+                  v-model="nameDraft"
+                  type="text"
+                  maxlength="12"
+                  autocomplete="nickname"
+                  placeholder="例: コヨーテ"
+                  class="field min-w-0 flex-1 !py-2.5"
+                  :disabled="onlineGame.connection !== 'open'"
+                  @keydown.enter.prevent="applyDisplayName"
+                />
+                <button
+                  type="button"
+                  class="btn-ghost btn-sm shrink-0"
+                  :disabled="onlineGame.connection !== 'open'"
+                  @click="applyDisplayName"
+                >
+                  名前を反映
+                </button>
+              </div>
+              <p class="mt-1.5 text-[11px] text-sand-dim">
+                最大12文字。席とチャットに表示されます
+              </p>
+            </label>
+
+            <AvatarPicker
+              v-model="avatarDraft"
+              variant="grid"
+              label="アイコン"
+              :disabled="onlineGame.connection !== 'open'"
+              @update:model-value="onAvatarPick"
+            />
+          </div>
+        </div>
+      </div>
+    </Teleport>
 
     <AppConfirmDialog
       v-model:open="dissolveConfirmOpen"

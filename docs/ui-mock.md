@@ -17,7 +17,7 @@ npm run dev
 | 項目 | 状態 |
 |------|------|
 | トップ（作成 / 参加） | **本番**: オンライン作成/参加のみ。**DEV**: ローカル対戦 + 開発用 mock 導線（`src/config/runtime.ts`）。SP: コンパクトプロフィール＋CTA 優先。PC: プロフィール｜ルーム操作の 2 カラム + ゲーム設定折りたたみ |
-| 待機ロビー | オンライン: WS 同期・host 開始・sticky CTA・設定折りたたみ・2 カラム（R2） |
+| 待機ロビー | オンライン: 参加者一覧が主役・最大10席・準備状態強調。PC: 横長コードヘッダ + 左参加者 / 右設定タグ+チャット（max ~1100px）。設定詳細・プロフィールはモーダル（インライン展開なし＝縦伸び防止）。開始理由表示・解散は危険アウトライン |
 | ゲーム画面（PC） | 楕円席 + 中央宣言 + 操作バー + 右レール（ログ/チャット）。`AppHeader` + テーブル felt（R5）。ヘッダは 設定/説明/退出 |
 | ゲーム画面（モバイル） | ヘッダ 1 本（設定/説明/退出）・カルーセル・特殊能力折りたたみ・ミニドック・チャット中も操作可（R4） |
 | 結果・カード公開 | スタッガー公開・特殊札・計算ステップ + 合計カウントアップ / 紙吹雪。`AppHeader` シェル（ルーム/ラウンドチップなし） |
@@ -58,7 +58,7 @@ npm run dev
 | ヘッダ | Lobby / Game / Result | `AppHeader`（同一 blur・border。Game は `compact` 可） |
 | safe-area | `safe-top` はヘッダ **または** 切断バナーのどちらか一方 | 二重 padding 禁止。下端 fixed / ボトムシートは `safe-bottom` |
 | `safe-x` / `safe-bottom` | 全画面ルート | ノッチ・ホームインジケータ |
-| max-width | Home SP `max-w-lg` · PC `max-w-[1080px]` 2 カラム / Lobby 2 カラム / Result `max-w-3xl` / Game full | |
+| max-width | Home SP `max-w-lg` · PC `max-w-[1080px]` 2 カラム / Lobby PC `max-w-[1100px]` 2 カラム（参加者｜設定+チャット） / Result `max-w-3xl` / Game full | |
 
 共通クラス: `.panel` / `.btn-gold` / `.btn-teal` / `.btn-ghost` / `.btn-sm` / `.btn-icon` / `.btn-danger` / `.chip` / `.chip-teal|muted|danger|gold` / `.field` / `.field-label` / `.field-mono` / `.desert-bg` / `.seat-chip-*` / `.bid-chip` / `.game-table-felt`（PC 卓）
 
