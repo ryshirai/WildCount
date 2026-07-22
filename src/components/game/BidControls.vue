@@ -380,23 +380,27 @@ function onChange() {
     <div
       v-if="hasSpecials"
       id="bid-specials-panel"
-      class="mb-1 flex flex-col items-center gap-0.5"
+      class="flex flex-col items-center"
+      :class="mobile ? 'mb-1.5 gap-1.5' : 'mb-1 gap-0.5'"
       role="group"
       aria-label="特殊能力（1ラウンドに1回）"
     >
       <!-- Row 1: セイム / チェンジ / なし (same line) -->
       <div
         v-if="canSame || canChange || (showSkillBar && noneSkill)"
-        class="flex flex-wrap items-center justify-center gap-1"
+        class="flex flex-wrap items-center justify-center"
+        :class="mobile ? 'gap-1.5' : 'gap-1'"
       >
         <span
-          class="mr-0.5 text-[10px] font-medium text-sand-dim/70"
+          class="mr-0.5 font-medium text-sand-dim/70"
+          :class="mobile ? 'text-[11px]' : 'text-[10px]'"
           aria-hidden="true"
         >特殊</span>
         <button
           v-if="canSame"
           type="button"
-          class="skill-chip skill-chip--solo skill-chip--sm"
+          class="skill-chip skill-chip--solo"
+          :class="mobile ? 'skill-chip--touch' : 'skill-chip--sm'"
           title="直前の宣言と同じ数字で宣言する"
           @click="onSame"
         >
@@ -406,7 +410,8 @@ function onChange() {
         <button
           v-if="canChange"
           type="button"
-          class="skill-chip skill-chip--solo skill-chip--change skill-chip--sm"
+          class="skill-chip skill-chip--solo skill-chip--change"
+          :class="mobile ? 'skill-chip--touch' : 'skill-chip--sm'"
           title="手札を引き直す"
           @click="onChange"
         >
@@ -416,8 +421,11 @@ function onChange() {
         <button
           v-if="showSkillBar && noneSkill"
           type="button"
-          class="skill-chip skill-chip--sm"
-          :class="extraChoice === 'none' ? 'skill-chip--on' : ''"
+          class="skill-chip"
+          :class="[
+            mobile ? 'skill-chip--touch' : 'skill-chip--sm',
+            extraChoice === 'none' ? 'skill-chip--on' : '',
+          ]"
           :title="noneSkill.hint"
           :aria-pressed="extraChoice === 'none'"
           @click="selectSkill('none')"
@@ -430,7 +438,8 @@ function onChange() {
       <!-- Row 2: リバース / ショット / … -->
       <div
         v-if="showSkillBar && rideSkills.length"
-        class="flex flex-wrap items-center justify-center gap-1"
+        class="flex flex-wrap items-center justify-center"
+        :class="mobile ? 'gap-1.5' : 'gap-1'"
         role="group"
         aria-label="宣言と一緒に使う能力"
       >
@@ -438,8 +447,9 @@ function onChange() {
           v-for="opt in rideSkills"
           :key="opt.id"
           type="button"
-          class="skill-chip skill-chip--sm"
+          class="skill-chip"
           :class="[
+            mobile ? 'skill-chip--touch' : 'skill-chip--sm',
             extraChoice === opt.id ? 'skill-chip--on' : '',
             `skill-chip--${opt.id}`,
           ]"
@@ -455,17 +465,24 @@ function onChange() {
       <!-- Target: horizontal scroll only -->
       <div
         v-if="needsTarget"
-        class="flex max-w-full items-center gap-1 overflow-x-auto overscroll-x-contain px-0.5 scrollbar-none"
+        class="flex max-w-full items-center overflow-x-auto overscroll-x-contain px-0.5 scrollbar-none"
+        :class="mobile ? 'gap-1.5' : 'gap-1'"
         role="group"
         aria-label="対象プレイヤー"
       >
-        <span class="shrink-0 text-[10px] text-sand-dim/80">対象</span>
+        <span
+          class="shrink-0 text-sand-dim/80"
+          :class="mobile ? 'text-[11px]' : 'text-[10px]'"
+        >対象</span>
         <button
           v-for="t in targetOptions ?? []"
           :key="t.id"
           type="button"
-          class="skill-chip skill-chip--target skill-chip--sm shrink-0"
-          :class="targetId === t.id ? 'skill-chip--on' : ''"
+          class="skill-chip skill-chip--target shrink-0"
+          :class="[
+            mobile ? 'skill-chip--touch' : 'skill-chip--sm',
+            targetId === t.id ? 'skill-chip--on' : '',
+          ]"
           :aria-pressed="targetId === t.id"
           @click="targetId = t.id"
         >
@@ -615,6 +632,13 @@ function onChange() {
 .skill-chip--sm {
   padding: 0.28rem 0.5rem;
   font-size: 0.68rem;
+}
+/* Mobile touch targets: ~40–44px height (easier to hit than --sm) */
+.skill-chip--touch {
+  min-height: 2.5rem;
+  padding: 0.5rem 0.85rem;
+  font-size: 0.8125rem;
+  gap: 0.35rem;
 }
 .skill-chip--on {
   border-color: rgba(94, 200, 200, 0.55);
