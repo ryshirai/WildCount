@@ -276,18 +276,27 @@ watch(
 
 <template>
   <div class="page-scroll desert-bg safe-x">
+    <!--
+      Shell widths:
+      - SP / tablet: single column, max-w-lg (readable phone width)
+      - lg+: dedicated desktop home (~1080px), not a stretched phone column
+    -->
     <div
-      class="relative z-10 mx-auto flex w-full max-w-lg flex-1 flex-col px-4 py-8 safe-bottom sm:py-12"
+      class="relative z-10 mx-auto flex w-full max-w-lg flex-1 flex-col px-4 py-5 safe-bottom sm:py-6 lg:max-w-[1080px] lg:px-6 lg:py-8"
     >
-      <!-- Hero -->
-      <header class="mb-8 flex flex-col items-center text-center sm:mb-10">
+      <!-- Hero: compact on SP so CTAs stay near first paint -->
+      <header
+        class="mb-5 flex flex-col items-center text-center sm:mb-6 lg:mb-8"
+      >
         <AppLogo size="lg" />
-        <p class="mt-3 max-w-sm text-sm text-sand-dim sm:text-base">
+        <p
+          class="mt-2.5 max-w-md text-sm leading-relaxed text-sand-dim sm:mt-3 sm:text-base lg:max-w-lg"
+        >
           見えている札だけで合計を読み合う、リアルタイムの推理ゲーム
         </p>
         <button
           type="button"
-          class="btn-ghost btn-sm mt-4"
+          class="btn-ghost btn-sm mt-3 lg:mt-4"
           @click="helpOpen = true"
         >
           <span class="font-bold text-gold-200" aria-hidden="true">?</span>
@@ -302,11 +311,15 @@ watch(
       >
         <div class="mb-2 flex items-center gap-2">
           <StatusChip variant="teal" class="text-[10px]" label="再接続" />
-          <h2 class="text-sm font-semibold text-gold-200">前回のルームに戻る</h2>
+          <h2 class="text-sm font-semibold text-gold-200 lg:text-base">
+            前回のルームに戻る
+          </h2>
         </div>
-        <p class="mb-3 text-xs text-sand-dim">
+        <p class="mb-3 text-xs text-sand-dim lg:text-sm">
           ルーム
-          <span class="font-mono tracking-wider text-gold-100">{{ resumableCode }}</span>
+          <span class="font-mono tracking-wider text-gold-100">{{
+            resumableCode
+          }}</span>
           に、この端末からまた入れます（ページを閉じたあとも大丈夫）
         </p>
         <div class="flex flex-col gap-2 sm:flex-row">
@@ -330,190 +343,260 @@ watch(
         </div>
       </section>
 
-      <!-- Profile: name + avatar (shared by create / join) -->
-      <section class="panel mb-4 p-5 sm:p-6">
-        <div class="mb-1 flex items-center gap-2">
-          <h2 class="text-sm font-semibold text-gold-200">プロフィール</h2>
-          <StatusChip variant="muted" class="text-[10px]" label="最大10人" />
-        </div>
-        <p class="mb-4 text-xs text-sand-dim">
-          表示名とアイコンは席とチャットに表示されます。空欄のときは「プレイヤー」になります
-        </p>
-        <label class="mb-4 block">
-          <span class="field-label">表示名</span>
-          <input
-            v-model="playerName"
-            type="text"
-            maxlength="12"
-            autocomplete="nickname"
-            placeholder="例: コヨーテ"
-            class="field"
-          />
-        </label>
-        <AvatarPicker v-model="playerAvatarIndex" label="アイコン" />
+      <!--
+        Main IA
+        - Mobile: compact profile → create/join CTAs (primary goals near fold)
+        - PC: 2-col — profile left, room actions right
+      -->
+      <div
+        class="flex flex-col gap-4 lg:grid lg:grid-cols-12 lg:items-stretch lg:gap-6"
+      >
+        <!-- Profile (compact) -->
+        <section
+          class="panel flex flex-col p-4 sm:p-5 lg:col-span-5 lg:p-6"
+        >
+          <h2 class="mb-1 text-sm font-semibold text-gold-200 lg:text-base">
+            プロフィール
+          </h2>
+          <p class="mb-3 text-xs text-sand-dim lg:mb-4 lg:text-sm">
+            席とチャットに表示されます。空欄のときは「プレイヤー」になります
+          </p>
 
-        <!-- D2: SFX prefs (localStorage; changeable mid-game via header mute) -->
-        <div class="mt-5 border-t border-gold-400/10 pt-4">
-          <div class="mb-2 flex items-center justify-between gap-3">
-            <div>
-              <p class="text-sm font-semibold text-gold-200">効果音</p>
-              <p class="text-xs text-sand-dim">
-                宣言・手番・コヨーテなどの短い音。ゲーム中もヘッダでミュートできます
-              </p>
-            </div>
-            <button
-              type="button"
-              class="btn-ghost btn-sm shrink-0"
-              :aria-pressed="sfxEnabled"
-              @click="setSfxEnabled(!sfxEnabled)"
-            >
-              {{ sfxEnabled ? 'ON' : 'OFF' }}
-            </button>
-          </div>
-          <label
-            class="block"
-            :class="sfxEnabled ? '' : 'pointer-events-none opacity-40'"
-          >
-            <span class="field-label">音量</span>
+          <label class="mb-3 block lg:mb-4">
+            <span class="field-label">表示名</span>
             <input
-              type="range"
-              min="0"
-              max="100"
-              step="5"
-              class="w-full accent-gold-400"
-              :disabled="!sfxEnabled"
-              :value="Math.round(sfxVolume * 100)"
-              @input="
-                setSfxVolume(
-                  Number(($event.target as HTMLInputElement).value) / 100,
-                )
-              "
+              v-model="playerName"
+              type="text"
+              maxlength="12"
+              autocomplete="nickname"
+              placeholder="例: コヨーテ"
+              class="field"
             />
           </label>
-        </div>
 
-        <!-- D4: Haptic prefs (default OFF; mobile Vibration API) -->
-        <div class="mt-5 border-t border-gold-400/10 pt-4">
-          <div class="mb-1 flex items-center justify-between gap-3">
-            <div>
-              <p class="text-sm font-semibold text-gold-200">触覚フィードバック</p>
-              <p class="text-xs text-sand-dim">
-                手番・WILD CALL・コヨーテ・ライフ喪失のみ短い振動。初期 OFF。ゲーム中もヘッダで切り替えできます
-              </p>
+          <AvatarPicker
+            v-model="playerAvatarIndex"
+            variant="compact"
+            label="アイコン"
+          />
+        </section>
+
+        <!-- Room CTAs (hero actions) -->
+        <div
+          class="flex flex-col gap-3 sm:gap-4 lg:col-span-7 lg:justify-center"
+        >
+          <!-- Create -->
+          <section
+            class="panel border-gold-400/30 p-4 shadow-gold sm:p-5 lg:p-6"
+          >
+            <div class="mb-1 flex flex-wrap items-center gap-2">
+              <h2 class="text-sm font-semibold text-gold-200 lg:text-base">
+                ルームを作る
+              </h2>
+              <StatusChip
+                variant="muted"
+                class="text-[10px]"
+                label="最大10人"
+              />
             </div>
+            <p class="mb-3 text-xs text-sand-dim lg:mb-4 lg:text-sm">
+              あなたがホストになります。6文字のコードを友だちに送ってください
+            </p>
             <button
               type="button"
-              class="btn-ghost btn-sm shrink-0"
-              :aria-pressed="hapticEnabled"
-              :disabled="!hapticSupported"
-              :title="
-                hapticSupported
-                  ? hapticEnabled
-                    ? '触覚オン'
-                    : '触覚オフ'
-                  : 'この端末は振動に対応していません'
-              "
-              @click="setHapticEnabled(!hapticEnabled)"
+              class="btn-gold w-full lg:py-3.5 lg:text-base"
+              :class="ctaFlash === 'create' ? 'btn-fx-press' : ''"
+              :disabled="onlineBusy"
+              @click="createRoom"
             >
-              {{ !hapticSupported ? '非対応' : hapticEnabled ? 'ON' : 'OFF' }}
+              {{ onlineBusy ? '接続中…' : 'ルームを作る' }}
             </button>
+            <p
+              v-if="onlineBusy"
+              class="mt-2 text-center text-[11px] text-sand-dim lg:text-xs"
+            >
+              <template v-if="isDevBuild">
+                接続中…（進まないときは
+                <code class="font-mono">npm run worker:dev</code> を確認）
+              </template>
+              <template v-else>サーバーにつないでいます…</template>
+            </p>
+            <p
+              v-else-if="onlineGame.lastError"
+              class="mt-2 text-center text-[11px] text-red-200 lg:text-xs"
+            >
+              {{ onlineGame.lastError }}
+            </p>
+          </section>
+
+          <!-- Soft divider (SP only; PC stacks with gap) -->
+          <div class="flex items-center gap-3 px-1 lg:hidden">
+            <div class="h-px flex-1 bg-gold-400/15" />
+            <span class="text-xs text-sand-dim">または</span>
+            <div class="h-px flex-1 bg-gold-400/15" />
           </div>
-          <p
-            v-if="!hapticSupported"
-            class="text-[11px] text-sand-dim"
-          >
-            対応ブラウザ（主に Android）でのみ使えます。iOS など非対応では何もしません
-          </p>
+
+          <!-- Join -->
+          <section class="panel p-4 sm:p-5 lg:p-6">
+            <h2 class="mb-1 text-sm font-semibold text-gold-200 lg:text-base">
+              ルームに入る
+            </h2>
+            <p class="mb-3 text-xs text-sand-dim lg:mb-4 lg:text-sm">
+              ホストからもらった6文字のコードを入力してください
+            </p>
+            <label class="mb-3 block">
+              <span class="field-label">ルームコード</span>
+              <input
+                :value="roomCode"
+                type="text"
+                inputmode="text"
+                enterkeyhint="go"
+                autocomplete="off"
+                autocapitalize="characters"
+                autocorrect="off"
+                spellcheck="false"
+                lang="en"
+                placeholder="例: AB7KQ2"
+                maxlength="6"
+                pattern="[A-Za-z0-9]*"
+                class="field field-mono"
+                @input="onCodeInput"
+                @compositionend="onCodeCompositionEnd"
+                @keydown.enter.prevent="joinRoom"
+              />
+            </label>
+            <button
+              type="button"
+              class="btn-teal w-full lg:py-3.5 lg:text-base"
+              :class="ctaFlash === 'join' ? 'btn-fx-press' : ''"
+              :disabled="onlineBusy"
+              @click="joinRoom"
+            >
+              {{ onlineBusy ? '接続中…' : 'ルームに入る' }}
+            </button>
+            <p
+              v-if="!onlineBusy && onlineGame.lastError"
+              class="mt-2 text-center text-[11px] text-red-200 lg:text-xs"
+            >
+              {{ onlineGame.lastError }}
+            </p>
+          </section>
         </div>
-      </section>
-
-      <!-- Create room -->
-      <section class="panel mb-4 p-5 sm:p-6">
-        <h2 class="mb-1 text-sm font-semibold text-gold-200">ルームを作る</h2>
-        <p class="mb-4 text-xs text-sand-dim">
-          あなたがホストになります。6文字のコードを友だちに送ってください
-        </p>
-        <button
-          type="button"
-          class="btn-gold w-full"
-          :class="ctaFlash === 'create' ? 'btn-fx-press' : ''"
-          :disabled="onlineBusy"
-          @click="createRoom"
-        >
-          {{ onlineBusy ? '接続中…' : 'ルームを作る' }}
-        </button>
-        <p v-if="onlineBusy" class="mt-2 text-center text-[11px] text-sand-dim">
-          <template v-if="isDevBuild">
-            接続中…（進まないときは <code class="font-mono">npm run worker:dev</code> を確認）
-          </template>
-          <template v-else>サーバーにつないでいます…</template>
-        </p>
-        <p
-          v-else-if="onlineGame.lastError"
-          class="mt-2 text-center text-[11px] text-red-200"
-        >
-          {{ onlineGame.lastError }}
-        </p>
-      </section>
-
-      <!-- Divider -->
-      <div class="mb-4 flex items-center gap-3 px-1">
-        <div class="h-px flex-1 bg-gold-400/15" />
-        <span class="text-xs text-sand-dim">または</span>
-        <div class="h-px flex-1 bg-gold-400/15" />
       </div>
 
-      <!-- Join room -->
-      <section class="panel mb-4 p-5 sm:p-6">
-        <h2 class="mb-1 text-sm font-semibold text-gold-200">ルームに入る</h2>
-        <p class="mb-4 text-xs text-sand-dim">
-          ホストからもらった6文字のコードを入力してください
-        </p>
-        <label class="mb-3 block">
-          <span class="field-label">ルームコード</span>
-          <input
-            :value="roomCode"
-            type="text"
-            inputmode="text"
-            enterkeyhint="go"
-            autocomplete="off"
-            autocapitalize="characters"
-            autocorrect="off"
-            spellcheck="false"
-            lang="en"
-            placeholder="例: AB7KQ2"
-            maxlength="6"
-            pattern="[A-Za-z0-9]*"
-            class="field field-mono"
-            @input="onCodeInput"
-            @compositionend="onCodeCompositionEnd"
-            @keydown.enter.prevent="joinRoom"
-          />
-        </label>
-        <button
-          type="button"
-          class="btn-teal w-full"
-          :class="ctaFlash === 'join' ? 'btn-fx-press' : ''"
-          :disabled="onlineBusy"
-          @click="joinRoom"
+      <!--
+        Game settings — lower priority, collapsible, lighter chrome than CTA panels
+      -->
+      <details
+        class="group mt-5 rounded-xl border border-gold-400/10 bg-night-900/35 open:bg-night-900/50 lg:mt-6"
+      >
+        <summary
+          class="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm text-sand-dim transition marker:content-none hover:text-sand [&::-webkit-details-marker]:hidden lg:px-5 lg:py-3.5 lg:text-base"
         >
-          {{ onlineBusy ? '接続中…' : 'ルームに入る' }}
-        </button>
-        <p
-          v-if="!onlineBusy && onlineGame.lastError"
-          class="mt-2 text-center text-[11px] text-red-200"
-        >
-          {{ onlineGame.lastError }}
-        </p>
-      </section>
+          <span class="font-medium text-gold-200/90">ゲーム設定</span>
+          <span
+            class="text-xs text-sand-dim transition group-open:rotate-180"
+            aria-hidden="true"
+          >
+            ▾
+          </span>
+        </summary>
+        <div class="space-y-5 border-t border-gold-400/10 px-4 py-4 lg:px-5 lg:py-5">
+          <!-- SFX -->
+          <div>
+            <div class="mb-2 flex items-center justify-between gap-3">
+              <div class="min-w-0">
+                <p class="text-sm font-medium text-sand lg:text-base">効果音</p>
+                <p class="mt-0.5 text-xs text-sand-dim">
+                  宣言・手番・コヨーテなどの短い音。ゲーム中もヘッダでミュートできます
+                </p>
+              </div>
+              <button
+                type="button"
+                class="btn-ghost btn-sm shrink-0"
+                :aria-pressed="sfxEnabled"
+                @click="setSfxEnabled(!sfxEnabled)"
+              >
+                {{ sfxEnabled ? 'ON' : 'OFF' }}
+              </button>
+            </div>
+            <label
+              class="block"
+              :class="sfxEnabled ? '' : 'pointer-events-none opacity-40'"
+            >
+              <span class="field-label">音量</span>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="5"
+                class="w-full accent-gold-400"
+                :disabled="!sfxEnabled"
+                :value="Math.round(sfxVolume * 100)"
+                @input="
+                  setSfxVolume(
+                    Number(($event.target as HTMLInputElement).value) / 100,
+                  )
+                "
+              />
+            </label>
+          </div>
+
+          <!-- Haptics -->
+          <div>
+            <div class="mb-1 flex items-center justify-between gap-3">
+              <div class="min-w-0">
+                <p class="text-sm font-medium text-sand lg:text-base">
+                  触覚フィードバック
+                </p>
+                <p class="mt-0.5 text-xs text-sand-dim">
+                  手番・WILD CALL・コヨーテ・ライフ喪失のみ短い振動。初期 OFF。ゲーム中もヘッダで切り替えできます
+                </p>
+              </div>
+              <button
+                type="button"
+                class="btn-ghost btn-sm shrink-0"
+                :aria-pressed="hapticEnabled"
+                :disabled="!hapticSupported"
+                :title="
+                  hapticSupported
+                    ? hapticEnabled
+                      ? '触覚オン'
+                      : '触覚オフ'
+                    : 'この端末は振動に対応していません'
+                "
+                @click="setHapticEnabled(!hapticEnabled)"
+              >
+                {{
+                  !hapticSupported
+                    ? '非対応'
+                    : hapticEnabled
+                      ? 'ON'
+                      : 'OFF'
+                }}
+              </button>
+            </div>
+            <p
+              v-if="!hapticSupported"
+              class="text-[11px] text-sand-dim"
+            >
+              対応ブラウザ（主に Android）でのみ使えます。iOS など非対応では何もしません
+            </p>
+          </div>
+        </div>
+      </details>
 
       <!-- Local bot demo — DEV builds only (not in production) -->
       <section
         v-if="showLocalDemo"
-        class="panel mb-4 p-5 ring-1 ring-gold-400/25 sm:p-6"
+        class="panel mt-4 p-5 ring-1 ring-gold-400/25 sm:p-6"
       >
         <div class="mb-1 flex items-center justify-center gap-2">
-          <StatusChip variant="teal" class="!bg-teal-deep/35 text-[10px]" label="DEV · ローカル" />
+          <StatusChip
+            variant="teal"
+            class="!bg-teal-deep/35 text-[10px]"
+            label="DEV · ローカル"
+          />
         </div>
         <h2 class="mb-1 text-center text-sm font-semibold text-gold-200">
           ローカル対戦
@@ -534,7 +617,9 @@ watch(
         </label>
 
         <fieldset class="mb-4">
-          <legend class="mb-1.5 text-xs text-sand-dim">人数（あなた + ボット）</legend>
+          <legend class="mb-1.5 text-xs text-sand-dim">
+            人数（あなた + ボット）
+          </legend>
           <div class="grid grid-cols-2 gap-2">
             <button
               type="button"
@@ -547,7 +632,9 @@ watch(
               @click="demoPlayerCount = 3"
             >
               3人
-              <span class="mt-0.5 block text-[10px] font-normal opacity-80">ボット2</span>
+              <span class="mt-0.5 block text-[10px] font-normal opacity-80"
+                >ボット2</span
+              >
             </button>
             <button
               type="button"
@@ -560,7 +647,9 @@ watch(
               @click="demoPlayerCount = 4"
             >
               4人
-              <span class="mt-0.5 block text-[10px] font-normal opacity-80">ボット3</span>
+              <span class="mt-0.5 block text-[10px] font-normal opacity-80"
+                >ボット3</span
+              >
             </button>
           </div>
         </fieldset>
@@ -597,18 +686,29 @@ watch(
       <!-- Dev mock nav — production builds omit entirely -->
       <details
         v-if="showDevMockNav"
-        class="mt-2 rounded-2xl border border-gold-400/10 bg-night-900/40 p-4"
+        class="mt-3 rounded-2xl border border-gold-400/10 bg-night-900/40 p-4"
       >
         <summary
           class="cursor-pointer list-none text-center text-[11px] uppercase tracking-wider text-sand-dim marker:content-none [&::-webkit-details-marker]:hidden"
         >
           開発用 · UI モック導線
         </summary>
-        <nav class="mt-3 flex flex-wrap items-center justify-center gap-2" aria-label="モック画面リンク">
-          <RouterLink to="/lobby" class="btn-ghost text-xs">待機ロビー（オフライン）</RouterLink>
-          <RouterLink to="/game" class="btn-ghost text-xs">ゲーム（ローカル）</RouterLink>
-          <RouterLink to="/game?mock=1" class="btn-ghost text-xs">ゲーム（固定モック）</RouterLink>
-          <RouterLink to="/result?mock=1" class="btn-ghost text-xs">結果（固定モック）</RouterLink>
+        <nav
+          class="mt-3 flex flex-wrap items-center justify-center gap-2"
+          aria-label="モック画面リンク"
+        >
+          <RouterLink to="/lobby" class="btn-ghost text-xs"
+            >待機ロビー（オフライン）</RouterLink
+          >
+          <RouterLink to="/game" class="btn-ghost text-xs"
+            >ゲーム（ローカル）</RouterLink
+          >
+          <RouterLink to="/game?mock=1" class="btn-ghost text-xs"
+            >ゲーム（固定モック）</RouterLink
+          >
+          <RouterLink to="/result?mock=1" class="btn-ghost text-xs"
+            >結果（固定モック）</RouterLink
+          >
         </nav>
         <p class="mt-2 text-center text-[10px] text-sand-dim/80">
           本番ビルドではこの導線とローカル対戦は非表示。Worker:
