@@ -147,18 +147,18 @@ export function raiseTierLabel(
   classification: RaiseClassification | null | undefined,
 ): string | null {
   if (classification == null) return null
-  // Opening bid: no NICE/BIG/WILD label (cut-in uses 「宣言！」 separately)
+  // Opening bid: no tier label (cut-in uses 「宣言！」 separately)
   if (classification.delta == null) return null
   switch (classification.tier) {
     case 'nice':
-      return 'NICE RAISE'
+      return 'いい上げ！'
     case 'big': {
       const n = classification.delta
-      return n > 0 ? `BIG JUMP +${n}` : 'BIG JUMP'
+      return n > 0 ? `大胆 +${n}` : '大胆ジャンプ'
     }
     case 'wild': {
       const n = classification.delta
-      return n > 0 ? `WILD CALL +${n}` : 'WILD CALL'
+      return n > 0 ? `大勝負 +${n}` : '大勝負'
     }
     default:
       return null
@@ -172,11 +172,11 @@ export function raiseCutInTitle(
   if (classification == null || classification.delta == null) return '宣言！'
   switch (classification.tier) {
     case 'nice':
-      return 'NICE RAISE'
+      return 'いい上げ！'
     case 'big':
-      return 'BIG JUMP'
+      return '大胆ジャンプ'
     case 'wild':
-      return 'WILD CALL'
+      return '大勝負'
     default:
       return '大幅アップ！'
   }
@@ -184,19 +184,18 @@ export function raiseCutInTitle(
 
 /**
  * HEAT stage label for UI chip (null when none).
- * Wording is pure table-energy — avoid risk advice like "DANGER" that reads as a
- * challenge hint (heat is bid-count only, not vs actual total).
+ * Japanese UI copy — pure table-energy (bid-count only, not risk advice).
  */
 export function heatStageLabel(heat: HeatLevel): string | null {
   switch (heat) {
     case 'warm':
-      return 'WARM UP'
+      return '温まり中'
     case 'heating':
-      return 'HEATING'
+      return '盛り上がり'
     case 'danger':
-      return 'BLAZING'
+      return '白熱'
     case 'wild':
-      return 'OVERDRIVE'
+      return '最高潮'
     default:
       return null
   }

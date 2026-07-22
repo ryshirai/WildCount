@@ -482,7 +482,7 @@ const sparkleDensity = computed(() => {
         role="status"
         :aria-label="`連続宣言 ${rallyFlash?.n ?? bidCount} 回`"
       >
-        RALLY ×{{ rallyFlash?.n ?? bidCount }}
+        連続 ×{{ rallyFlash?.n ?? bidCount }}
       </div>
     </div>
   </div>

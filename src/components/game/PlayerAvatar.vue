@@ -40,16 +40,18 @@ const showImage = computed(
 )
 
 const sizeClass = computed(() => {
-  if (props.size === 'lg') return 'h-16 w-16 text-3xl sm:h-[4.25rem] sm:w-[4.25rem]'
-  if (props.size === 'sm') return 'h-10 w-10 text-lg'
-  return 'h-[3.25rem] w-[3.25rem] text-2xl sm:h-14 sm:w-14'
+  if (props.size === 'lg') return 'h-[4.5rem] w-[4.5rem] text-3xl sm:h-[4.75rem] sm:w-[4.75rem]'
+  if (props.size === 'sm') return 'h-11 w-11 text-lg'
+  /* md: ~1.2× prior seat portrait */
+  return 'h-14 w-14 text-2xl sm:h-16 sm:w-16 sm:text-[1.65rem]'
 })
 
 const ringClass = computed(() => {
   if (props.highlighted) {
     return 'ring-[3px] ring-gold-200 shadow-turn-glow avatar-turn-ring'
   }
-  if (props.self) return 'ring-2 ring-teal-soft/80 shadow-[0_0_14px_rgba(42,138,138,0.3)]'
+  if (props.self)
+    return 'ring-[3px] ring-teal-soft/75 shadow-[0_0_22px_rgba(42,138,138,0.5),0_0_8px_rgba(94,200,200,0.35)]'
   return 'ring-2 ring-gold-400/30'
 })
 

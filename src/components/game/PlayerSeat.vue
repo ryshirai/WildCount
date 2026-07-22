@@ -11,14 +11,15 @@ defineProps<{
 
 <template>
   <!--
-    One cohesive “seat” unit: avatar + name + life + hand + status.
-    Sized for commercial table readability (≈1.3–1.5× prior density).
+    Unified seat stack (all players, same structure):
+    avatar → name → life → cards → status
+    Self: avatar glow + name label + card aura (no tall box frame).
   -->
   <div
-    class="seat-unit flex max-w-[8.25rem] flex-col items-center gap-1 px-1.5 py-1.5 transition duration-200 sm:max-w-[9rem] sm:gap-1.5 sm:px-2 sm:py-2"
+    class="seat-unit flex max-w-[9.75rem] flex-col items-center px-0.5 py-0.5 transition duration-200 sm:max-w-[10.5rem]"
     :class="[
       player.isCurrentTurn
-        ? 'seat-unit--turn z-10 scale-[1.08]'
+        ? 'seat-unit--turn z-10 scale-[1.06]'
         : player.isSelf
           ? 'seat-unit--self'
           : player.lives > 0
@@ -27,26 +28,47 @@ defineProps<{
       player.lives <= 0 ? 'opacity-40 grayscale' : '',
     ]"
   >
-    <PlayerAvatar
-      :avatar="player.avatar"
-      :avatar-src="player.avatarSrc"
-      :name="player.name"
-      :seat-index="player.seatIndex"
-      :highlighted="player.isCurrentTurn"
-      :self="player.isSelf"
-      size="md"
-    >
-      <template #status>
-        <div class="mt-1">
-          <LifeHearts
-            :lives="player.lives"
-            :max-visible="5"
-            size-class="text-xs sm:text-[0.8rem]"
-          />
-        </div>
-      </template>
-    </PlayerAvatar>
+    <div class="seat-unit__stack">
+      <!-- 1. Avatar -->
+      <PlayerAvatar
+        :avatar="player.avatar"
+        :avatar-src="player.avatarSrc"
+        :name="player.name"
+        :seat-index="player.seatIndex"
+        :highlighted="player.isCurrentTurn"
+        :self="player.isSelf"
+        size="md"
+        hide-name
+      />
 
-    <SeatContent :player="player" />
+      <!-- 2. Name (+ self label) -->
+      <div
+        class="seat-unit__name"
+        :class="[
+          player.isCurrentTurn
+            ? 'seat-unit__name--turn'
+            : player.isSelf
+              ? 'seat-unit__name--self'
+              : '',
+        ]"
+      >
+        <span class="truncate">{{ player.name }}</span>
+        <span
+          v-if="player.isSelf && player.name !== 'あなた'"
+          class="seat-unit__you"
+          aria-label="あなた"
+        >あなた</span>
+      </div>
+
+      <!-- 3. Life -->
+      <LifeHearts
+        :lives="player.lives"
+        :max-visible="5"
+        size-class="text-sm sm:text-[0.95rem]"
+      />
+
+      <!-- 4–5. Cards + status -->
+      <SeatContent :player="player" />
+    </div>
   </div>
 </template>

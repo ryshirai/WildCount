@@ -1,6 +1,7 @@
 <script setup lang="ts">
 /**
  * Shared seat body: hand tiles + status chip + bid chip.
+ * Parent always owns name / life; this is cards → status only.
  * Used by desktop PlayerSeat and mobile MobilePlayerCarousel (R5).
  */
 import { computed } from 'vue'
@@ -16,7 +17,8 @@ const props = withDefaults(
   { compact: false },
 )
 
-type StatusKind = 'out' | 'turn' | 'declared' | 'self' | 'wait'
+/** Game-state only — identity (“あなた”) lives on the name row, not here */
+type StatusKind = 'out' | 'turn' | 'declared' | 'wait'
 
 const status = computed((): {
   kind: StatusKind
@@ -36,7 +38,6 @@ const status = computed((): {
   }
   if (p.isCurrentTurn) return { kind: 'turn', label: '手番' }
   if (p.hasDeclared) return { kind: 'declared', label: '宣言済' }
-  if (p.isSelf) return { kind: 'self', label: 'あなた' }
   return { kind: 'wait', label: '待機' }
 })
 
@@ -44,7 +45,6 @@ const statusClass: Record<StatusKind, string> = {
   out: 'seat-chip-out',
   turn: 'seat-chip-turn',
   declared: 'seat-chip-declared',
-  self: 'seat-chip-self',
   wait: 'seat-chip-wait',
 }
 
@@ -58,8 +58,8 @@ const showBid = computed(
 </script>
 
 <template>
-  <!-- Hand -->
-  <div :class="compact ? '' : 'relative mt-1'">
+  <!-- 4. Hand cards -->
+  <div class="relative">
     <HandTiles
       v-if="showHand"
       :labels="player.handHidden ? null : player.handLabels"
@@ -71,6 +71,7 @@ const showBid = computed(
     <div
       v-else-if="!compact && player.lives > 0"
       class="card-tile-mystery opacity-50"
+      :class="player.isSelf ? 'hand-tiles--emphasized' : ''"
     >
       ?
     </div>
@@ -83,13 +84,10 @@ const showBid = computed(
     </div>
   </div>
 
-  <!-- Status under card -->
+  <!-- 5. Status (+ bid when declared) -->
   <div
-    :class="
-      compact
-        ? 'mt-0.5'
-        : 'mt-1 flex min-h-[1.25rem] justify-center'
-    "
+    class="seat-unit__status"
+    :class="compact ? '!min-h-0 !gap-0.5' : ''"
   >
     <span
       :class="[
@@ -100,16 +98,15 @@ const showBid = computed(
     >
       {{ status.label }}
     </span>
-  </div>
 
-  <!-- Bid chip -->
-  <div
-    v-if="showBid"
-    :key="`bid-${player.id}-${player.bid}`"
-    class="bid-chip--pop mt-0.5"
-    :class="compact ? 'bid-chip-sm' : 'bid-chip'"
-    :title="`宣言 ${player.bid}`"
-  >
-    {{ player.bid }}
+    <div
+      v-if="showBid"
+      :key="`bid-${player.id}-${player.bid}`"
+      class="bid-chip--pop"
+      :class="compact ? 'bid-chip-sm' : 'bid-chip'"
+      :title="`宣言 ${player.bid}`"
+    >
+      {{ player.bid }}
+    </div>
   </div>
 </template>

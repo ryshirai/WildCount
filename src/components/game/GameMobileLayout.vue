@@ -306,12 +306,11 @@ const isSelfTurn = computed(
 
         <!--
           Full bid dock when no sheet.
-          max-h + min-h-0: all-extras expanded UI must not clip declare/coyote
-          (parent play column is overflow-hidden).
+          Compact specials strip — dock sizes to content, no internal scroll.
         -->
         <div
           v-show="!sheetOpen && showDock"
-          class="flex min-h-0 max-h-[min(48dvh,22rem)] shrink flex-col overflow-hidden"
+          class="flex shrink-0 flex-col"
         >
           <BidControls
             v-model="draftBid"

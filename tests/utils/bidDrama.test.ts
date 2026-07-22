@@ -151,23 +151,23 @@ describe('classifyRaise / raiseTier', () => {
   it('raiseTierLabel / raiseCutInTitle for D1 UI', () => {
     expect(raiseTierLabel(classifyRaise(null, 12))).toBeNull()
     expect(raiseTierLabel(classifyRaise(5, 6))).toBeNull()
-    expect(raiseTierLabel(classifyRaise(5, 8))).toBe('NICE RAISE')
-    expect(raiseTierLabel(classifyRaise(5, 12))).toBe('BIG JUMP +7')
-    expect(raiseTierLabel(classifyRaise(5, 20))).toBe('WILD CALL +15')
+    expect(raiseTierLabel(classifyRaise(5, 8))).toBe('いい上げ！')
+    expect(raiseTierLabel(classifyRaise(5, 12))).toBe('大胆 +7')
+    expect(raiseTierLabel(classifyRaise(5, 20))).toBe('大勝負 +15')
     expect(raiseCutInTitle(classifyRaise(null, 3))).toBe('宣言！')
-    expect(raiseCutInTitle(classifyRaise(5, 8))).toBe('NICE RAISE')
-    expect(raiseCutInTitle(classifyRaise(5, 12))).toBe('BIG JUMP')
-    expect(raiseCutInTitle(classifyRaise(5, 20))).toBe('WILD CALL')
+    expect(raiseCutInTitle(classifyRaise(5, 8))).toBe('いい上げ！')
+    expect(raiseCutInTitle(classifyRaise(5, 12))).toBe('大胆ジャンプ')
+    expect(raiseCutInTitle(classifyRaise(5, 20))).toBe('大勝負')
   })
 })
 
 describe('heatStageLabel', () => {
-  it('labels each heat stage', () => {
+  it('labels each heat stage in Japanese', () => {
     expect(heatStageLabel('none')).toBeNull()
-    expect(heatStageLabel('warm')).toBe('WARM UP')
-    expect(heatStageLabel('heating')).toBe('HEATING')
-    expect(heatStageLabel('danger')).toBe('BLAZING')
-    expect(heatStageLabel('wild')).toBe('OVERDRIVE')
+    expect(heatStageLabel('warm')).toBe('温まり中')
+    expect(heatStageLabel('heating')).toBe('盛り上がり')
+    expect(heatStageLabel('danger')).toBe('白熱')
+    expect(heatStageLabel('wild')).toBe('最高潮')
   })
 })
 

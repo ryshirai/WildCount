@@ -6,7 +6,7 @@
  */
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import type { RaiseIntensity } from '@/utils/resultDrama'
-import type { RaiseTier } from '@/utils/bidDrama'
+import { raiseCutInTitle, type RaiseTier } from '@/utils/bidDrama'
 
 const props = withDefaults(
   defineProps<{
@@ -19,7 +19,7 @@ const props = withDefaults(
     /** Raise amount when not open */
     delta?: number | null
     actorName?: string
-    /** Override title (NICE RAISE / BIG JUMP / …) */
+    /** Override title (いい上げ！ / 大胆ジャンプ / …) */
     title?: string
     durationMs?: number
   }>(),
@@ -44,16 +44,11 @@ let outTimer: ReturnType<typeof setTimeout> | null = null
 const resolvedTitle = computed(() => {
   if (props.title) return props.title
   if (props.intensity === 'open' || props.delta == null) return '宣言！'
-  switch (props.tier) {
-    case 'nice':
-      return 'NICE RAISE'
-    case 'big':
-      return 'BIG JUMP'
-    case 'wild':
-      return 'WILD CALL'
-    default:
-      return '大幅アップ！'
-  }
+  return raiseCutInTitle({
+    tier: props.tier,
+    delta: props.delta,
+    doubleRaise: props.doubleRaise,
+  })
 })
 
 const line = computed(() => {

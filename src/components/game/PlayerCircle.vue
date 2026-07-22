@@ -28,10 +28,10 @@ const props = withDefaults(
  */
 const seatPositions = computed(() => {
   const n = props.players.length
-  // Room for larger seat units (~1.3–1.5×). Tighter radius + scale for big tables.
-  const rx = n <= 4 ? 34 : n <= 6 ? 36 : n <= 8 ? 38 : 40
-  const ry = n <= 4 ? 32 : n <= 6 ? 34 : n <= 8 ? 36 : 38
-  const scale = n <= 4 ? 1 : n <= 6 ? 0.9 : n <= 8 ? 0.78 : 0.68
+  // Ellipse + scale: push seats slightly outward so center bid / 「連続×N」と重ならない
+  const rx = n <= 4 ? 38 : n <= 6 ? 40 : n <= 8 ? 41.5 : 42.5
+  const ry = n <= 4 ? 36 : n <= 6 ? 37.5 : n <= 8 ? 38.5 : 40
+  const scale = n <= 4 ? 1.06 : n <= 6 ? 0.94 : n <= 8 ? 0.82 : 0.72
 
   return props.players.map((player, i) => {
     // Start at top (-90°), go clockwise

@@ -65,8 +65,7 @@ let launchSeq = 0
 let launchTimer: ReturnType<typeof setTimeout> | null = null
 const extraChoice = ref<BidExtraChoice>('none')
 const targetId = ref<string>('')
-/** Mobile progressive disclosure for special abilities */
-const skillsExpanded = ref(false)
+
 
 watch(
   () => props.targetOptions,
@@ -87,14 +86,6 @@ watch(
   () => props.extrasAllowed,
   (ok) => {
     if (!ok) extraChoice.value = 'none'
-  },
-)
-
-// Collapse skills panel when nothing is usable
-watch(
-  () => [props.canSame, props.canChange, props.extrasAllowed] as const,
-  ([same, change, extras]) => {
-    if (!same && !change && !extras) skillsExpanded.value = false
   },
 )
 
@@ -151,14 +142,17 @@ const showSkillBar = computed(
       props.allowLifeDouble),
 )
 
+/** 「なし」とそれ以外を分けて改行表示する */
+const noneSkill = computed(
+  () => skillOptions.value.find((s) => s.id === 'none') ?? null,
+)
+const rideSkills = computed(() =>
+  skillOptions.value.filter((s) => s.id !== 'none'),
+)
+
 /** Any special ability UI may appear this turn */
 const hasSpecials = computed(
   () => !!(props.canSame || props.canChange || showSkillBar.value),
-)
-
-/** Mobile: specials body visible; desktop always open when hasSpecials */
-const specialsOpen = computed(
-  () => hasSpecials.value && (!props.mobile || skillsExpanded.value),
 )
 
 const needsTarget = computed(
@@ -177,15 +171,6 @@ const declareLabel = computed(() => {
   }
   if (extraChoice.value === 'none') return `${bid.value} を宣言`
   return `${bid.value} + ${selectedSkill.value?.label ?? ''} で宣言`
-})
-
-const skillsToggleLabel = computed(() => {
-  if (extraChoice.value !== 'none') {
-    return selectedSkill.value?.label ?? '特殊能力'
-  }
-  if (props.canSame && !props.canChange && !showSkillBar.value) return 'セイム'
-  if (props.canChange && !props.canSame && !showSkillBar.value) return 'チェンジ'
-  return '特殊能力'
 })
 
 function floor() {
@@ -247,6 +232,11 @@ function onDeclarePointerEnd() {
 
 function selectSkill(id: BidExtraChoice) {
   if (!props.extrasAllowed && id !== 'none') return
+  // Tap selected again to clear
+  if (extraChoice.value === id && id !== 'none') {
+    extraChoice.value = 'none'
+    return
+  }
   extraChoice.value = id
 }
 
@@ -292,7 +282,6 @@ function onDeclare() {
   emit('declare', bid.value, buildExtra())
   // Reset skill after fire so next turn starts clean if same component stays
   extraChoice.value = 'none'
-  if (props.mobile) skillsExpanded.value = false
 }
 
 function onChallenge() {
@@ -312,10 +301,6 @@ function onSame() {
 function onChange() {
   if (!props.canChange) return
   emit('change')
-}
-
-function toggleSkills() {
-  skillsExpanded.value = !skillsExpanded.value
 }
 </script>
 
@@ -377,262 +362,183 @@ function toggleSkills() {
   </div>
 
   <!--
-    Full dock: specials may grow tall (all extras + many targets).
-    Cap height via parent max-h; scroll specials; keep declare/coyote sticky.
-    Primary flow: pick number → declare / coyote (centered action strip).
+    Full dock: specials (explicit line breaks) + primary always below without scroll.
+    Rows: セイム/チェンジ → なし → リバース… → 対象 → 数字/宣言
   -->
   <div
     v-else
-    class="bid-dock flex h-full min-h-0 max-h-full flex-col border-t border-gold-400/12 bg-night-900/90"
-    :class="mobile ? 'px-2.5 py-2' : 'px-4 py-3 sm:px-6 sm:py-3.5'"
+    class="bid-dock flex shrink-0 flex-col border-t border-gold-400/12 bg-night-900/94"
+    :class="mobile ? 'px-2 py-1.5 pb-2' : 'px-3 py-1.5 pb-3 sm:px-5 sm:pb-3.5'"
   >
-    <!-- Scrollable: hints + special abilities (can be tall when extras ON) -->
-    <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-      <p
-        v-if="!mobile"
-        class="mb-2 text-center text-sm text-sand-dim"
-      >
-        <template v-if="forbiddenValue != null">
-          付け直し中：{{ forbiddenValue }} は選べません
-        </template>
-        <template v-else>数字を選んで宣言するか、コヨーテを仕掛けます</template>
-      </p>
-      <p v-else class="mb-1.5 text-center text-xs text-sand-dim">
-        <template v-if="forbiddenValue != null">
-          付け直し（{{ forbiddenValue }} は不可）
-        </template>
-        <template v-else>数字を選んで宣言</template>
-      </p>
+    <p
+      v-if="forbiddenValue != null"
+      class="mb-1 text-center text-[11px] font-medium text-amber-200/90"
+    >
+      付け直し：{{ forbiddenValue }} は選べません
+    </p>
 
-      <!-- Mobile: collapse specials behind a chip (R4 progressive disclosure) -->
+    <div
+      v-if="hasSpecials"
+      id="bid-specials-panel"
+      class="mb-1 flex flex-col items-center gap-0.5"
+      role="group"
+      aria-label="特殊能力（1ラウンドに1回）"
+    >
+      <!-- Row 1: セイム / チェンジ / なし (same line) -->
       <div
-        v-if="mobile && hasSpecials"
-        class="mb-1.5 flex justify-center"
+        v-if="canSame || canChange || (showSkillBar && noneSkill)"
+        class="flex flex-wrap items-center justify-center gap-1"
       >
+        <span
+          class="mr-0.5 text-[10px] font-medium text-sand-dim/70"
+          aria-hidden="true"
+        >特殊</span>
         <button
+          v-if="canSame"
+          type="button"
+          class="skill-chip skill-chip--solo skill-chip--sm"
+          title="直前の宣言と同じ数字で宣言する"
+          @click="onSame"
+        >
+          <span aria-hidden="true">✋</span>
+          セイム
+        </button>
+        <button
+          v-if="canChange"
+          type="button"
+          class="skill-chip skill-chip--solo skill-chip--change skill-chip--sm"
+          title="手札を引き直す"
+          @click="onChange"
+        >
+          <span aria-hidden="true">🔀</span>
+          チェンジ
+        </button>
+        <button
+          v-if="showSkillBar && noneSkill"
           type="button"
           class="skill-chip skill-chip--sm"
-          :class="[
-            skillsExpanded || extraChoice !== 'none' ? 'skill-chip--on' : '',
-            hasSpecials ? 'skill-chip--badge' : '',
-          ]"
-          :aria-expanded="skillsExpanded"
-          :aria-controls="skillsExpanded ? 'bid-specials-panel' : undefined"
-          @click="toggleSkills"
+          :class="extraChoice === 'none' ? 'skill-chip--on' : ''"
+          :title="noneSkill.hint"
+          :aria-pressed="extraChoice === 'none'"
+          @click="selectSkill('none')"
         >
-          <span aria-hidden="true">✨</span>
-          {{ skillsExpanded ? '特殊能力' : skillsToggleLabel }}
-          <span class="text-sand-dim" aria-hidden="true">{{
-            skillsExpanded ? '▴' : '▾'
-          }}</span>
+          <span aria-hidden="true">{{ noneSkill.emoji }}</span>
+          {{ noneSkill.label }}
         </button>
       </div>
 
-      <!-- Special abilities panel (solo + bid-ride share 1 slot / round) -->
+      <!-- Row 2: リバース / ショット / … -->
       <div
-        v-if="specialsOpen && (canSame || canChange || showSkillBar)"
-        id="bid-specials-panel"
-        class="mb-2 space-y-1.5"
+        v-if="showSkillBar && rideSkills.length"
+        class="flex flex-wrap items-center justify-center gap-1"
+        role="group"
+        aria-label="宣言と一緒に使う能力"
       >
-        <!-- Mobile: explicit close — toggle chip alone is easy to miss when panel is tall -->
-        <div
-          v-if="mobile"
-          class="flex items-center justify-between gap-2 rounded-lg border border-gold-400/15 bg-night-800/50 px-2 py-1"
+        <button
+          v-for="opt in rideSkills"
+          :key="opt.id"
+          type="button"
+          class="skill-chip skill-chip--sm"
+          :class="[
+            extraChoice === opt.id ? 'skill-chip--on' : '',
+            `skill-chip--${opt.id}`,
+          ]"
+          :title="opt.hint"
+          :aria-pressed="extraChoice === opt.id"
+          @click="selectSkill(opt.id)"
         >
-          <p class="text-[10px] font-medium text-gold-200/90">
-            特殊能力
-            <span class="font-normal text-sand-dim">（1Rに1回）</span>
-          </p>
-          <button
-            type="button"
-            class="btn-ghost btn-sm !px-2.5 !py-1 text-[11px]"
-            aria-label="特殊能力を閉じる"
-            @click="skillsExpanded = false"
-          >
-            閉じる
-          </button>
-        </div>
-        <p
-          v-else
-          class="text-xs font-medium text-gold-200/90"
+          <span aria-hidden="true">{{ opt.emoji }}</span>
+          {{ opt.label }}
+        </button>
+      </div>
+
+      <!-- Target: horizontal scroll only -->
+      <div
+        v-if="needsTarget"
+        class="flex max-w-full items-center gap-1 overflow-x-auto overscroll-x-contain px-0.5 scrollbar-none"
+        role="group"
+        aria-label="対象プレイヤー"
+      >
+        <span class="shrink-0 text-[10px] text-sand-dim/80">対象</span>
+        <button
+          v-for="t in targetOptions ?? []"
+          :key="t.id"
+          type="button"
+          class="skill-chip skill-chip--target skill-chip--sm shrink-0"
+          :class="targetId === t.id ? 'skill-chip--on' : ''"
+          :aria-pressed="targetId === t.id"
+          @click="targetId = t.id"
         >
-          特殊能力
-          <span class="font-normal text-sand-dim">（1ラウンドに1回まで）</span>
-        </p>
-
-        <div
-          v-if="canSame || canChange"
-          class="flex flex-wrap gap-1.5"
-          :class="mobile ? 'justify-center' : ''"
-        >
-          <button
-            v-if="canSame"
-            type="button"
-            class="skill-chip skill-chip--solo"
-            :class="mobile ? 'skill-chip--sm' : ''"
-            @click="onSame"
-          >
-            <span aria-hidden="true">✋</span>
-            セイム
-          </button>
-          <button
-            v-if="canChange"
-            type="button"
-            class="skill-chip skill-chip--solo skill-chip--change"
-            :class="mobile ? 'skill-chip--sm' : ''"
-            @click="onChange"
-          >
-            <span aria-hidden="true">🔀</span>
-            チェンジ
-          </button>
-        </div>
-
-        <!-- Bid-ride skills under same special-ability budget -->
-        <template v-if="showSkillBar">
-          <div
-            class="flex items-baseline justify-between gap-2"
-            :class="mobile ? 'justify-center' : ''"
-          >
-            <p
-              class="text-sand-dim"
-              :class="mobile ? 'text-[10px]' : 'text-[11px]'"
-            >
-              宣言と一緒に使う
-            </p>
-          </div>
-          <div
-            class="flex flex-wrap gap-1.5"
-            :class="mobile ? 'justify-center' : ''"
-            role="group"
-            aria-label="特殊能力を選ぶ"
-          >
-            <button
-              v-for="opt in skillOptions"
-              :key="opt.id"
-              type="button"
-              class="skill-chip"
-              :class="[
-                mobile ? 'skill-chip--sm' : '',
-                extraChoice === opt.id ? 'skill-chip--on' : '',
-                opt.id !== 'none' ? `skill-chip--${opt.id}` : '',
-              ]"
-              :aria-pressed="extraChoice === opt.id"
-              @click="selectSkill(opt.id)"
-            >
-              <span aria-hidden="true">{{ opt.emoji }}</span>
-              {{ opt.label }}
-            </button>
-          </div>
-          <p
-            v-if="selectedSkill && extraChoice !== 'none'"
-            class="text-sand-dim"
-            :class="mobile ? 'text-center text-[10px]' : 'text-[11px]'"
-          >
-            {{ selectedSkill.hint }}
-          </p>
-          <div
-            v-if="needsTarget"
-            class="flex flex-wrap items-center gap-1.5"
-            :class="mobile ? 'justify-center' : ''"
-          >
-            <span
-              class="text-sand-dim"
-              :class="mobile ? 'text-[10px]' : 'text-[11px]'"
-            >
-              対象
-            </span>
-            <button
-              v-for="t in targetOptions ?? []"
-              :key="t.id"
-              type="button"
-              class="skill-chip skill-chip--target"
-              :class="[
-                mobile ? 'skill-chip--sm' : '',
-                targetId === t.id ? 'skill-chip--on' : '',
-              ]"
-              :aria-pressed="targetId === t.id"
-              @click="targetId = t.id"
-            >
-              {{ t.name }}
-            </button>
-          </div>
-        </template>
-
-        <!-- Mobile: second close when list is long (scroll past header) -->
-        <div v-if="mobile" class="flex justify-center pt-0.5">
-          <button
-            type="button"
-            class="btn-ghost btn-sm !px-3 !py-1 text-[11px] text-sand-dim"
-            @click="skillsExpanded = false"
-          >
-            閉じる
-          </button>
-        </div>
+          {{ t.name }}
+        </button>
       </div>
     </div>
 
-    <!-- Primary actions: number → declare / coyote (always visible) -->
-    <div
-      class="flex shrink-0 flex-col items-center gap-2 pt-1"
-      :class="mobile ? 'gap-1.5' : 'gap-2.5 sm:pt-1.5'"
-    >
-      <!-- Number tools (secondary) -->
-      <div class="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2">
-        <div
-          class="flex items-center gap-0.5 rounded-xl border border-gold-400/20 bg-night-800/90 p-1"
+    <!-- Primary: compact single cluster so declare stays on-screen -->
+    <div class="flex shrink-0 flex-col items-center gap-1.5">
+      <div
+        class="bid-number-control flex flex-wrap items-center justify-center gap-1 sm:gap-1.5"
+        role="group"
+        aria-label="宣言する数字"
+      >
+        <button
+          type="button"
+          class="btn-ghost !rounded-lg !p-0 font-semibold text-sand-dim active:scale-95"
+          :class="mobile ? '!h-9 !w-9 text-lg' : '!h-10 !w-10 text-xl'"
+          aria-label="1減らす"
+          @click="adjust(-1)"
         >
-          <button
-            type="button"
-            class="btn-ghost !rounded-lg !p-0 active:scale-95"
-            :class="mobile ? '!h-9 !w-9 text-lg' : '!h-10 !w-10 text-xl'"
-            aria-label="1減らす"
-            @click="adjust(-1)"
-          >
-            −
-          </button>
+          −
+        </button>
+
+        <div
+          class="bid-value-readout flex items-center justify-center rounded-xl border border-gold-400/40 bg-night-950/85 px-3"
+          :class="mobile ? 'min-h-[2.5rem] min-w-[3.75rem]' : 'min-h-[2.75rem] min-w-[4.5rem] sm:min-w-[5rem]'"
+        >
           <span
             :key="tickKey"
-            class="bid-step-tick text-center font-display font-bold text-gold-100 tabular-nums"
+            class="bid-step-tick font-display font-bold leading-none tabular-nums text-gold-50"
             :class="[
-              mobile ? 'min-w-[2.5rem] text-2xl' : 'min-w-[3.25rem] text-3xl',
+              mobile ? 'text-3xl' : 'text-4xl sm:text-[2.65rem]',
               stepDir === 'up' ? 'bid-step-tick--up' : '',
               stepDir === 'down' ? 'bid-step-tick--down' : '',
             ]"
+            :aria-label="`選択中の数字 ${bid}`"
           >
             {{ bid }}
           </span>
-          <button
-            type="button"
-            class="btn-ghost !rounded-lg !p-0 active:scale-95"
-            :class="mobile ? '!h-9 !w-9 text-lg' : '!h-10 !w-10 text-xl'"
-            aria-label="1増やす"
-            @click="adjust(1)"
-          >
-            ＋
-          </button>
         </div>
 
         <button
           type="button"
-          class="btn-ghost !rounded-xl font-semibold active:scale-95"
-          :class="mobile ? '!px-2.5 !py-2 text-sm' : '!px-3.5 !py-2.5 text-sm'"
+          class="btn-ghost !rounded-lg !p-0 font-semibold text-sand-dim active:scale-95"
+          :class="mobile ? '!h-9 !w-9 text-lg' : '!h-10 !w-10 text-xl'"
+          aria-label="1増やす"
+          @click="adjust(1)"
+        >
+          ＋
+        </button>
+
+        <button
+          type="button"
+          class="btn-ghost !rounded-lg font-semibold text-sand active:scale-95"
+          :class="mobile ? '!px-2 !py-1.5 text-xs' : '!px-2.5 !py-2 text-sm'"
           @click="adjust(1)"
         >
           +1
         </button>
         <button
           type="button"
-          class="btn-ghost !rounded-xl font-semibold active:scale-95"
-          :class="mobile ? '!px-2.5 !py-2 text-sm' : '!px-3.5 !py-2.5 text-sm'"
+          class="btn-ghost !rounded-lg font-semibold text-sand active:scale-95"
+          :class="mobile ? '!px-2 !py-1.5 text-xs' : '!px-2.5 !py-2 text-sm'"
           @click="adjust(5)"
         >
           +5
         </button>
       </div>
 
-      <!-- Main actions: declare (primary) + coyote (emphasis) -->
       <div
-        class="relative flex w-full max-w-xl flex-wrap items-stretch justify-center gap-2 sm:gap-2.5"
+        class="relative flex w-full max-w-xl flex-wrap items-stretch justify-center gap-2"
       >
         <span
           v-if="launchFx"
@@ -649,11 +555,11 @@ function toggleSkills() {
         </span>
         <button
           type="button"
-          class="btn-gold relative min-w-0 flex-1 !rounded-xl sm:min-w-[11rem] sm:flex-none sm:px-8"
+          class="btn-gold relative min-w-0 flex-[1.35] !rounded-xl shadow-gold sm:min-w-[11rem] sm:flex-none sm:px-8"
           :class="[
             declareFlash ? 'btn-fx-press' : '',
             declareCharging ? 'btn-declare-charge' : '',
-            mobile ? '!py-2.5 text-sm' : '!py-3 text-base',
+            mobile ? '!py-2.5 text-sm font-bold' : '!py-2.5 text-base font-bold',
             extraChoice !== 'none' ? 'ring-1 ring-teal-soft/40' : '',
           ]"
           :disabled="canDeclare === false"
@@ -670,7 +576,7 @@ function toggleSkills() {
           class="btn-coyote min-w-0 flex-1 !rounded-xl sm:min-w-[9rem] sm:flex-none sm:px-6"
           :class="[
             challengeFlash ? 'btn-fx-press' : '',
-            mobile ? '!py-2.5 text-sm' : '!py-3 text-base',
+            mobile ? '!py-2.5 text-sm font-semibold' : '!py-2.5 text-base font-semibold',
           ]"
           :disabled="canChallenge === false"
           @click="onChallenge"
@@ -687,14 +593,16 @@ function toggleSkills() {
 .skill-chip {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
+  gap: 0.25rem;
   border-radius: 9999px;
   border: 1px solid rgba(201, 168, 76, 0.28);
   background: rgba(18, 24, 38, 0.9);
-  padding: 0.4rem 0.7rem;
-  font-size: 0.75rem;
+  padding: 0.3rem 0.55rem;
+  font-size: 0.7rem;
   font-weight: 600;
+  line-height: 1.1;
   color: rgba(232, 220, 190, 0.92);
+  white-space: nowrap;
   transition:
     border-color 0.15s ease,
     background 0.15s ease,
@@ -705,8 +613,8 @@ function toggleSkills() {
   transform: scale(0.96);
 }
 .skill-chip--sm {
-  padding: 0.3rem 0.55rem;
-  font-size: 0.7rem;
+  padding: 0.28rem 0.5rem;
+  font-size: 0.68rem;
 }
 .skill-chip--on {
   border-color: rgba(94, 200, 200, 0.55);
@@ -782,6 +690,17 @@ function toggleSkills() {
   transition:
     box-shadow 0.15s ease,
     filter 0.15s ease;
+}
+
+/* Number control cluster: steppers + hero value as one unit */
+.bid-number-control {
+  padding: 0.2rem 0.15rem;
+}
+
+.bid-value-readout {
+  box-shadow:
+    inset 0 0 0 1px rgba(232, 213, 163, 0.14),
+    0 0 22px rgba(201, 168, 76, 0.16);
 }
 
 @media (prefers-reduced-motion: reduce) {

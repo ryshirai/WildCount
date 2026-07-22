@@ -38,6 +38,7 @@ import {
   heatLevel,
   heatStageLabel,
   raiseCutInEventId,
+  raiseCutInTitle,
   raiseIntensityFromTier,
   shouldShowRally,
   turnStartEventId,
@@ -740,16 +741,7 @@ export function useGameSession() {
         value: next,
         tier: raise.tier,
       })
-      const title =
-        raise.delta == null
-          ? '宣言！'
-          : raise.tier === 'nice'
-            ? 'NICE RAISE'
-            : raise.tier === 'big'
-              ? 'BIG JUMP'
-              : raise.tier === 'wild'
-                ? 'WILD CALL'
-                : '大幅アップ！'
+      const title = raiseCutInTitle(raise)
       playBidFx({
         intensity,
         tier: raise.tier,

@@ -60,7 +60,7 @@ watch(
     <!-- Fixed turn summary (does not scroll away with seats) -->
     <div
       v-if="turnPlayer"
-      class="flex items-center gap-2 border-b border-gold-400/10 px-3 py-1.5"
+      class="flex items-center gap-1.5 border-b border-gold-400/10 px-2.5 py-0.5"
       :class="
         turnPlayer.isSelf
           ? 'bg-gold-400/12'
@@ -70,7 +70,7 @@ watch(
       aria-live="polite"
     >
       <span
-        class="shrink-0 text-[10px] font-bold tracking-wide"
+        class="shrink-0 text-[9px] font-bold tracking-wide"
         :class="turnPlayer.isSelf ? 'text-gold-200' : 'text-sand-dim'"
       >
         いまの番
@@ -83,15 +83,16 @@ watch(
         :self="turnPlayer.isSelf"
         size="sm"
         hide-name
+        class="scale-[0.85] origin-center"
       />
       <span
-        class="min-w-0 flex-1 truncate text-sm font-bold"
+        class="min-w-0 flex-1 truncate text-xs font-bold"
         :class="turnPlayer.isSelf ? 'text-gold-50' : 'text-sand'"
       >
         {{ turnPlayer.isSelf ? 'あなた' : turnPlayer.name }}
       </span>
       <span
-        class="shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-bold"
+        class="shrink-0 rounded-full border px-1.5 py-px text-[9px] font-bold"
         :class="
           turnPlayer.isSelf
             ? 'border-gold-400/50 bg-gold-400/25 text-gold-100'
@@ -102,49 +103,57 @@ watch(
       </span>
     </div>
 
+    <!-- SP seats: one more step smaller for bid-dock headroom -->
     <div
-      class="flex gap-3 overflow-x-auto px-3 py-2.5 scrollbar-none"
+      class="flex gap-1.5 overflow-x-auto px-2 py-1 scrollbar-none"
       style="scrollbar-width: none"
     >
       <div
         v-for="player in players"
         :key="player.id"
         :ref="(el) => setSeatEl(player.id, el)"
-        class="seat-unit flex shrink-0 flex-col items-center gap-1 rounded-xl px-1.5 py-1.5 transition"
+        class="seat-unit flex shrink-0 flex-col items-center px-0.5 py-0 transition"
         :class="[
-          player.handCount >= 2 ? 'w-[5.1rem]' : 'w-[4.35rem]',
+          player.handCount >= 2 ? 'w-[4.6rem]' : 'w-[4rem]',
           player.isCurrentTurn
             ? 'seat-unit--turn scale-105'
             : player.isSelf
               ? 'seat-unit--self'
-              : 'seat-unit--idle opacity-70',
+              : 'seat-unit--idle opacity-75',
           player.lives <= 0 ? 'opacity-40 grayscale' : '',
         ]"
       >
-        <div
-          class="max-w-full truncate text-xs font-medium"
-          :class="
-            player.isCurrentTurn
-              ? 'font-semibold text-gold-50'
-              : player.isSelf
-                ? 'text-teal-soft'
-                : 'text-sand-dim'
-          "
-        >
-          {{ player.name }}
+        <!-- Same stack as desktop: avatar → name → life → cards → status -->
+        <div class="seat-unit__stack !gap-0">
+          <PlayerAvatar
+            :avatar="player.avatar"
+            :avatar-src="player.avatarSrc"
+            :name="player.name"
+            :highlighted="player.isCurrentTurn"
+            :self="player.isSelf"
+            size="sm"
+            hide-name
+            class="-mb-2.5 origin-top scale-[0.8]"
+          />
+          <div
+            class="seat-unit__name max-w-full truncate !text-[10px] !leading-tight"
+            :class="
+              player.isCurrentTurn
+                ? 'seat-unit__name--turn'
+                : player.isSelf
+                  ? 'seat-unit__name--self'
+                  : ''
+            "
+          >
+            <span class="truncate">{{ player.name }}</span>
+            <span
+              v-if="player.isSelf && player.name !== 'あなた'"
+              class="seat-unit__you !text-[8px] !px-0.5"
+            >あなた</span>
+          </div>
+          <LifeHearts :lives="player.lives" :max-visible="3" size-class="text-[9px]" />
+          <SeatContent :player="player" compact />
         </div>
-        <PlayerAvatar
-          :avatar="player.avatar"
-          :avatar-src="player.avatarSrc"
-          :name="player.name"
-          :highlighted="player.isCurrentTurn"
-          :self="player.isSelf"
-          size="sm"
-          hide-name
-        />
-        <LifeHearts :lives="player.lives" :max-visible="3" size-class="text-[11px]" />
-
-        <SeatContent :player="player" compact />
       </div>
     </div>
   </div>

@@ -3,6 +3,7 @@
  * Desktop / tablet game table layout (lg+).
  * R3: extracted from GameView. R5: AppHeader shell, table felt, rail density.
  */
+import { computed } from 'vue'
 import type { GameRoomMock, RevealedCard } from '@/types/game'
 import type { CoyoteBanner } from '@/composables/useChallengeReveal'
 import type { ClientBidExtra, WireClockSnapshot } from '@/online/protocol'
@@ -25,7 +26,7 @@ const desktopSideTab = defineModel<'log' | 'chat'>('desktopSideTab', {
   required: true,
 })
 
-defineProps<{
+const props = defineProps<{
   room: GameRoomMock
   gameView: GameViewModel | null
   showOnlineDisconnect: boolean
@@ -67,6 +68,26 @@ defineProps<{
   /** D1 table drama (HEAT / RALLY) */
   tableDrama?: TableDramaState | null
 }>()
+
+/**
+ * Top strip progress only — not the center “あとN人” turn countdown.
+ * Special phases + short self-turn cue; seat + bid area own turn detail.
+ */
+const topProgress = computed(() => {
+  if (
+    props.awaitingResultView ||
+    props.botsRunning ||
+    props.showForfeitEnd ||
+    props.pendingLobbyReturn ||
+    props.waitingForResultPeers ||
+    props.coyoteBanner
+  ) {
+    return props.paceHint
+  }
+  if (props.gameView?.isSelfTurn) return 'あなたの手番'
+  // Steady opponent turn is shown on seats / center bid — avoid duplicate line
+  return null
+})
 
 const emit = defineEmits<{
   help: []
@@ -117,18 +138,18 @@ const emit = defineEmits<{
       @leave="emit('leave')"
     />
 
-    <!-- Status under header: turn line + deck remaining chip -->
+    <!-- Meta strip: round · deck · progress (turn detail lives on board) -->
     <div
-      v-if="paceHint || (!coyoteBanner && !awaitingResultView)"
-      class="flex shrink-0 items-center justify-center gap-3 border-b px-3 py-2.5 text-center text-sm font-medium"
+      v-if="!coyoteBanner"
+      class="flex shrink-0 flex-wrap items-center justify-center gap-x-3 gap-y-1 border-b border-gold-400/12 bg-night-900/80 px-3 py-2 text-center"
       :class="[
         awaitingResultView
-          ? 'border-teal-soft/30 bg-teal-deep/35 text-teal-soft'
+          ? 'border-teal-soft/25 bg-teal-deep/25'
           : botsRunning
-            ? 'border-gold-400/25 bg-night-800/90 text-gold-200'
+            ? 'border-gold-400/20'
             : gameView?.isSelfTurn
-              ? 'border-gold-400/40 bg-gold-400/10 text-gold-50'
-              : 'border-gold-400/15 bg-night-900/85 text-sand',
+              ? 'border-gold-400/30 bg-gold-400/8'
+              : '',
         gameView?.isSelfTurn && !awaitingResultView && !botsRunning
           ? 'turn-arrive'
           : '',
@@ -136,39 +157,49 @@ const emit = defineEmits<{
       role="status"
       aria-live="polite"
     >
-      <template v-if="paceHint">
-        <span
-          v-if="botsRunning"
-          class="inline-flex h-2 w-2 shrink-0 animate-pulse rounded-full bg-gold-300"
-          aria-hidden="true"
-        />
-        <span
-          v-else-if="awaitingResultView"
-          class="inline-flex h-2 w-2 shrink-0 rounded-full bg-teal-soft"
-          aria-hidden="true"
-        />
-        <span
-          v-else-if="gameView?.isSelfTurn"
-          class="inline-flex h-2 w-2 shrink-0 animate-pulse rounded-full bg-gold-300"
-          aria-hidden="true"
-        />
-        <span
-          v-else
-          class="inline-flex h-2 w-2 shrink-0 rounded-full bg-gold-400/60"
-          aria-hidden="true"
-        />
-        <span class="min-w-0 truncate font-semibold">{{ paceHint }}</span>
-      </template>
+      <span
+        class="shrink-0 rounded-full border border-gold-400/25 bg-night-950/45 px-3 py-1 text-sm font-semibold tabular-nums text-gold-100"
+      >
+        第{{ room.round }}ラウンド
+      </span>
       <button
-        v-if="!awaitingResultView && !coyoteBanner"
         type="button"
-        class="shrink-0 rounded-full border border-gold-400/20 bg-night-950/40 px-3 py-1 text-xs font-medium tabular-nums text-sand-dim transition hover:border-gold-400/40 hover:text-gold-100"
+        class="shrink-0 rounded-full border border-gold-400/20 bg-night-950/40 px-3 py-1 text-sm font-medium tabular-nums text-sand transition hover:border-gold-400/40 hover:text-gold-100"
         :aria-label="`山札 残り${room.deckRemaining}枚。内容を見る`"
         @click="emit('deck')"
       >
         山札
-        <span class="font-semibold text-gold-200">{{ room.deckRemaining }}</span>
+        <span class="font-semibold text-gold-100">{{ room.deckRemaining }}</span>
+        <span class="text-sand-dim">枚</span>
       </button>
+      <template v-if="topProgress">
+        <span
+          class="hidden h-3 w-px shrink-0 bg-gold-400/25 sm:block"
+          aria-hidden="true"
+        />
+        <span
+          class="inline-flex min-w-0 max-w-[min(100%,20rem)] items-center gap-2 truncate text-sm font-semibold"
+          :class="
+            awaitingResultView
+              ? 'text-teal-soft'
+              : botsRunning || gameView?.isSelfTurn
+                ? 'text-gold-50'
+                : 'text-sand'
+          "
+        >
+          <span
+            v-if="botsRunning || gameView?.isSelfTurn"
+            class="inline-flex h-2 w-2 shrink-0 animate-pulse rounded-full bg-gold-300"
+            aria-hidden="true"
+          />
+          <span
+            v-else-if="awaitingResultView"
+            class="inline-flex h-2 w-2 shrink-0 rounded-full bg-teal-soft"
+            aria-hidden="true"
+          />
+          {{ topProgress }}
+        </span>
+      </template>
     </div>
 
     <!-- Card reveal (main body under header) -->
@@ -187,7 +218,7 @@ const emit = defineEmits<{
     <div v-else class="relative flex min-h-0 flex-1">
       <main class="relative flex min-h-0 min-w-0 flex-1 flex-col">
         <div
-          class="relative flex min-h-0 flex-1 items-center justify-center px-1 py-1 sm:px-2 sm:py-2"
+          class="relative flex min-h-0 flex-1 items-center justify-center px-0.5 py-0 sm:px-1"
         >
           <!-- Table felt: primary stage under seats / bid -->
           <div
@@ -208,13 +239,14 @@ const emit = defineEmits<{
               :clock="turnClock"
               :is-self-turn="!!gameView?.isSelfTurn"
               prominent
-              class="mb-2"
+              class="mb-1"
             />
             <CurrentBidDisplay
               :current-bid="room.currentBid"
               :turns-until-self="room.turnsUntilSelf"
               :bid-count="tableDrama?.bidCount ?? 0"
               :heat="tableDrama?.heat ?? 'none'"
+              :show-turns-hint="!gameView?.isSelfTurn"
             />
           </div>
 
@@ -280,10 +312,8 @@ const emit = defineEmits<{
           みんなの結果確認が終わるまで、次のラウンドは始まりません
         </div>
 
-        <!-- Cap height so all-extras UI cannot push declare/coyote off-screen -->
-        <div
-          class="flex min-h-0 max-h-[min(42dvh,20rem)] shrink flex-col overflow-hidden"
-        >
+        <!-- Bid dock: content-sized, always at bottom of main (no max-h scroll trap) -->
+        <div class="flex shrink-0 flex-col safe-bottom">
           <BidControls
             v-if="
               !awaitingResultView &&
@@ -312,23 +342,23 @@ const emit = defineEmits<{
         </div>
       </main>
 
-      <!-- Side rail: light info panel (log / chat) -->
+      <!-- Side rail: quiet auxiliary panel (board stays primary) -->
       <aside
-        class="flex w-72 min-h-0 shrink-0 flex-col border-l border-gold-400/10 bg-night-950/25 p-2 xl:w-80 xl:p-2.5"
+        class="flex w-60 min-h-0 shrink-0 flex-col border-l border-white/5 bg-night-950/10 p-1.5 xl:w-64 xl:p-2"
       >
         <div
-          class="mb-2 flex shrink-0 gap-1 rounded-xl bg-night-900/50 p-1"
+          class="mb-1.5 flex shrink-0 gap-0.5 rounded-lg bg-transparent p-0.5"
           role="tablist"
           aria-label="サイドパネル"
         >
           <button
             type="button"
             role="tab"
-            class="flex-1 rounded-lg px-2.5 py-2 text-sm font-medium transition"
+            class="flex-1 rounded-md px-2 py-1.5 text-xs font-medium transition"
             :class="
               desktopSideTab === 'log'
-                ? 'bg-night-800 text-gold-100 shadow-sm'
-                : 'text-sand-dim hover:bg-night-800/60 hover:text-sand'
+                ? 'bg-night-800/70 text-sand'
+                : 'text-sand-dim/80 hover:bg-night-900/40 hover:text-sand-dim'
             "
             :aria-selected="desktopSideTab === 'log'"
             @click="desktopSideTab = 'log'"
@@ -338,11 +368,11 @@ const emit = defineEmits<{
           <button
             type="button"
             role="tab"
-            class="flex-1 rounded-lg px-2.5 py-2 text-sm font-medium transition"
+            class="flex-1 rounded-md px-2 py-1.5 text-xs font-medium transition"
             :class="
               desktopSideTab === 'chat'
-                ? 'bg-night-800 text-gold-100 shadow-sm'
-                : 'text-sand-dim hover:bg-night-800/60 hover:text-sand'
+                ? 'bg-night-800/70 text-sand'
+                : 'text-sand-dim/80 hover:bg-night-900/40 hover:text-sand-dim'
             "
             :aria-selected="desktopSideTab === 'chat'"
             @click="desktopSideTab = 'chat'"
