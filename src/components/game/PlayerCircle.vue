@@ -28,11 +28,10 @@ const props = withDefaults(
  */
 const seatPositions = computed(() => {
   const n = props.players.length
-  // Leave room for seat content (≈80–100px half-extent at md).
-  // Larger tables tighten radius less / scale more so 8–10 seats stay readable (R5).
-  const rx = n <= 4 ? 36 : n <= 6 ? 38 : n <= 8 ? 40 : 41
-  const ry = n <= 4 ? 34 : n <= 6 ? 36 : n <= 8 ? 38 : 39
-  const scale = n <= 4 ? 1 : n <= 6 ? 0.92 : n <= 8 ? 0.82 : 0.72
+  // Room for larger seat units (~1.3–1.5×). Tighter radius + scale for big tables.
+  const rx = n <= 4 ? 34 : n <= 6 ? 36 : n <= 8 ? 38 : 40
+  const ry = n <= 4 ? 32 : n <= 6 ? 34 : n <= 8 ? 36 : 38
+  const scale = n <= 4 ? 1 : n <= 6 ? 0.9 : n <= 8 ? 0.78 : 0.68
 
   return props.players.map((player, i) => {
     // Start at top (-90°), go clockwise
@@ -42,8 +41,7 @@ const seatPositions = computed(() => {
     const y = 50 + ry * Math.sin(rad)
     return { player, x, y, scale }
   })
-})
-</script>
+})</script>
 
 <template>
   <!--

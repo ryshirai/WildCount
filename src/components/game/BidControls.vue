@@ -364,7 +364,7 @@ function toggleSkills() {
         </button>
         <button
           type="button"
-          class="btn-teal min-w-0 flex-1 !py-2 text-sm"
+          class="btn-coyote min-w-0 flex-1 !py-2 text-sm"
           :class="challengeFlash ? 'btn-fx-press' : ''"
           :disabled="canChallenge === false"
           @click="onChallenge"
@@ -379,25 +379,29 @@ function toggleSkills() {
   <!--
     Full dock: specials may grow tall (all extras + many targets).
     Cap height via parent max-h; scroll specials; keep declare/coyote sticky.
+    Primary flow: pick number → declare / coyote (centered action strip).
   -->
   <div
     v-else
-    class="flex h-full min-h-0 max-h-full flex-col border-t border-gold-400/15 bg-night-900/85 backdrop-blur-md"
-    :class="mobile ? 'px-2.5 py-1.5' : 'px-4 py-2.5 sm:py-3'"
+    class="bid-dock flex h-full min-h-0 max-h-full flex-col border-t border-gold-400/12 bg-night-900/90"
+    :class="mobile ? 'px-2.5 py-2' : 'px-4 py-3 sm:px-6 sm:py-3.5'"
   >
     <!-- Scrollable: hints + special abilities (can be tall when extras ON) -->
     <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-      <p v-if="!mobile" class="mb-1.5 text-xs text-sand-dim sm:mb-2">
+      <p
+        v-if="!mobile"
+        class="mb-2 text-center text-sm text-sand-dim"
+      >
         <template v-if="forbiddenValue != null">
           付け直し中：{{ forbiddenValue }} は選べません
         </template>
-        <template v-else>宣言する数字を選んでください</template>
+        <template v-else>数字を選んで宣言するか、コヨーテを仕掛けます</template>
       </p>
-      <p v-else class="mb-1 text-center text-[10px] text-sand-dim">
+      <p v-else class="mb-1.5 text-center text-xs text-sand-dim">
         <template v-if="forbiddenValue != null">
           付け直し（{{ forbiddenValue }} は不可）
         </template>
-        <template v-else>宣言する数字</template>
+        <template v-else>数字を選んで宣言</template>
       </p>
 
       <!-- Mobile: collapse specials behind a chip (R4 progressive disclosure) -->
@@ -567,68 +571,69 @@ function toggleSkills() {
       </div>
     </div>
 
-    <!-- Primary actions: always visible (not clipped by tall specials) -->
+    <!-- Primary actions: number → declare / coyote (always visible) -->
     <div
-      class="flex shrink-0 flex-wrap items-center gap-1.5 pt-0.5"
-      :class="mobile ? 'justify-center' : 'justify-start'"
+      class="flex shrink-0 flex-col items-center gap-2 pt-1"
+      :class="mobile ? 'gap-1.5' : 'gap-2.5 sm:pt-1.5'"
     >
-      <!-- Stepper -->
-      <div
-        class="flex items-center gap-0.5 rounded-lg border border-gold-400/25 bg-night-800/80 p-0.5"
-      >
+      <!-- Number tools (secondary) -->
+      <div class="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2">
+        <div
+          class="flex items-center gap-0.5 rounded-xl border border-gold-400/20 bg-night-800/90 p-1"
+        >
+          <button
+            type="button"
+            class="btn-ghost !rounded-lg !p-0 active:scale-95"
+            :class="mobile ? '!h-9 !w-9 text-lg' : '!h-10 !w-10 text-xl'"
+            aria-label="1減らす"
+            @click="adjust(-1)"
+          >
+            −
+          </button>
+          <span
+            :key="tickKey"
+            class="bid-step-tick text-center font-display font-bold text-gold-100 tabular-nums"
+            :class="[
+              mobile ? 'min-w-[2.5rem] text-2xl' : 'min-w-[3.25rem] text-3xl',
+              stepDir === 'up' ? 'bid-step-tick--up' : '',
+              stepDir === 'down' ? 'bid-step-tick--down' : '',
+            ]"
+          >
+            {{ bid }}
+          </span>
+          <button
+            type="button"
+            class="btn-ghost !rounded-lg !p-0 active:scale-95"
+            :class="mobile ? '!h-9 !w-9 text-lg' : '!h-10 !w-10 text-xl'"
+            aria-label="1増やす"
+            @click="adjust(1)"
+          >
+            ＋
+          </button>
+        </div>
+
         <button
           type="button"
-          class="btn-ghost !p-0 active:scale-95"
-          :class="mobile ? '!h-8 !w-8 text-base' : '!h-9 !w-9 text-lg'"
-          aria-label="1減らす"
-          @click="adjust(-1)"
-        >
-          −
-        </button>
-        <span
-          :key="tickKey"
-          class="bid-step-tick text-center font-display font-bold text-gold-100 tabular-nums"
-          :class="[
-            mobile ? 'min-w-[2.25rem] text-xl' : 'min-w-[2.75rem] text-2xl',
-            stepDir === 'up' ? 'bid-step-tick--up' : '',
-            stepDir === 'down' ? 'bid-step-tick--down' : '',
-          ]"
-        >
-          {{ bid }}
-        </span>
-        <button
-          type="button"
-          class="btn-ghost !p-0 active:scale-95"
-          :class="mobile ? '!h-8 !w-8 text-base' : '!h-9 !w-9 text-lg'"
-          aria-label="1増やす"
+          class="btn-ghost !rounded-xl font-semibold active:scale-95"
+          :class="mobile ? '!px-2.5 !py-2 text-sm' : '!px-3.5 !py-2.5 text-sm'"
           @click="adjust(1)"
         >
-          ＋
+          +1
+        </button>
+        <button
+          type="button"
+          class="btn-ghost !rounded-xl font-semibold active:scale-95"
+          :class="mobile ? '!px-2.5 !py-2 text-sm' : '!px-3.5 !py-2.5 text-sm'"
+          @click="adjust(5)"
+        >
+          +5
         </button>
       </div>
 
-      <button
-        type="button"
-        class="btn-ghost font-semibold active:scale-95"
-        :class="mobile ? '!px-2 !py-1.5 text-xs' : '!px-2.5 !py-2 text-sm'"
-        @click="adjust(1)"
-      >
-        +1
-      </button>
-      <button
-        type="button"
-        class="btn-ghost font-semibold active:scale-95"
-        :class="mobile ? '!px-2 !py-1.5 text-xs' : '!px-2.5 !py-2 text-sm'"
-        @click="adjust(5)"
-      >
-        +5
-      </button>
-
+      <!-- Main actions: declare (primary) + coyote (emphasis) -->
       <div
-        class="relative flex flex-1 flex-wrap gap-1.5"
-        :class="mobile ? 'w-full basis-full' : 'min-w-[14rem] justify-end'"
+        class="relative flex w-full max-w-xl flex-wrap items-stretch justify-center gap-2 sm:gap-2.5"
       >
-        <!-- Declare number launch (from button toward board) -->
         <span
           v-if="launchFx"
           :key="`launch-${launchFx.key}`"
@@ -644,11 +649,11 @@ function toggleSkills() {
         </span>
         <button
           type="button"
-          class="btn-gold relative flex-1 sm:flex-none"
+          class="btn-gold relative min-w-0 flex-1 !rounded-xl sm:min-w-[11rem] sm:flex-none sm:px-8"
           :class="[
             declareFlash ? 'btn-fx-press' : '',
             declareCharging ? 'btn-declare-charge' : '',
-            mobile ? '!py-2 text-sm' : '',
+            mobile ? '!py-2.5 text-sm' : '!py-3 text-base',
             extraChoice !== 'none' ? 'ring-1 ring-teal-soft/40' : '',
           ]"
           :disabled="canDeclare === false"
@@ -662,10 +667,10 @@ function toggleSkills() {
         </button>
         <button
           type="button"
-          class="btn-teal flex-1 sm:flex-none"
+          class="btn-coyote min-w-0 flex-1 !rounded-xl sm:min-w-[9rem] sm:flex-none sm:px-6"
           :class="[
             challengeFlash ? 'btn-fx-press' : '',
-            mobile ? '!py-2 text-sm' : '',
+            mobile ? '!py-2.5 text-sm' : '!py-3 text-base',
           ]"
           :disabled="canChallenge === false"
           @click="onChallenge"

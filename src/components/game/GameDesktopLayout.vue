@@ -120,15 +120,15 @@ const emit = defineEmits<{
     <!-- Status under header: turn line + deck remaining chip -->
     <div
       v-if="paceHint || (!coyoteBanner && !awaitingResultView)"
-      class="flex shrink-0 items-center justify-center gap-2.5 border-b px-3 py-2.5 text-center text-sm font-medium backdrop-blur-md"
+      class="flex shrink-0 items-center justify-center gap-3 border-b px-3 py-2.5 text-center text-sm font-medium"
       :class="[
         awaitingResultView
-          ? 'border-teal-soft/35 bg-teal-deep/40 text-teal-soft'
+          ? 'border-teal-soft/30 bg-teal-deep/35 text-teal-soft'
           : botsRunning
-            ? 'border-gold-400/30 bg-night-800/90 text-gold-200'
+            ? 'border-gold-400/25 bg-night-800/90 text-gold-200'
             : gameView?.isSelfTurn
-              ? 'border-gold-400/45 bg-gold-400/12 text-gold-100'
-              : 'border-gold-400/20 bg-night-900/90 text-sand',
+              ? 'border-gold-400/40 bg-gold-400/10 text-gold-50'
+              : 'border-gold-400/15 bg-night-900/85 text-sand',
         gameView?.isSelfTurn && !awaitingResultView && !botsRunning
           ? 'turn-arrive'
           : '',
@@ -139,30 +139,30 @@ const emit = defineEmits<{
       <template v-if="paceHint">
         <span
           v-if="botsRunning"
-          class="inline-flex h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-gold-300 shadow-[0_0_8px_rgba(201,168,76,0.7)]"
+          class="inline-flex h-2 w-2 shrink-0 animate-pulse rounded-full bg-gold-300"
           aria-hidden="true"
         />
         <span
           v-else-if="awaitingResultView"
-          class="inline-flex h-2.5 w-2.5 shrink-0 rounded-full bg-teal-soft shadow-[0_0_8px_rgba(42,138,138,0.6)]"
+          class="inline-flex h-2 w-2 shrink-0 rounded-full bg-teal-soft"
           aria-hidden="true"
         />
         <span
           v-else-if="gameView?.isSelfTurn"
-          class="inline-flex h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-gold-300 shadow-[0_0_10px_rgba(201,168,76,0.75)]"
+          class="inline-flex h-2 w-2 shrink-0 animate-pulse rounded-full bg-gold-300"
           aria-hidden="true"
         />
         <span
           v-else
-          class="inline-flex h-2.5 w-2.5 shrink-0 rounded-full bg-gold-400/70"
+          class="inline-flex h-2 w-2 shrink-0 rounded-full bg-gold-400/60"
           aria-hidden="true"
         />
-        <span class="min-w-0 truncate">{{ paceHint }}</span>
+        <span class="min-w-0 truncate font-semibold">{{ paceHint }}</span>
       </template>
       <button
         v-if="!awaitingResultView && !coyoteBanner"
         type="button"
-        class="shrink-0 rounded-full border border-gold-400/25 bg-night-950/50 px-2.5 py-0.5 text-[11px] font-medium tabular-nums text-sand-dim transition hover:border-gold-400/45 hover:text-gold-100"
+        class="shrink-0 rounded-full border border-gold-400/20 bg-night-950/40 px-3 py-1 text-xs font-medium tabular-nums text-sand-dim transition hover:border-gold-400/40 hover:text-gold-100"
         :aria-label="`山札 残り${room.deckRemaining}枚。内容を見る`"
         @click="emit('deck')"
       >
@@ -187,9 +187,9 @@ const emit = defineEmits<{
     <div v-else class="relative flex min-h-0 flex-1">
       <main class="relative flex min-h-0 min-w-0 flex-1 flex-col">
         <div
-          class="relative flex min-h-0 flex-1 items-center justify-center px-2 py-2 sm:px-4 sm:py-3"
+          class="relative flex min-h-0 flex-1 items-center justify-center px-1 py-1 sm:px-2 sm:py-2"
         >
-          <!-- Soft table felt under seats / bid (R5 + D1 heat tint) -->
+          <!-- Table felt: primary stage under seats / bid -->
           <div
             class="game-table-felt pointer-events-none absolute z-0"
             :class="
@@ -282,7 +282,7 @@ const emit = defineEmits<{
 
         <!-- Cap height so all-extras UI cannot push declare/coyote off-screen -->
         <div
-          class="flex min-h-0 max-h-[min(40dvh,18rem)] shrink flex-col overflow-hidden"
+          class="flex min-h-0 max-h-[min(42dvh,20rem)] shrink flex-col overflow-hidden"
         >
           <BidControls
             v-if="
@@ -312,23 +312,23 @@ const emit = defineEmits<{
         </div>
       </main>
 
-      <!-- Side rail: log / chat (R5 density + AppHeader tone) -->
+      <!-- Side rail: light info panel (log / chat) -->
       <aside
-        class="flex w-72 min-h-0 shrink-0 flex-col border-l border-gold-400/15 bg-night-950/35 p-2.5 xl:w-80 xl:p-3"
+        class="flex w-72 min-h-0 shrink-0 flex-col border-l border-gold-400/10 bg-night-950/25 p-2 xl:w-80 xl:p-2.5"
       >
         <div
-          class="mb-2 flex shrink-0 gap-0.5 rounded-lg border border-gold-400/15 bg-night-900/80 p-0.5 backdrop-blur-md"
+          class="mb-2 flex shrink-0 gap-1 rounded-xl bg-night-900/50 p-1"
           role="tablist"
           aria-label="サイドパネル"
         >
           <button
             type="button"
             role="tab"
-            class="flex-1 rounded-md px-2 py-1.5 text-xs font-medium transition"
+            class="flex-1 rounded-lg px-2.5 py-2 text-sm font-medium transition"
             :class="
               desktopSideTab === 'log'
-                ? 'bg-gold-400/15 text-gold-200 shadow-sm ring-1 ring-gold-400/25'
-                : 'text-sand-dim hover:bg-night-800/80 hover:text-sand'
+                ? 'bg-night-800 text-gold-100 shadow-sm'
+                : 'text-sand-dim hover:bg-night-800/60 hover:text-sand'
             "
             :aria-selected="desktopSideTab === 'log'"
             @click="desktopSideTab = 'log'"
@@ -338,11 +338,11 @@ const emit = defineEmits<{
           <button
             type="button"
             role="tab"
-            class="flex-1 rounded-md px-2 py-1.5 text-xs font-medium transition"
+            class="flex-1 rounded-lg px-2.5 py-2 text-sm font-medium transition"
             :class="
               desktopSideTab === 'chat'
-                ? 'bg-gold-400/15 text-gold-200 shadow-sm ring-1 ring-gold-400/25'
-                : 'text-sand-dim hover:bg-night-800/80 hover:text-sand'
+                ? 'bg-night-800 text-gold-100 shadow-sm'
+                : 'text-sand-dim hover:bg-night-800/60 hover:text-sand'
             "
             :aria-selected="desktopSideTab === 'chat'"
             @click="desktopSideTab = 'chat'"

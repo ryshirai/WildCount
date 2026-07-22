@@ -66,17 +66,24 @@ onUnmounted(() => {
 </script>
 
 <template>
+  <!--
+    Light information panel: timeline rows, minimal box nesting.
+  -->
   <aside
     class="flex h-full min-h-0 flex-col overflow-hidden"
-    :class="embedded ? 'bg-transparent' : 'panel'"
+    :class="
+      embedded
+        ? 'bg-transparent'
+        : 'rounded-xl border border-gold-400/10 bg-night-950/40'
+    "
   >
     <div
       v-if="!hideHeader"
-      class="flex items-center border-b border-gold-400/15"
-      :class="compact ? 'px-2.5 py-1.5' : 'px-4 py-3'"
+      class="flex shrink-0 items-center border-b border-gold-400/10"
+      :class="compact ? 'px-2.5 py-2' : 'px-3.5 py-2.5'"
     >
       <h2
-        class="font-semibold text-gold-200"
+        class="font-semibold tracking-wide text-sand-dim"
         :class="compact ? 'text-xs' : 'text-sm'"
       >
         対戦ログ
@@ -86,35 +93,40 @@ onUnmounted(() => {
     <ul
       ref="listEl"
       class="min-h-0 flex-1 overflow-y-auto overscroll-contain"
-      :class="compact ? 'space-y-2 px-2 py-2' : 'space-y-3 px-3 py-3'"
+      :class="compact ? 'px-1.5 py-1' : 'px-2 py-1.5'"
       role="log"
       aria-live="polite"
       aria-relevant="additions"
     >
       <li
-        v-for="item in displayItems"
+        v-for="(item, index) in displayItems"
         :key="item.id"
       >
         <!-- Round / phase divider -->
         <div
           v-if="item.kind === 'separator'"
-          class="flex items-center gap-2 py-1"
+          class="flex items-center gap-2 py-2"
           role="separator"
           :aria-label="item.message"
         >
-          <div class="h-px min-w-[0.75rem] flex-1 bg-gradient-to-r from-transparent to-gold-400/35" />
+          <div class="h-px min-w-[0.5rem] flex-1 bg-gold-400/20" />
           <span
-            class="shrink-0 rounded-full border border-gold-400/40 bg-gold-400/10 px-2.5 py-0.5 font-display text-[10px] font-semibold tracking-wide text-gold-200 sm:text-[11px]"
+            class="shrink-0 px-1 font-display text-[11px] font-semibold tracking-wide text-gold-300/90"
           >
             {{ item.message }}
           </span>
-          <div class="h-px min-w-[0.75rem] flex-1 bg-gradient-to-l from-transparent to-gold-400/35" />
+          <div class="h-px min-w-[0.5rem] flex-1 bg-gold-400/20" />
         </div>
 
-        <!-- Player / room action -->
+        <!-- Timeline row (no per-item card chrome) -->
         <div
           v-else
-          class="flex gap-2.5 rounded-xl bg-night-900/40 px-2.5 py-2"
+          class="flex gap-2.5 py-2"
+          :class="
+            index > 0 && displayItems[index - 1]?.kind !== 'separator'
+              ? 'border-t border-gold-400/10'
+              : ''
+          "
         >
           <PlayerAvatar
             class="shrink-0"
@@ -131,7 +143,7 @@ onUnmounted(() => {
             </p>
             <p
               v-if="item.timeLabel"
-              class="mt-0.5 text-[11px] text-sand-dim"
+              class="mt-0.5 text-xs text-sand-dim/80"
             >
               {{ item.timeLabel }}
             </p>

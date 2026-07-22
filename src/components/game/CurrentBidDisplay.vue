@@ -188,16 +188,26 @@ function spawnDelta(text: string, sign: 'up' | 'down') {
   }, 900)
 }
 
+const hasBid = computed(() => props.currentBid != null)
+
 const display = computed(() =>
   props.currentBid == null ? '—' : String(props.currentBid),
 )
 
-/** Fixed type scale — never changes during declare burst (bigger base sizes) */
+/** Fixed type scale — never changes during declare burst */
 const numSizeClass = computed(() =>
   props.compact
     ? 'text-5xl sm:text-6xl'
     : 'text-6xl sm:text-7xl xl:text-8xl',
 )
+
+/** Natural Japanese status under the bid number */
+const turnsHintText = computed(() => {
+  if (props.turnsUntilSelf == null) return null
+  if (props.turnsUntilSelf === 0) return 'あなたの手番です'
+  if (props.turnsUntilSelf === 1) return '次はあなたの手番です'
+  return `あと${props.turnsUntilSelf}人であなたの手番です`
+})
 
 const sparkleDensity = computed(() => {
   const b = declareBurst.value
@@ -258,19 +268,19 @@ const sparkleDensity = computed(() => {
       </div>
 
       <p
-        class="font-medium tracking-[0.12em] text-gold-300/90"
-        :class="compact ? 'text-[10px]' : 'text-xs'"
+        class="font-medium tracking-[0.18em] text-gold-200/90"
+        :class="compact ? 'text-[11px]' : 'text-sm sm:text-base'"
       >
         現在の宣言
       </p>
 
       <!-- Fixed stage: min size so transform FX don't reflow the table -->
       <div
-        class="relative mt-0.5 flex items-center justify-center sm:mt-1"
+        class="relative mt-1 flex items-center justify-center sm:mt-1.5"
         :class="
           compact
-            ? 'min-h-[3.25rem] min-w-[5rem]'
-            : 'min-h-[4.25rem] min-w-[6.5rem] sm:min-h-[5rem] xl:min-h-[5.5rem]'
+            ? 'min-h-[3.5rem] min-w-[5.5rem]'
+            : 'min-h-[4.75rem] min-w-[7rem] sm:min-h-[5.5rem] xl:min-h-[6.25rem]'
         "
       >
         <!-- Soft glow ring on pop (absolute — no layout) -->
@@ -347,18 +357,23 @@ const sparkleDensity = computed(() => {
         <!-- Stable number (fixed font size; pop via transform classes) -->
         <p
           :key="popKey"
-          class="bid-num relative z-[1] font-display font-bold leading-none text-gold-100 tabular-nums"
+          class="bid-num relative z-[1] font-display font-bold leading-none tabular-nums"
           :class="[
             numSizeClass,
             popClass,
             declareBurst ? 'bid-num--declare' : '',
             heat === 'wild' ? 'bid-num--heat-wild' : '',
+            hasBid ? 'text-gold-100' : 'text-gold-200/45',
           ]"
-          style="
-            text-shadow:
-              0 0 28px rgba(201, 168, 76, 0.35),
-              0 0 8px rgba(201, 168, 76, 0.2);
+          :style="
+            hasBid
+              ? {
+                  textShadow:
+                    '0 0 28px rgba(201, 168, 76, 0.35), 0 0 8px rgba(201, 168, 76, 0.2)',
+                }
+              : undefined
           "
+          :aria-label="hasBid ? `現在の宣言 ${display}` : 'まだ宣言されていません'"
         >
           {{ display }}
         </p>
@@ -378,25 +393,30 @@ const sparkleDensity = computed(() => {
         </span>
       </div>
 
+      <!-- Empty bid: avoid hollow dash-only feel -->
+      <p
+        v-if="!hasBid"
+        class="mt-1 text-sand-dim"
+        :class="compact ? 'text-[11px]' : 'text-xs sm:text-sm'"
+      >
+        まだ宣言されていません
+      </p>
+
       <!-- Turns hint stays inside frame (stable height only when shown) -->
       <div
-        v-if="showTurnsHint && turnsUntilSelf != null"
-        class="relative mt-2 flex min-h-[1.5rem] items-center justify-center sm:min-h-[1.75rem]"
+        v-if="showTurnsHint && turnsHintText"
+        class="relative mt-2 flex min-h-[1.5rem] items-center justify-center sm:mt-2.5 sm:min-h-[1.75rem]"
       >
         <p
-          class="rounded-full border px-2.5 py-0.5 shadow-sm backdrop-blur-sm"
+          class="rounded-full border px-3 py-1 shadow-sm"
           :class="[
-            compact ? 'text-[10px]' : 'text-xs',
+            compact ? 'text-[11px]' : 'text-sm',
             turnsUntilSelf === 0
-              ? 'border-gold-400/45 bg-gold-400/15 font-semibold text-gold-100'
-              : 'border-gold-400/25 bg-night-800/70 text-sand-dim',
+              ? 'border-gold-400/50 bg-gold-400/15 font-semibold text-gold-50'
+              : 'border-gold-400/20 bg-night-900/55 text-sand-dim',
           ]"
         >
-          <template v-if="turnsUntilSelf === 0">あなたの手番</template>
-          <template v-else>
-            あなたまであと
-            <span class="font-semibold text-gold-200">{{ turnsUntilSelf }} 人</span>
-          </template>
+          {{ turnsHintText }}
         </p>
       </div>
     </div>

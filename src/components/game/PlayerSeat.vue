@@ -10,14 +10,20 @@ defineProps<{
 </script>
 
 <template>
+  <!--
+    One cohesive “seat” unit: avatar + name + life + hand + status.
+    Sized for commercial table readability (≈1.3–1.5× prior density).
+  -->
   <div
-    class="flex max-w-[6.25rem] flex-col items-center gap-0.5 rounded-xl px-0.5 py-0.5 transition duration-200 sm:max-w-[7rem]"
+    class="seat-unit flex max-w-[8.25rem] flex-col items-center gap-1 px-1.5 py-1.5 transition duration-200 sm:max-w-[9rem] sm:gap-1.5 sm:px-2 sm:py-2"
     :class="[
       player.isCurrentTurn
-        ? 'z-10 scale-[1.06] bg-gold-400/10 ring-1 ring-gold-400/40 shadow-[0_0_18px_rgba(201,168,76,0.22)]'
-        : player.lives > 0
-          ? 'opacity-80'
-          : '',
+        ? 'seat-unit--turn z-10 scale-[1.08]'
+        : player.isSelf
+          ? 'seat-unit--self'
+          : player.lives > 0
+            ? 'seat-unit--idle'
+            : '',
       player.lives <= 0 ? 'opacity-40 grayscale' : '',
     ]"
   >
@@ -31,9 +37,12 @@ defineProps<{
       size="md"
     >
       <template #status>
-        <!-- Lives only under avatar; status chips sit under the hand card -->
-        <div class="mt-0.5">
-          <LifeHearts :lives="player.lives" :max-visible="5" size-class="text-[10px]" />
+        <div class="mt-1">
+          <LifeHearts
+            :lives="player.lives"
+            :max-visible="5"
+            size-class="text-xs sm:text-[0.8rem]"
+          />
         </div>
       </template>
     </PlayerAvatar>

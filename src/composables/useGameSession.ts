@@ -530,8 +530,7 @@ export function useGameSession() {
 
   /**
    * Status strip under the game header.
-   * During bidding, always name whose turn it is (not only "あと N 人") so
-   * players can scan the banner without hunting seat chips.
+   * Natural Japanese: whose turn / how soon you act — not machine-like counters.
    */
   const paceHint = computed(() => {
     if (useMock.value) return null
@@ -539,8 +538,9 @@ export function useGameSession() {
       return forfeitEndTitle.value
     }
     if (awaitingResultView.value) {
-      if (reveal.cutInVisible.value) return statusMessage.value ?? 'コヨーテ！'
-      if (!reveal.cardsRevealDone.value) return 'みんなの札を開いています…'
+      if (reveal.cutInVisible.value)
+        return statusMessage.value ?? 'コヨーテの判定中です'
+      if (!reveal.cardsRevealDone.value) return 'コヨーテの判定中です'
       return '合計と勝敗を確認しましょう'
     }
     if (waitingForResultPeers.value) {
@@ -558,13 +558,16 @@ export function useGameSession() {
     }
     if (turnPlayer) {
       const n = gameView.value?.turnsUntilSelf
-      const who = `${turnPlayer.avatar} ${turnPlayer.name} の手番`
-      if (n != null && n > 0) return `${who}（あと ${n} 人）`
-      return who
+      if (n != null && n > 1) {
+        return `あと${n}人であなたの手番です`
+      }
+      if (n === 1) {
+        return '次はあなたの手番です'
+      }
+      return `${turnPlayer.name}の宣言を待っています`
     }
     return null
   })
-
   /** Live turn clock from server (online timed rooms only). */
   const turnClock = computed(() =>
     isOnline.value ? (onlineGame.view?.clock ?? null) : null,

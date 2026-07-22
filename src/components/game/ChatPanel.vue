@@ -149,26 +149,32 @@ watch(
 <template>
   <aside
     class="flex h-full min-h-0 flex-col overflow-hidden"
-    :class="embedded ? 'bg-transparent' : 'panel'"
+    :class="
+      embedded
+        ? 'bg-transparent'
+        : compact
+          ? 'rounded-xl border border-gold-400/10 bg-night-950/40'
+          : 'panel'
+    "
   >
     <div
       v-if="!hideHeader"
-      class="flex items-center justify-between border-b border-gold-400/15"
-      :class="compact ? 'px-2.5 py-1.5' : 'px-3 py-2'"
+      class="flex items-center justify-between border-b border-gold-400/10"
+      :class="compact ? 'px-2.5 py-2' : 'px-3 py-2'"
     >
       <h2
-        class="font-semibold text-gold-200"
+        class="font-semibold tracking-wide text-sand-dim"
         :class="compact ? 'text-xs' : 'text-sm'"
       >
         チャット
       </h2>
-      <span class="text-[10px] text-sand-dim">ルーム内</span>
+      <span class="text-xs text-sand-dim/70">ルーム内</span>
     </div>
 
     <div
       ref="listEl"
       class="min-h-0 flex-1 overflow-y-auto overscroll-contain"
-      :class="compact ? 'space-y-1.5 px-2 py-2' : 'space-y-2 px-2.5 py-2.5'"
+      :class="compact ? 'px-1.5 py-1' : 'space-y-2 px-2.5 py-2.5'"
       role="log"
       aria-live="polite"
       aria-relevant="additions"
@@ -181,12 +187,19 @@ watch(
         まだメッセージはありません
       </p>
       <div
-        v-for="row in displayRows"
+        v-for="(row, index) in displayRows"
         :key="row.id"
-        class="flex gap-1.5 rounded-lg"
+        class="flex gap-2"
         :class="[
-          compact ? 'px-1.5 py-1' : 'px-2 py-1.5',
-          row.isSelf ? 'bg-teal-deep/25' : 'bg-night-900/40',
+          compact
+            ? [
+                'px-1.5 py-2',
+                index > 0 ? 'border-t border-gold-400/10' : '',
+              ]
+            : [
+                'rounded-lg px-2 py-1.5',
+                row.isSelf ? 'bg-teal-deep/25' : 'bg-night-900/40',
+              ],
         ]"
       >
         <PlayerAvatar

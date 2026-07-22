@@ -34,7 +34,7 @@ const status = computed((): {
         : '再接続待ち（しばらくすると脱落します）',
     }
   }
-  if (p.isCurrentTurn) return { kind: 'turn', label: 'いまの番' }
+  if (p.isCurrentTurn) return { kind: 'turn', label: '手番' }
   if (p.hasDeclared) return { kind: 'declared', label: '宣言済' }
   if (p.isSelf) return { kind: 'self', label: 'あなた' }
   return { kind: 'wait', label: '待機' }
@@ -59,7 +59,7 @@ const showBid = computed(
 
 <template>
   <!-- Hand -->
-  <div :class="compact ? '' : 'relative mt-0.5'">
+  <div :class="compact ? '' : 'relative mt-1'">
     <HandTiles
       v-if="showHand"
       :labels="player.handHidden ? null : player.handLabels"
@@ -70,14 +70,14 @@ const showBid = computed(
     />
     <div
       v-else-if="!compact && player.lives > 0"
-      class="card-tile-mystery !h-11 !w-9 !text-lg opacity-50"
+      class="card-tile-mystery opacity-50"
     >
       ?
     </div>
     <div
       v-else
       class="card-tile-mystery opacity-50"
-      :class="compact ? '!h-10 !w-8 !text-sm' : '!h-11 !w-9 !text-base'"
+      :class="compact ? 'card-tile--compact' : ''"
     >
       —
     </div>
@@ -87,14 +87,14 @@ const showBid = computed(
   <div
     :class="
       compact
-        ? ''
-        : 'mt-0.5 flex min-h-[1.1rem] justify-center'
+        ? 'mt-0.5'
+        : 'mt-1 flex min-h-[1.25rem] justify-center'
     "
   >
     <span
       :class="[
         statusClass[status.kind],
-        compact ? '!px-1 !text-[10px]' : '',
+        compact ? 'seat-chip--compact' : '',
       ]"
       :title="status.title"
     >
@@ -106,7 +106,7 @@ const showBid = computed(
   <div
     v-if="showBid"
     :key="`bid-${player.id}-${player.bid}`"
-    class="bid-chip--pop"
+    class="bid-chip--pop mt-0.5"
     :class="compact ? 'bid-chip-sm' : 'bid-chip'"
     :title="`宣言 ${player.bid}`"
   >

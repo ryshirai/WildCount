@@ -103,29 +103,29 @@ watch(
     </div>
 
     <div
-      class="flex gap-2.5 overflow-x-auto px-3 py-2 scrollbar-none"
+      class="flex gap-3 overflow-x-auto px-3 py-2.5 scrollbar-none"
       style="scrollbar-width: none"
     >
       <div
         v-for="player in players"
         :key="player.id"
         :ref="(el) => setSeatEl(player.id, el)"
-        class="flex shrink-0 flex-col items-center gap-0.5 rounded-xl px-0.5 py-1 transition"
+        class="seat-unit flex shrink-0 flex-col items-center gap-1 rounded-xl px-1.5 py-1.5 transition"
         :class="[
-          player.handCount >= 2 ? 'w-[4.6rem]' : 'w-[3.85rem]',
+          player.handCount >= 2 ? 'w-[5.1rem]' : 'w-[4.35rem]',
           player.isCurrentTurn
-            ? 'scale-105 bg-gold-400/15 ring-1 ring-gold-400/50 shadow-[0_0_14px_rgba(201,168,76,0.2)]'
+            ? 'seat-unit--turn scale-105'
             : player.isSelf
-              ? 'bg-teal-deep/25 ring-1 ring-teal-soft/25'
-              : 'opacity-65',
+              ? 'seat-unit--self'
+              : 'seat-unit--idle opacity-70',
           player.lives <= 0 ? 'opacity-40 grayscale' : '',
         ]"
       >
         <div
-          class="max-w-full truncate text-[10px] font-medium"
+          class="max-w-full truncate text-xs font-medium"
           :class="
             player.isCurrentTurn
-              ? 'font-semibold text-gold-100'
+              ? 'font-semibold text-gold-50'
               : player.isSelf
                 ? 'text-teal-soft'
                 : 'text-sand-dim'
@@ -142,7 +142,7 @@ watch(
           size="sm"
           hide-name
         />
-        <LifeHearts :lives="player.lives" :max-visible="3" size-class="text-[9px]" />
+        <LifeHearts :lives="player.lives" :max-visible="3" size-class="text-[11px]" />
 
         <SeatContent :player="player" compact />
       </div>

@@ -229,7 +229,7 @@ const isSelfTurn = computed(
           "
         >
           <div
-            class="panel relative z-[6] flex w-full max-w-[16rem] flex-col items-center overflow-visible px-4 py-3 shadow-panel transition-transform duration-300"
+            class="relative z-[6] flex w-full max-w-[17.5rem] flex-col items-center overflow-visible rounded-2xl border border-gold-400/25 bg-night-800/90 px-5 py-4 shadow-panel transition-transform duration-300"
             :class="sheetOpen ? 'scale-90 opacity-90' : ''"
           >
             <TurnClockDisplay

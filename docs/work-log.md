@@ -4518,3 +4518,46 @@
 
 ### 確認結果
 - typecheck / 関連テストパス
+
+---
+
+## 2026-07-22 — ゲーム画面 UI 商用ポリッシュ
+
+### 背景・目的
+- ダークファンタジーの世界観は維持しつつ、ギザギザ装飾感・スカスカ感・情報優先度の弱さを改善
+- 装飾追加ではなく、サイズ・余白・配置・形状ルール・色役割で商用タイトルらしい見た目へ
+
+### 実施内容
+1. **形状ルール統一**: 角丸ベース（`rounded-xl`）に揃え、小さいUIの装飾を抑制。`btn-ghost` / チップ / タブを滑らかに
+2. **プレイヤー席の拡大・一体化**: `.seat-unit` でアバター・名前・ライフ・手札・状態を1席として整理。アバター/カード/チップを約1.3–1.5倍。手番は外周発光・席ハイライト・「番」バッジで強調
+3. **中央ゲーム卓**: `.game-table-felt` を拡大し、細い金色縁・放射明暗・中心をやや明るくして「テーブル」として成立
+4. **現在の宣言を主役化**: 見出し・数値を拡大。未宣言は「まだ宣言されていません」。手番案内を自然な日本語に（あなたの手番 / あとN人で… / ○○の宣言を待っています / コヨーテの判定中）
+5. **下部操作エリア集約**: 数字選択 → 宣言 / コヨーテの流れを中央寄せ。宣言＝金主ボタン、コヨーテ＝`.btn-coyote`（ローズ系危険強調）
+6. **右ログ/チャット簡素化**: 項目ごとのカード感をやめタイムライン風に。タブ装飾を軽量化
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/styles/main.css` | 卓 felt・seat-unit・card/chip 拡大・btn-coyote |
+| `src/components/game/PlayerSeat.vue` / `PlayerAvatar.vue` / `SeatContent.vue` / `PlayerCircle.vue` | 席 UI |
+| `src/components/game/CurrentBidDisplay.vue` | 宣言表示・空状態・文言 |
+| `src/components/game/BidControls.vue` | 操作バー集約・ボタン階層 |
+| `src/components/game/EventLog.vue` / `ChatPanel.vue` | 情報パネル簡素化 |
+| `src/components/game/GameDesktopLayout.vue` / `GameMobileLayout.vue` / `MobilePlayerCarousel.vue` | レイアウト |
+| `src/composables/useGameSession.ts` | paceHint の自然な日本語 |
+
+### 明示的にやっていないこと
+- ゲームロジック・Worker・ルール変更
+- ホーム / ロビー / 結果画面の全面リデザイン
+- 新規アート素材の生成
+- 演出（宣言 FX / カットイン）の仕様変更
+
+### 確認結果
+- `npm run build` 成功
+- `npm run typecheck` 成功
+- 全 279 テスト成功
+
+### 次に考えられる作業
+1. 実機/ブラウザで 4〜10 人卓の席密度を確認し、必要なら半径・scale 微調整
+2. 結果画面・ロビーを同トーンで揃える
+3. モバイルの宣言パネルと操作ドックの縦余白を実機で詰める
