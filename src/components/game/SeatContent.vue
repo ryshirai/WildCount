@@ -58,20 +58,24 @@ const showBid = computed(
 </script>
 
 <template>
-  <!-- 4. Hand cards -->
+  <!-- 4. Hand cards
+       Self identity lives on avatar/name (teal). Forehead cards are a
+       separate object: mystery = card-back style, turn = gold emphasis only. -->
   <div class="relative">
     <HandTiles
       v-if="showHand"
       :labels="player.handHidden ? null : player.handLabels"
       :count="player.handCount"
       :mystery="player.handHidden"
-      :emphasized="player.isCurrentTurn || player.isSelf"
+      :self-hand="player.isSelf && player.handHidden"
+      :emphasized="player.isCurrentTurn"
       :compact="compact"
     />
     <div
       v-else-if="!compact && player.lives > 0"
       class="card-tile-mystery opacity-50"
-      :class="player.isSelf ? 'hand-tiles--emphasized' : ''"
+      :class="player.isSelf ? 'card-tile-mystery--self' : ''"
+      :title="player.isSelf ? '自分の札（非公開）' : undefined"
     >
       ?
     </div>

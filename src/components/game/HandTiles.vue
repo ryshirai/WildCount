@@ -16,13 +16,20 @@ const props = withDefaults(
      */
     count?: number
     mystery?: boolean
+    /**
+     * Own forehead hand (Indian poker). Uses card-back styling so the
+     * tile does not blend into the teal “self” seat identity.
+     */
+    selfHand?: boolean
     compact?: boolean
+    /** Current-turn gold emphasis (not self identity). */
     emphasized?: boolean
   }>(),
   {
     labels: null,
     count: 0,
     mystery: false,
+    selfHand: false,
     compact: false,
     emphasized: false,
   },
@@ -65,6 +72,7 @@ const isMulti = computed(() => tiles.value.length >= 2)
       compact ? 'hand-tiles--compact' : '',
       isMulti ? 'hand-tiles--multi' : '',
       emphasized ? 'hand-tiles--emphasized' : '',
+      selfHand ? 'hand-tiles--self' : '',
     ]"
   >
     <div
@@ -85,6 +93,7 @@ const isMulti = computed(() => tiles.value.length >= 2)
       <BidCard
         :label="tile.label"
         :mystery="tile.mystery"
+        :self-hand="selfHand && tile.mystery"
         :compact="compact"
         :emphasized="emphasized"
       />

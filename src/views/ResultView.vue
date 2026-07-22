@@ -1167,10 +1167,19 @@ const sequenceBusy = computed(
                 ]"
               >
                 <div
-                  class="mb-1 max-w-full truncate text-[10px] font-medium"
-                  :class="card.isSelf ? 'text-teal-soft' : 'text-sand-dim'"
+                  class="mb-1 flex max-w-full flex-col items-center leading-tight"
                 >
-                  {{ card.isSelf ? 'あなた' : card.playerName }}
+                  <span
+                    class="max-w-full truncate text-[10px] font-medium"
+                    :class="card.isSelf ? 'text-teal-soft' : 'text-sand-dim'"
+                  >
+                    {{ card.isSelf ? 'あなた' : card.playerName }}
+                  </span>
+                  <span
+                    v-if="card.isSelf"
+                    class="reveal-self-badge"
+                    aria-hidden="true"
+                  >自分の札</span>
                 </div>
 
                 <!-- Redraw open uses continuous zoom dual-face -->

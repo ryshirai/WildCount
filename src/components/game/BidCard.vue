@@ -21,8 +21,13 @@ const props = withDefaults(
     /** @deprecated prefer `label` — kept for numeric bid call sites */
     value?: number | null
     mystery?: boolean
+    /**
+     * Own forehead card-back (not a face). Distinct from seat “self” teal
+     * and from special redraw `?` faces.
+     */
+    selfHand?: boolean
     compact?: boolean
-    /** Stronger frame (self / current turn) */
+    /** Stronger frame for current turn (not self identity). */
     emphasized?: boolean
     /**
      * Show hover/tap description popover.
@@ -34,6 +39,7 @@ const props = withDefaults(
     label: null,
     value: null,
     mystery: false,
+    selfHand: false,
     compact: false,
     emphasized: false,
     describe: true,
@@ -253,7 +259,9 @@ onUnmounted(() => {
 })
 
 const ariaLabel = computed(() => {
-  if (isMystery.value) return '非公開'
+  if (isMystery.value) {
+    return props.selfHand ? '自分の札（非公開）' : '非公開'
+  }
   const d = description.value
   if (d) return `${d.name}。${d.effect}`
   return displayText.value
@@ -272,7 +280,8 @@ const ariaLabel = computed(() => {
         compact ? 'card-tile--compact' : '',
         isDense ? 'card-tile--dense' : '',
         emphasized ? 'card-tile--emphasized' : '',
-        faceVariant === 'mystery' ? 'card-tile--mystery' : '',
+        faceVariant === 'mystery' && selfHand ? 'card-tile--self-back' : '',
+        faceVariant === 'mystery' && !selfHand ? 'card-tile--mystery' : '',
         faceVariant === 'double' ? 'card-tile--double' : '',
         faceVariant === 'half' ? 'card-tile--half' : '',
         faceVariant === 'max0' ? 'card-tile--max0' : '',
@@ -300,8 +309,20 @@ const ariaLabel = computed(() => {
       <!-- Soft sheen -->
       <span class="card-tile__sheen" aria-hidden="true" />
 
+      <!-- Card-back pattern (own forehead only) -->
+      <span
+        v-if="faceVariant === 'mystery' && selfHand"
+        class="card-tile__back-pattern"
+        aria-hidden="true"
+      />
+
       <template v-if="faceVariant === 'mystery'">
         <span class="card-tile__hero font-display">?</span>
+        <span
+          v-if="selfHand"
+          class="card-tile__badge card-tile__badge--hidden"
+          aria-hidden="true"
+        >非公開</span>
       </template>
 
       <template v-else-if="faceVariant === 'double'">
