@@ -19,29 +19,45 @@ interface SkillOption {
 
 const bid = defineModel<number>({ required: true })
 
-const props = defineProps<{
-  minBid?: number
-  /** Forced rebid: this value is illegal */
-  forbiddenValue?: number | null
-  canChallenge?: boolean
-  canDeclare?: boolean
-  canSame?: boolean
-  canChange?: boolean
-  /** 特殊能力 (bid-ride skills) allowed this turn */
-  extrasAllowed?: boolean
-  allowReverse?: boolean
-  allowShot?: boolean
-  allowDraw1?: boolean
-  allowLifeDouble?: boolean
-  /** Targets for shot / draw1 (others only) */
-  targetOptions?: readonly BidTargetOption[]
-  mobile?: boolean
-  /**
-   * R4 chat-over mode: declare + coyote only (no stepper / specials).
-   * Mobile sheets keep primary actions reachable.
-   */
-  mini?: boolean
-}>()
+const props = withDefaults(
+  defineProps<{
+    minBid?: number
+    /** Forced rebid: this value is illegal */
+    forbiddenValue?: number | null
+    canChallenge?: boolean
+    canDeclare?: boolean
+    canSame?: boolean
+    canChange?: boolean
+    /** 特殊能力 (bid-ride skills) allowed this turn */
+    extrasAllowed?: boolean
+    allowReverse?: boolean
+    allowShot?: boolean
+    allowDraw1?: boolean
+    allowLifeDouble?: boolean
+    /** Targets for shot / draw1 (others only) */
+    targetOptions?: readonly BidTargetOption[]
+    mobile?: boolean
+    /**
+     * R4 chat-over mode: declare + coyote only (no stepper / specials).
+     * Mobile sheets keep primary actions reachable.
+     */
+    mini?: boolean
+    /**
+     * Desktop vertical density. FHD / short laptop windows use compact|tight
+     * so the table keeps room under header + specials + primary actions.
+     */
+    density?: 'roomy' | 'compact' | 'tight'
+  }>(),
+  {
+    density: 'roomy',
+  },
+)
+
+/** Desktop dock sizing (ignored when mobile / mini). */
+const isDense = computed(
+  () => !props.mobile && (props.density === 'compact' || props.density === 'tight'),
+)
+const isTight = computed(() => !props.mobile && props.density === 'tight')
 
 const emit = defineEmits<{
   declare: [value: number, extra?: ClientBidExtra]
@@ -426,7 +442,15 @@ function onChange() {
   <div
     v-else
     class="bid-dock flex shrink-0 flex-col border-t border-gold-400/12 bg-night-900/94"
-    :class="mobile ? 'px-2 py-1.5 pb-2' : 'px-4 py-2.5 pb-4 sm:px-6 sm:pb-5'"
+    :class="
+      mobile
+        ? 'px-2 py-1.5 pb-2'
+        : isTight
+          ? 'px-3 py-1.5 pb-2 sm:px-4'
+          : isDense
+            ? 'px-3 py-2 pb-2.5 sm:px-5'
+            : 'px-4 py-2.5 pb-4 sm:px-6 sm:pb-5'
+    "
   >
     <p
       v-if="forbiddenValue != null"
@@ -435,26 +459,30 @@ function onChange() {
       付け直し：{{ forbiddenValue }} は選べません
     </p>
 
-    <!-- Desktop only: inline specials (larger chips) -->
+    <!-- Desktop only: inline specials (roomy = large chips; compact/tight = mid) -->
     <div
       v-if="hasSpecials && !mobile"
       id="bid-specials-panel"
-      class="mb-2 flex flex-col items-center gap-1.5"
+      class="flex flex-col items-center"
+      :class="isTight ? 'mb-1 gap-1' : isDense ? 'mb-1.5 gap-1' : 'mb-2 gap-1.5'"
       role="group"
       aria-label="特殊能力（1ラウンドに1回）"
     >
       <div
         v-if="canSame || canChange || (showSkillBar && noneSkill)"
-        class="flex flex-wrap items-center justify-center gap-1.5"
+        class="flex flex-wrap items-center justify-center"
+        :class="isDense ? 'gap-1' : 'gap-1.5'"
       >
         <span
-          class="mr-0.5 text-xs font-medium text-sand-dim/70"
+          class="mr-0.5 font-medium text-sand-dim/70"
+          :class="isDense ? 'text-[11px]' : 'text-xs'"
           aria-hidden="true"
         >特殊</span>
         <button
           v-if="canSame"
           type="button"
-          class="skill-chip skill-chip--solo skill-chip--lg"
+          class="skill-chip skill-chip--solo"
+          :class="isDense ? '' : 'skill-chip--lg'"
           title="直前の宣言と同じ数字で宣言する"
           @click="onSame"
         >
@@ -464,7 +492,8 @@ function onChange() {
         <button
           v-if="canChange"
           type="button"
-          class="skill-chip skill-chip--solo skill-chip--change skill-chip--lg"
+          class="skill-chip skill-chip--solo skill-chip--change"
+          :class="isDense ? '' : 'skill-chip--lg'"
           title="手札を引き直す"
           @click="onChange"
         >
@@ -474,8 +503,11 @@ function onChange() {
         <button
           v-if="showSkillBar && noneSkill"
           type="button"
-          class="skill-chip skill-chip--lg"
-          :class="extraChoice === 'none' ? 'skill-chip--on' : ''"
+          class="skill-chip"
+          :class="[
+            isDense ? '' : 'skill-chip--lg',
+            extraChoice === 'none' ? 'skill-chip--on' : '',
+          ]"
           :title="noneSkill.hint"
           :aria-pressed="extraChoice === 'none'"
           @click="selectSkill('none')"
@@ -487,7 +519,8 @@ function onChange() {
 
       <div
         v-if="showSkillBar && rideSkills.length"
-        class="flex flex-wrap items-center justify-center gap-1.5"
+        class="flex flex-wrap items-center justify-center"
+        :class="isDense ? 'gap-1' : 'gap-1.5'"
         role="group"
         aria-label="宣言と一緒に使う能力"
       >
@@ -495,8 +528,9 @@ function onChange() {
           v-for="opt in rideSkills"
           :key="opt.id"
           type="button"
-          class="skill-chip skill-chip--lg"
+          class="skill-chip"
           :class="[
+            isDense ? '' : 'skill-chip--lg',
             extraChoice === opt.id ? 'skill-chip--on' : '',
             `skill-chip--${opt.id}`,
           ]"
@@ -520,8 +554,11 @@ function onChange() {
           v-for="t in targetOptions ?? []"
           :key="t.id"
           type="button"
-          class="skill-chip skill-chip--target skill-chip--lg shrink-0"
-          :class="targetId === t.id ? 'skill-chip--on' : ''"
+          class="skill-chip skill-chip--target shrink-0"
+          :class="[
+            isDense ? '' : 'skill-chip--lg',
+            targetId === t.id ? 'skill-chip--on' : '',
+          ]"
           :aria-pressed="targetId === t.id"
           @click="targetId = t.id"
         >
@@ -533,18 +570,26 @@ function onChange() {
     <!-- Primary: number cluster + declare / coyote -->
     <div
       class="flex shrink-0 flex-col items-center"
-      :class="mobile ? 'gap-2' : 'gap-2.5'"
+      :class="mobile ? 'gap-2' : isTight ? 'gap-1.5' : isDense ? 'gap-2' : 'gap-2.5'"
     >
       <div
         class="bid-number-control flex flex-wrap items-center justify-center"
-        :class="mobile ? 'gap-1.5' : 'gap-2'"
+        :class="mobile ? 'gap-1.5' : isDense ? 'gap-1.5' : 'gap-2'"
         role="group"
         aria-label="宣言する数字"
       >
         <button
           type="button"
           class="btn-ghost !rounded-xl !p-0 font-semibold text-sand-dim active:scale-95"
-          :class="mobile ? '!h-11 !w-11 text-xl' : '!h-12 !w-12 text-2xl'"
+          :class="
+            mobile
+              ? '!h-11 !w-11 text-xl'
+              : isTight
+                ? '!h-10 !w-10 text-xl'
+                : isDense
+                  ? '!h-11 !w-11 text-xl'
+                  : '!h-12 !w-12 text-2xl'
+          "
           aria-label="1減らす"
           @click="adjust(-1)"
         >
@@ -556,14 +601,24 @@ function onChange() {
           :class="
             mobile
               ? 'min-h-[3rem] min-w-[4.25rem] px-3.5'
-              : 'min-h-[3.5rem] min-w-[5.5rem] px-5'
+              : isTight
+                ? 'min-h-[2.75rem] min-w-[4.5rem] px-3.5'
+                : isDense
+                  ? 'min-h-[3rem] min-w-[5rem] px-4'
+                  : 'min-h-[3.5rem] min-w-[5.5rem] px-5'
           "
         >
           <span
             :key="tickKey"
             class="bid-step-tick font-display font-bold leading-none tabular-nums text-gold-50"
             :class="[
-              mobile ? 'text-4xl' : 'text-5xl',
+              mobile
+                ? 'text-4xl'
+                : isTight
+                  ? 'text-3xl'
+                  : isDense
+                    ? 'text-4xl'
+                    : 'text-5xl',
               stepDir === 'up' ? 'bid-step-tick--up' : '',
               stepDir === 'down' ? 'bid-step-tick--down' : '',
             ]"
@@ -576,7 +631,15 @@ function onChange() {
         <button
           type="button"
           class="btn-ghost !rounded-xl !p-0 font-semibold text-sand-dim active:scale-95"
-          :class="mobile ? '!h-11 !w-11 text-xl' : '!h-12 !w-12 text-2xl'"
+          :class="
+            mobile
+              ? '!h-11 !w-11 text-xl'
+              : isTight
+                ? '!h-10 !w-10 text-xl'
+                : isDense
+                  ? '!h-11 !w-11 text-xl'
+                  : '!h-12 !w-12 text-2xl'
+          "
           aria-label="1増やす"
           @click="adjust(1)"
         >
@@ -589,7 +652,11 @@ function onChange() {
           :class="
             mobile
               ? '!min-h-11 !px-3 !py-2 text-sm'
-              : '!min-h-12 !px-4 !py-2.5 text-base'
+              : isTight
+                ? '!min-h-10 !px-3 !py-1.5 text-sm'
+                : isDense
+                  ? '!min-h-11 !px-3.5 !py-2 text-sm'
+                  : '!min-h-12 !px-4 !py-2.5 text-base'
           "
           @click="adjust(1)"
         >
@@ -601,7 +668,11 @@ function onChange() {
           :class="
             mobile
               ? '!min-h-11 !px-3 !py-2 text-sm'
-              : '!min-h-12 !px-4 !py-2.5 text-base'
+              : isTight
+                ? '!min-h-10 !px-3 !py-1.5 text-sm'
+                : isDense
+                  ? '!min-h-11 !px-3.5 !py-2 text-sm'
+                  : '!min-h-12 !px-4 !py-2.5 text-base'
           "
           @click="adjust(5)"
         >
@@ -649,7 +720,13 @@ function onChange() {
 
       <div
         class="relative flex w-full flex-wrap items-stretch justify-center"
-        :class="mobile ? 'max-w-xl gap-2' : 'max-w-2xl gap-3'"
+        :class="
+          mobile
+            ? 'max-w-xl gap-2'
+            : isDense
+              ? 'max-w-xl gap-2'
+              : 'max-w-2xl gap-3'
+        "
       >
         <span
           v-if="launchFx"
@@ -672,7 +749,11 @@ function onChange() {
             declareCharging ? 'btn-declare-charge' : '',
             mobile
               ? '!min-h-12 !py-3 text-base font-bold'
-              : '!min-h-[3.25rem] !px-10 !py-3.5 text-lg font-bold sm:min-w-[13rem] sm:flex-none',
+              : isTight
+                ? '!min-h-11 !px-6 !py-2.5 text-base font-bold sm:min-w-[10rem] sm:flex-none'
+                : isDense
+                  ? '!min-h-12 !px-8 !py-3 text-base font-bold sm:min-w-[11rem] sm:flex-none'
+                  : '!min-h-[3.25rem] !px-10 !py-3.5 text-lg font-bold sm:min-w-[13rem] sm:flex-none',
             extraChoice !== 'none' ? 'ring-1 ring-teal-soft/40' : '',
           ]"
           :disabled="canDeclare === false"
@@ -691,7 +772,11 @@ function onChange() {
             challengeFlash ? 'btn-fx-press' : '',
             mobile
               ? '!min-h-12 !py-3 text-base font-semibold'
-              : '!min-h-[3.25rem] !px-8 !py-3.5 text-lg font-semibold sm:min-w-[11rem] sm:flex-none',
+              : isTight
+                ? '!min-h-11 !px-5 !py-2.5 text-base font-semibold sm:min-w-[9rem] sm:flex-none'
+                : isDense
+                  ? '!min-h-12 !px-6 !py-3 text-base font-semibold sm:min-w-[10rem] sm:flex-none'
+                  : '!min-h-[3.25rem] !px-8 !py-3.5 text-lg font-semibold sm:min-w-[11rem] sm:flex-none',
           ]"
           :disabled="canChallenge === false"
           @click="onChallenge"

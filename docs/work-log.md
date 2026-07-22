@@ -5203,3 +5203,83 @@
 
 ### 確認結果
 - `npm run build` 成功
+
+## 2026-07-22 — PC FHD / 短画面レイアウト密度
+
+### 背景・目的
+- PC 表示を 2880×1620 で確認していたため気づかなかったが、**FHD（1920×1080）では卓・操作バー・席が縦に潰れて崩れる**
+- 直近の PC 操作バー拡大が、短画面の縦予算をさらに圧迫
+
+### 実施内容
+1. **高さブレイクポイント**（`useBreakpoint`）
+   - short: `lg` かつ `max-height: 1200px`（FHD 含む）
+   - very short: `lg` かつ `max-height: 900px`（ノート ~768–900）
+2. **GameDesktopLayout** — short 時: ヘッダ compact・メタ帯縮小・中央宣言 compact・サイドレール狭め・BidControls `density`
+3. **BidControls** — `density: roomy | compact | tight`（余白・特殊チップ・数字・主ボタンを段階縮小）
+4. **PlayerCircle / main.css** — 席の楕円半径・人数スケールを短卓向けに調整。コンテナクエリで `--seat-density` を乗算（FHD 卓 ~800px でクリップしない）
+5. **CurrentBidDisplay** — compact 時に sm で肥大しない字号
+6. **felt** — 短画面向け max サイズ
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/composables/useBreakpoint.ts` | short / very-short desktop |
+| `src/components/game/GameDesktopLayout.vue` | 密度連動 |
+| `src/components/game/BidControls.vue` | density prop |
+| `src/components/game/PlayerCircle.vue` | 楕円・scale・CSS 変数 |
+| `src/components/game/CurrentBidDisplay.vue` | compact 字号 |
+| `src/styles/main.css` | seat density CQ / felt |
+| `docs/work-log.md` | 本エントリ |
+
+### 明示的にやっていないこと
+- Home / Lobby の FHD 専用調整（もともと max-w 制約あり）
+- モバイルレイアウト変更
+- 特殊能力表示中のさらに詰めた 1 行横スクロール化（必要なら次）
+
+### 確認結果
+- `npm run build` 成功
+- Playwright 計測: 1920×1080 / 1366×768 で席の stage クリップ 0、2880×1620 は density=1 のまま
+
+### 次に考えられる作業
+1. 特殊能力フル表示時の FHD 再確認（ドックがさらに高い）
+2. 実機ブラウザ UI（タブバー等）込みの 1080 実効高で微調整
+
+## 2026-07-22 — タブレット対応（楕円卓 + 帯別クロム）
+
+### 背景・目的
+- ゲーム画面は `lg` (1024) 固定切替で、iPad 縦（768–820）がスマホ用カルーセルの引き伸ばしになっていた
+- 横向きもサイドレール付き卓が狭い幅で窮屈
+
+### 実施内容
+1. **ブレークポイント再定義**（`useBreakpoint`）
+   - **&lt;768**: スマホ（カルーセル）
+   - **768–1099**: 楕円卓 + ボトムナビ（スタンプ/チャット/ログ）+ ドロワー（サイドレールなし）
+   - **≥1100**: 楕円卓 + 右レール
+   - 短高 density は md+ に適用（FHD / iPad 横）
+2. **GameView** — 卓レイアウト mount を `useIsMdUp` に変更
+3. **GameDesktopLayout** — タブレット帯のボトムナビ・シート・mini 操作バー、`useShowSideRail`
+4. **Home / Lobby / Result** — 2 カラム・max-width を md から有効化（タブレットで余白を使う）
+5. **docs/ui-mock.md** — 画面マトリクス更新
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/composables/useBreakpoint.ts` | md / side-rail / tablet 帯 |
+| `src/views/GameView.vue` | md+ で楕円レイアウト |
+| `src/components/game/GameDesktopLayout.vue` | タブレットクロム |
+| `src/components/game/GameMobileLayout.vue` | phone 専用コメント |
+| `src/views/HomeView.vue` / `LobbyView.vue` / `ResultView.vue` | md 2-col |
+| `docs/ui-mock.md` / `docs/work-log.md` | ドキュメント |
+
+### 明示的にやっていないこと
+- タブレット専用の第3テンプレ（楕円を流用）
+- タッチ専用ホバー無効の全面見直し
+- 実機 iPad Safari でのノッチ調整追加
+
+### 確認結果
+- `npm run build` 成功
+- Playwright: phone=カルーセル / iPad 縦=楕円+底ナビ / 1024 横=楕円+底ナビ / ≥1100=レール / 席クリップ 0
+
+### 次に考えられる作業
+1. 実機 iPad で safe-area・キーボード・回転を確認
+2. 横短画面で特殊能力フル表示時のドック高さ微調整

@@ -1208,7 +1208,7 @@ const sequenceBusy = computed(
 
         <!-- ========== 2. Mid: cards | calc (PC 2-col) ========== -->
         <div
-          class="mb-4 grid gap-4 sm:mb-5 lg:grid-cols-2 lg:gap-5 lg:items-start"
+          class="mb-4 grid gap-4 sm:mb-5 md:grid-cols-2 md:gap-4 md:items-start lg:gap-5"
         >
           <!-- Revealed cards -->
           <section
@@ -1544,7 +1544,7 @@ const sequenceBusy = computed(
         </div>
         <div class="mx-auto h-14 max-w-md rounded-xl bg-red-950/30" />
       </div>
-      <div class="grid gap-4 lg:grid-cols-2">
+      <div class="grid gap-4 md:grid-cols-2">
         <div class="animate-pulse rounded-2xl border border-gold-400/10 bg-night-900/50 p-4">
           <div class="mb-3 h-4 w-28 rounded bg-gold-400/15" />
           <div class="flex gap-2">

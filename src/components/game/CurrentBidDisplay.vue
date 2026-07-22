@@ -194,10 +194,13 @@ const display = computed(() =>
   props.currentBid == null ? '—' : String(props.currentBid),
 )
 
-/** Fixed type scale — never changes during declare burst */
+/**
+ * Fixed type scale — never changes during declare burst.
+ * compact: mobile + short desktop (FHD); keep sm: from ballooning on wide short screens.
+ */
 const numSizeClass = computed(() =>
   props.compact
-    ? 'text-5xl sm:text-6xl'
+    ? 'text-5xl sm:text-5xl lg:text-[2.75rem]'
     : 'text-6xl sm:text-7xl xl:text-8xl',
 )
 
@@ -275,7 +278,7 @@ const sparkleDensity = computed(() => {
         class="relative mt-1 flex items-center justify-center sm:mt-1.5"
         :class="
           compact
-            ? 'min-h-[3.5rem] min-w-[5.5rem]'
+            ? 'min-h-[3.25rem] min-w-[5rem] sm:min-h-[3.5rem]'
             : 'min-h-[4.75rem] min-w-[7rem] sm:min-h-[5.5rem] xl:min-h-[6.25rem]'
         "
       >

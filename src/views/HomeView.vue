@@ -278,11 +278,12 @@ watch(
   <div class="page-scroll desert-bg safe-x">
     <!--
       Shell widths:
-      - SP / tablet: single column, max-w-lg (readable phone width)
-      - lg+: dedicated desktop home (~1080px), not a stretched phone column
+      - SP: max-w-lg (readable phone column)
+      - md tablet: wider + 2-col create/join
+      - lg+: full desktop home (~1080px)
     -->
     <div
-      class="relative z-10 mx-auto flex w-full max-w-lg flex-1 flex-col px-4 py-5 safe-bottom sm:py-6 lg:max-w-[1080px] lg:px-6 lg:py-8"
+      class="relative z-10 mx-auto flex w-full max-w-lg flex-1 flex-col px-4 py-5 safe-bottom sm:max-w-2xl sm:py-6 md:max-w-3xl md:px-5 lg:max-w-[1080px] lg:px-6 lg:py-8"
     >
       <!-- Hero: compact on SP so CTAs stay near first paint -->
       <header
@@ -349,11 +350,11 @@ watch(
         - PC: 2-col — profile left, room actions right
       -->
       <div
-        class="flex flex-col gap-4 lg:grid lg:grid-cols-12 lg:items-stretch lg:gap-6"
+        class="flex flex-col gap-4 md:grid md:grid-cols-12 md:items-stretch md:gap-5 lg:gap-6"
       >
         <!-- Profile (compact) -->
         <section
-          class="panel flex flex-col p-4 sm:p-5 lg:col-span-5 lg:p-6"
+          class="panel flex flex-col p-4 sm:p-5 md:col-span-5 lg:p-6"
         >
           <h2 class="mb-1 text-sm font-semibold text-gold-200 lg:text-base">
             プロフィール
@@ -383,7 +384,7 @@ watch(
 
         <!-- Room CTAs (hero actions) -->
         <div
-          class="flex flex-col gap-3 sm:gap-4 lg:col-span-7 lg:justify-center"
+          class="flex flex-col gap-3 sm:gap-4 md:col-span-7 md:justify-center"
         >
           <!-- Create -->
           <section
@@ -430,7 +431,7 @@ watch(
           </section>
 
           <!-- Soft divider (SP only; PC stacks with gap) -->
-          <div class="flex items-center gap-3 px-1 lg:hidden">
+          <div class="flex items-center gap-3 px-1 md:hidden">
             <div class="h-px flex-1 bg-gold-400/15" />
             <span class="text-xs text-sand-dim">または</span>
             <div class="h-px flex-1 bg-gold-400/15" />

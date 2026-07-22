@@ -3232,6 +3232,60 @@
 }
 
 /**
+ * Seat wrapper: player-count scale × stage density.
+ * Container queries style descendants (not the container itself), so
+ * --seat-density is set on __seat from the stage size.
+ * FHD (~700px table after chrome + bid dock) must not clip 10-player seats.
+ */
+.player-circle-stage__seat {
+  --seat-density: 1;
+  transform: translate(-50%, -50%)
+    scale(calc(var(--seat-base-scale, 1) * var(--seat-density, 1)));
+  transform-origin: center center;
+}
+
+/*
+ * Stage short (FHD table after header + bid dock ≈ 700–820px).
+ * Aggressive enough that top/bottom seats clear the stage edge at 10 players.
+ */
+@container (max-height: 900px) {
+  .player-circle-stage__seat {
+    --seat-density: 0.86;
+  }
+}
+
+@container (max-height: 820px) {
+  .player-circle-stage__seat {
+    --seat-density: 0.78;
+  }
+}
+
+@container (max-height: 700px) {
+  .player-circle-stage__seat {
+    --seat-density: 0.7;
+  }
+}
+
+@container (max-height: 580px) {
+  .player-circle-stage__seat {
+    --seat-density: 0.62;
+  }
+}
+
+/* Narrow main column (windowed / wide side rail) — only when height is still tall */
+@container (max-width: 780px) and (min-height: 901px) {
+  .player-circle-stage__seat {
+    --seat-density: 0.86;
+  }
+}
+
+@container (max-width: 640px) and (min-height: 901px) {
+  .player-circle-stage__seat {
+    --seat-density: 0.78;
+  }
+}
+
+/**
  * Game table felt — solid oval stage under seats / current bid.
  * Stronger fill + rim so the board reads as a surface, not a floating UI.
  */
@@ -3270,6 +3324,21 @@
   transition:
     border-color 0.35s ease,
     box-shadow 0.35s ease;
+}
+
+/* FHD / short desktop: felt tracks the smaller stage so seats sit on the surface */
+@media (min-width: 1024px) and (max-height: 1200px) {
+  .game-table-felt {
+    width: min(92%, 42rem);
+    height: min(76%, 28rem);
+  }
+}
+
+@media (min-width: 1024px) and (max-height: 900px) {
+  .game-table-felt {
+    width: min(90%, 36rem);
+    height: min(72%, 24rem);
+  }
 }
 
 /* Soft radial spokes (subtle depth, not decorative clutter) */

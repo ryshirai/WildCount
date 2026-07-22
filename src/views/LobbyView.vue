@@ -655,7 +655,7 @@ watch(
 
     <div class="min-h-0 flex-1 overflow-y-auto">
       <div
-        class="relative mx-auto w-full max-w-lg px-4 py-4 sm:max-w-2xl sm:py-5 lg:max-w-[1100px] lg:py-6"
+        class="relative mx-auto w-full max-w-lg px-4 py-4 sm:max-w-2xl sm:py-5 md:max-w-[900px] md:px-5 lg:max-w-[1100px] lg:px-6 lg:py-6"
       >
         <!-- Disconnect / reconnect (P1-4) -->
         <div
@@ -738,10 +738,10 @@ watch(
           SP: participants first, then settings, then chat.
         -->
         <div
-          class="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.9fr)] lg:items-start lg:gap-5"
+          class="flex flex-col gap-4 md:grid md:grid-cols-[minmax(0,1.25fr)_minmax(240px,0.95fr)] md:items-start md:gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.9fr)] lg:gap-5"
         >
           <!-- Left: participants (hero) -->
-          <section class="order-1 min-w-0 lg:order-none" aria-label="参加者">
+          <section class="order-1 min-w-0 md:order-none" aria-label="参加者">
             <div class="mb-3 flex items-end justify-between gap-2">
               <h2 class="text-base font-semibold text-gold-200 sm:text-lg">
                 参加者
@@ -762,7 +762,7 @@ watch(
             </div>
 
             <ul
-              class="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 lg:grid-cols-2 xl:grid-cols-3"
+              class="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3"
             >
               <li
                 v-for="p in players"
@@ -856,7 +856,7 @@ watch(
           <!-- Right column: settings summary + chat (detail opens modal — no page stretch) -->
           <div
             v-if="isOnline"
-            class="order-2 flex min-w-0 flex-col gap-3 lg:order-none lg:gap-4"
+            class="order-2 flex min-w-0 flex-col gap-3 md:order-none md:gap-3 lg:gap-4"
           >
             <!-- Room settings: tags only; full panels in modal -->
             <section
@@ -890,7 +890,7 @@ watch(
 
             <!-- Chat (fills right column; not pushed by settings expand) -->
             <section
-              class="h-48 min-h-[11rem] sm:h-56 lg:h-[min(28rem,52vh)] lg:min-h-[18rem]"
+              class="h-48 min-h-[11rem] sm:h-56 md:h-[min(22rem,40vh)] md:min-h-[14rem] lg:h-[min(28rem,52vh)] lg:min-h-[18rem]"
               aria-label="ルームチャット"
             >
               <ChatPanel
@@ -917,12 +917,12 @@ watch(
       aria-label="ロビー操作"
     >
       <div
-        class="mx-auto flex w-full max-w-lg flex-col gap-2.5 px-4 py-2.5 sm:max-w-2xl sm:py-3 lg:max-w-[1100px] lg:flex-row lg:items-center lg:gap-4"
+        class="mx-auto flex w-full max-w-lg flex-col gap-2.5 px-4 py-2.5 sm:max-w-2xl sm:py-3 md:max-w-[900px] md:flex-row md:items-center md:gap-3 lg:max-w-[1100px] lg:gap-4"
       >
         <!-- Compact profile summary (online only) — auxiliary, not hero -->
         <div
           v-if="isOnline"
-          class="flex min-w-0 items-center gap-2.5 rounded-xl border border-gold-400/12 bg-night-900/40 px-2.5 py-1.5 lg:max-w-[14rem] lg:shrink-0"
+          class="flex min-w-0 items-center gap-2.5 rounded-xl border border-gold-400/12 bg-night-900/40 px-2.5 py-1.5 md:max-w-[12rem] md:shrink-0 lg:max-w-[14rem]"
         >
           <button
             type="button"

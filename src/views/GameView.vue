@@ -6,7 +6,7 @@
  * coyote grid → CoyoteRevealPanel. FX mount points unchanged.
  */
 import { useGameSession } from '@/composables/useGameSession'
-import { useIsLgUp } from '@/composables/useBreakpoint'
+import { useIsMdUp } from '@/composables/useBreakpoint'
 import GameDesktopLayout from '@/components/game/GameDesktopLayout.vue'
 import GameMobileLayout from '@/components/game/GameMobileLayout.vue'
 import CoyoteCutIn from '@/components/game/CoyoteCutIn.vue'
@@ -23,8 +23,11 @@ import MockBadge from '@/components/common/MockBadge.vue'
 
 const s = useGameSession()
 const { onlineGame, allowUiMock } = s
-/** Mount only one layout — dual trees doubled re-render cost on chat/stamp. */
-const isLgUp = useIsLgUp()
+/**
+ * Mount only one layout — dual trees doubled re-render cost on chat/stamp.
+ * md+ (768): ellipse table (tablet + desktop). Phone (&lt;768): carousel.
+ */
+const isMdUp = useIsMdUp()
 </script>
 
 <template>
@@ -63,7 +66,7 @@ const isLgUp = useIsLgUp()
 
     <template v-else-if="s.room">
       <GameDesktopLayout
-        v-if="isLgUp"
+        v-if="isMdUp"
         v-model:draft-bid="s.draftBid"
         v-model:desktop-side-tab="s.desktopSideTab"
         :room="s.room"
@@ -115,6 +118,7 @@ const isLgUp = useIsLgUp()
         @change="s.onChange"
         @send-chat="s.onSendChat"
         @reaction="s.onSendReaction"
+        @open-stamp-sheet="s.openStampSheet"
       />
 
       <GameMobileLayout

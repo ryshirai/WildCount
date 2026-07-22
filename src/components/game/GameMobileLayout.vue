@@ -1,7 +1,8 @@
 <script setup lang="ts">
 /**
- * Mobile game table layout (&lt; lg).
- * R4: compressed chrome, specials fold, mini dock while chat/log open.
+ * Phone game table layout (&lt; md / 768px).
+ * Tablet+ uses GameDesktopLayout (ellipse). R4: compressed chrome,
+ * specials sheet, mini dock while chat/log open.
  */
 import type { GameRoomMock, RevealedCard } from '@/types/game'
 import type { CoyoteBanner } from '@/composables/useChallengeReveal'
@@ -123,7 +124,8 @@ const isSelfTurn = computed(
 </script>
 
 <template>
-  <div class="relative flex h-full min-h-0 flex-1 flex-col lg:hidden">
+  <!-- Mounted only below md by GameView -->
+  <div class="relative flex h-full min-h-0 flex-1 flex-col">
     <div
       v-if="showOnlineDisconnect"
       class="flex shrink-0 items-center justify-between gap-2 border-b border-red-400/25 bg-red-950/50 px-3 py-2 text-xs text-red-100 safe-top"
