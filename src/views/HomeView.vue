@@ -709,10 +709,14 @@ watch(
           <RouterLink to="/result?mock=1" class="btn-ghost text-xs"
             >結果（固定モック）</RouterLink
           >
+          <RouterLink to="/result?mock=1&fx=qopen" class="btn-ghost text-xs"
+            >？オープン演出（確認）</RouterLink
+          >
         </nav>
         <p class="mt-2 text-center text-[10px] text-sand-dim/80">
           本番ビルドではこの導線とローカル対戦は非表示。Worker:
           <code class="font-mono">npm run worker:dev</code>
+          ／ 結果モック右下で「？のみ再生」可
         </p>
       </details>
     </div>

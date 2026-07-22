@@ -1320,17 +1320,23 @@
 }
 
 .redraw-open-slot--active {
-  z-index: 6;
+  z-index: 1;
 }
 
-/* Holds list layout space while the card is position:fixed mid-zoom */
+/* Legacy class name kept for any remaining hooks */
 .redraw-open-zoom-slot {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 3.65rem;
-  height: 5rem;
+  /* Match RevealCardTile size=md */
+  width: 2.95rem;
+  height: 3.85rem;
+}
+
+.redraw-open-zoom-slot--ghost {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 /* Scale lives on this wrapper so tile face animations cannot override it */
@@ -1344,51 +1350,163 @@
 }
 
 /*
- * Single continuous timeline: 1 → ~3× → hold ~0.5s → 1.
+ * Body stage (Teleport): escapes strip overflow / transform / isolation.
+ * Peak scale is larger on SP so the open reads as a full-screen beat.
  * Duration 1.6s (must match REDRAW_OPEN_TOTAL_MS).
- * 0–22% zoom in · 22–55% peak hold (~0.53s) · 55–100% settle.
+ * 0–20% rush · 20–55% peak hold · 55–100% settle.
  * Face crossfade timed in JS near peak (REDRAW_OPEN_FACE_MS).
  */
-@keyframes redraw-zoom-full {
-  0% {
-    transform: translate3d(-50%, -50%, 0) scale(1);
+.redraw-open-stage {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  pointer-events: none;
+}
+
+.redraw-open-stage__center {
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.65rem;
+  transform: translate(-50%, -50%);
+}
+
+.redraw-open-caption {
+  margin: 0;
+  font-family: var(--font-display, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.28em;
+  color: rgba(250, 232, 160, 0.95);
+  text-shadow:
+    0 0 18px rgba(250, 204, 21, 0.55),
+    0 1px 2px rgba(0, 0, 0, 0.65);
+  animation: redraw-caption-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.redraw-open-stage__who {
+  margin: 0;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: rgba(232, 220, 190, 0.88);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+  animation: redraw-caption-in 0.4s 0.06s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes redraw-caption-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
   }
-  22% {
-    transform: translate3d(-50%, -53%, 0) scale(3);
-  }
-  /* Hold large so the open face is readable before shrink */
-  55% {
-    transform: translate3d(-50%, -53%, 0) scale(3);
-  }
-  100% {
-    transform: translate3d(-50%, -50%, 0) scale(1);
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
+/* SP: punchier peak; sm+: slightly calmer */
 .redraw-open-zoom--play {
-  position: fixed;
-  left: 50%;
-  top: 46%;
-  z-index: 90;
+  --redraw-peak-scale: 3.75;
+  position: relative;
+  z-index: 2;
   margin: 0;
   will-change: transform;
-  animation: redraw-zoom-full 1.6s cubic-bezier(0.4, 0, 0.2, 1) both;
+  animation: redraw-zoom-full 1.6s cubic-bezier(0.34, 1.15, 0.4, 1) both;
 }
 
-/* Soft glow without animating box-shadow on the card itself */
+@media (min-width: 640px) {
+  .redraw-open-zoom--play {
+    --redraw-peak-scale: 3.15;
+  }
+}
+
+@keyframes redraw-zoom-full {
+  0% {
+    transform: scale(0.72);
+  }
+  18% {
+    transform: scale(var(--redraw-peak-scale, 3.75));
+  }
+  /* Hold large so the open face is readable before settle */
+  52% {
+    transform: scale(var(--redraw-peak-scale, 3.75));
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Soft + ring glow (no box-shadow animation on the card itself) */
 .redraw-open-zoom--play::before {
   content: '';
   position: absolute;
-  inset: -40%;
+  inset: -55%;
   z-index: -1;
   border-radius: 50%;
   background: radial-gradient(
     circle,
-    rgba(250, 204, 21, 0.35) 0%,
-    rgba(250, 204, 21, 0) 68%
+    rgba(250, 204, 21, 0.5) 0%,
+    rgba(250, 204, 21, 0.18) 38%,
+    rgba(250, 204, 21, 0) 70%
   );
   pointer-events: none;
-  opacity: 0.85;
+  animation: redraw-glow-pulse 1.6s ease-out both;
+}
+
+.redraw-open-zoom--play::after {
+  content: '';
+  position: absolute;
+  inset: -18%;
+  z-index: -1;
+  border-radius: 1rem;
+  border: 2px solid rgba(250, 232, 160, 0.55);
+  box-shadow:
+    0 0 0 1px rgba(201, 168, 76, 0.25),
+    0 0 28px rgba(250, 204, 21, 0.35);
+  pointer-events: none;
+  animation: redraw-ring-pop 1.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes redraw-glow-pulse {
+  0% {
+    opacity: 0.25;
+    transform: scale(0.6);
+  }
+  20% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+  55% {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0.35;
+    transform: scale(0.85);
+  }
+}
+
+@keyframes redraw-ring-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  18% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+  52% {
+    opacity: 0.75;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.92);
+  }
 }
 
 /* Stacked faces for crossfade (no hard cut mid-zoom) */
@@ -1400,7 +1518,7 @@
 
 .redraw-open-faces > * {
   grid-area: 1 / 1;
-  transition: opacity 0.14s linear;
+  transition: opacity 0.16s linear;
 }
 
 .redraw-open-faces__mystery {
@@ -1422,43 +1540,173 @@
 .redraw-open-faces--open .redraw-open-faces__final {
   opacity: 1;
   pointer-events: auto;
+  animation: redraw-face-flash 0.42s ease-out both;
 }
 
-/* Dim the rest of the result while a ? is flying open */
+@keyframes redraw-face-flash {
+  0% {
+    filter: brightness(2.4) saturate(1.25);
+  }
+  55% {
+    filter: brightness(1.2);
+  }
+  100% {
+    filter: brightness(1);
+  }
+}
+
+/* Dim the rest of the result while a ? is flying open (body stage) */
 .redraw-open-scrim {
   position: fixed;
   inset: 0;
-  z-index: 85;
+  z-index: 1;
   pointer-events: none;
-  background: radial-gradient(
-    ellipse at center,
-    rgba(12, 18, 28, 0.12) 0%,
-    rgba(8, 12, 20, 0.65) 72%
-  );
+  background:
+    radial-gradient(
+      ellipse 55% 48% at 50% 44%,
+      rgba(201, 168, 76, 0.14) 0%,
+      transparent 58%
+    ),
+    radial-gradient(
+      ellipse at center,
+      rgba(8, 12, 20, 0.35) 0%,
+      rgba(4, 8, 14, 0.82) 78%
+    );
   opacity: 0;
   transition: opacity 0.28s ease;
 }
 
 .redraw-open-scrim.is-on {
   opacity: 1;
+  animation: redraw-scrim-in 0.28s ease-out both;
+}
+
+@keyframes redraw-scrim-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .redraw-open-result {
   animation: result-banner-in 0.35s ease-out both;
 }
 
+/* During ? sequence keep grid fully visible (no clip) */
+.result-card-strip--redraw-live {
+  overflow: visible;
+}
+
+/* DEV-only ? open debug dock (ResultView mock). Below stage z-90. */
+.result-fx-debug {
+  position: fixed;
+  right: max(0.75rem, env(safe-area-inset-right, 0px));
+  bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+  z-index: 45;
+  width: min(17.5rem, calc(100vw - 1.5rem));
+  padding: 0.65rem 0.7rem 0.7rem;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(201, 168, 76, 0.35);
+  background: rgba(10, 16, 28, 0.94);
+  box-shadow:
+    0 8px 28px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(0, 0, 0, 0.3) inset;
+  pointer-events: auto;
+}
+
+.result-fx-debug__title {
+  margin: 0 0 0.45rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(250, 232, 160, 0.9);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.result-fx-debug__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.05rem 0.35rem;
+  border-radius: 999px;
+  font-size: 0.6rem;
+  letter-spacing: 0.04em;
+  color: rgba(12, 18, 28, 0.9);
+  background: rgba(250, 204, 21, 0.85);
+}
+
+.result-fx-debug__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.result-fx-debug__btn {
+  flex: 1 1 auto;
+  min-height: 2rem;
+  padding: 0.3rem 0.45rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(201, 168, 76, 0.28);
+  background: rgba(20, 30, 48, 0.95);
+  color: rgba(232, 220, 190, 0.95);
+  font-size: 0.68rem;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.result-fx-debug__btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.result-fx-debug__btn--primary {
+  border-color: rgba(250, 204, 21, 0.55);
+  background: linear-gradient(
+    180deg,
+    rgba(250, 204, 21, 0.28) 0%,
+    rgba(201, 168, 76, 0.18) 100%
+  );
+  color: rgba(255, 244, 200, 0.98);
+}
+
+.result-fx-debug__btn:not(:disabled):active {
+  transform: scale(0.97);
+}
+
+.result-fx-debug__meta {
+  margin: 0.4rem 0 0;
+  font-size: 0.6rem;
+  line-height: 1.35;
+  color: rgba(196, 180, 154, 0.85);
+}
+
+.result-fx-debug__link {
+  color: rgba(250, 220, 140, 0.95);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .reveal-card--mystery-wait,
   .reveal-card--opening,
   .reveal-card--from-redraw,
-  .redraw-open-zoom--play {
+  .redraw-open-zoom--play,
+  .redraw-open-zoom--play::before,
+  .redraw-open-zoom--play::after,
+  .redraw-open-caption,
+  .redraw-open-stage__who,
+  .redraw-open-faces--open .redraw-open-faces__final,
+  .redraw-open-scrim.is-on {
     animation: none !important;
   }
 
   .redraw-open-zoom--play {
-    position: relative;
-    left: auto;
-    top: auto;
     transform: none;
     will-change: auto;
   }
@@ -1679,28 +1927,133 @@
   animation: result-banner-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+/*
+ * Result card faces: wrap grid on all viewports (esp. SP).
+ * Avoid horizontal strip when many players — fills width, grows down.
+ */
+.result-card-strip {
+  display: grid;
+  /* ~4 tiles on ~320px content; 5+ on wider phones */
+  grid-template-columns: repeat(auto-fill, minmax(4.15rem, 1fr));
+  gap: 0.7rem 0.4rem;
+  justify-items: center;
+  align-items: start;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+@media (min-width: 480px) {
+  .result-card-strip {
+    grid-template-columns: repeat(auto-fill, minmax(4.4rem, 1fr));
+    gap: 0.75rem 0.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .result-card-strip {
+    /* PC panel is half-width in 2-col; keep denser fill */
+    grid-template-columns: repeat(auto-fill, minmax(4.5rem, 1fr));
+    gap: 0.8rem 0.55rem;
+  }
+}
+
+/*
+ * Opacity-only on the <li> — never put transform here.
+ * A transform on the list item creates a containing block that traps
+ * position:fixed descendants (broke ? open zoom on SP before Teleport).
+ *
+ * Fixed slots (meta / face / tag) keep every cell the same height so
+ * "？→X" or special tags never shift the next grid row.
+ */
 .result-card-item {
-  transition: opacity 0.25s ease, transform 0.25s ease;
+  display: flex;
+  width: 100%;
+  max-width: 4.75rem;
+  flex-direction: column;
+  align-items: center;
+  transition: opacity 0.25s ease;
+}
+
+.result-card-item__meta {
+  display: flex;
+  width: 100%;
+  height: 1.05rem;
+  max-width: 100%;
+  margin-bottom: 0.15rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.1;
+  overflow: hidden;
+}
+
+.result-card-item__name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.625rem;
+  font-weight: 500;
+}
+
+@media (min-width: 640px) {
+  .result-card-item__name {
+    font-size: 0.6875rem;
+  }
+}
+
+/* Match RevealCardTile size=md exactly (slot height is stable; tiles may glow) */
+.result-card-item__face {
+  position: relative;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 2.95rem;
+  height: 3.85rem;
+  /* Do not grow layout when extreme/self scale or shadows paint outside */
+  overflow: visible;
+}
+
+.result-card-item__face--ghost {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.result-card-item__tag {
+  display: flex;
+  width: 100%;
+  height: 0.95rem;
+  margin-top: 0.2rem;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  font-size: 0.5625rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-align: center;
+  line-height: 1;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .result-card-item--wait {
   opacity: 0.35;
-  transform: translateY(6px);
 }
 
 .result-card-item--in {
   opacity: 1;
-  transform: translateY(0);
-  animation: result-compare-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: result-card-item-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-.result-card-strip {
-  -webkit-overflow-scrolling: touch;
-  scroll-snap-type: x proximity;
-}
-
-.result-card-strip > li {
-  scroll-snap-align: start;
+@keyframes result-card-item-in {
+  from {
+    opacity: 0.35;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 /* Current-turn avatar pulse */
@@ -3360,22 +3713,9 @@
   outline-offset: 2px;
 }
 
-/* Result strip: self seat marker under name */
+/* Result strip: self seat (name color + mild background) */
 .reveal-seat--self {
   position: relative;
-}
-
-.reveal-seat--self .reveal-self-badge {
-  display: inline-block;
-  margin-top: 0.15rem;
-  border-radius: 9999px;
-  padding: 0.05rem 0.35rem;
-  font-size: 0.58rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: #9ee8e4;
-  background: rgba(15, 74, 74, 0.55);
-  box-shadow: 0 0 8px rgba(42, 138, 138, 0.28);
 }
 
 .reveal-card--extreme.reveal-card--number {

@@ -9,7 +9,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { playSfx } from '@/audio'
 import { playHaptic } from '@/haptics'
-import { mockResult } from '@/data/mockResult'
+import { mockResult, mockResultQOpen } from '@/data/mockResult'
 import { useLocalGameStore } from '@/stores/localGame'
 import { useOnlineGameStore } from '@/stores/onlineGame'
 import AppHeader from '@/components/common/AppHeader.vue'
@@ -51,6 +51,10 @@ const onlineGame = useOnlineGameStore()
 const { resultView, isGameOver } = storeToRefs(store)
 
 const useMock = computed(() => allowUiMock && route.query.mock === '1')
+/** DEV: multi-? open fixture (`/result?mock=1&fx=qopen`) */
+const useQOpenDebug = computed(
+  () => useMock.value && route.query.fx === 'qopen',
+)
 const isOnline = computed(
   () =>
     onlineGame.isOnlineSession ||
@@ -63,7 +67,7 @@ const activeResult = computed(() =>
 )
 
 const result = computed<ResultMock | null>(() => {
-  if (useMock.value) return mockResult
+  if (useMock.value) return useQOpenDebug.value ? mockResultQOpen : mockResult
   return activeResult.value
 })
 
@@ -190,8 +194,12 @@ const calcSummary = computed(() => {
   return buildSimpleCalcSummary(result.value.calcSteps)
 })
 
-/** Collapsed card list: specials / self / extreme / redraw first */
-const CARD_COLLAPSE_AT = 6
+/**
+ * Collapsed card list: specials / self / extreme / redraw first.
+ * SP is a wrap grid now (not a long horizontal strip), so we can show more
+ * before collapsing. Draw1 can push past 10 faces.
+ */
+const CARD_COLLAPSE_AT = 10
 const showAllCards = ref(false)
 const showCalcDetails = ref(false)
 
@@ -301,7 +309,30 @@ function isZooming(card: ResultMock['cards'][number], index: number): boolean {
   return zoomingKey.value === cardKey(card, index)
 }
 
-const showRedrawScrim = computed(() => zoomingKey.value != null)
+/**
+ * Card currently flying open on the body stage (Teleport).
+ * Kept out of the strip so `position: fixed` is never trapped by
+ * transform / overflow on list ancestors (esp. SP).
+ */
+const zoomingEntry = computed(() => {
+  const key = zoomingKey.value
+  if (!key) return null
+  return (
+    redrawOpenCards.value.find(
+      ({ card, index }) => cardKey(card, index) === key,
+    ) ?? null
+  )
+})
+
+/** Strip tiles for ? stay full-opacity during the open sequence (not wait-dimmed). */
+function isRedrawStripActive(
+  card: ResultMock['cards'][number],
+  index: number,
+): boolean {
+  if (!card.openedFromRedraw) return false
+  if (!hasRedrawOpens.value || redrawOpensDone.value) return isFaceOpen(card, index)
+  return true
+}
 
 const countUpMs = computed(() =>
   marginTier.value === 'exact' || marginTier.value === 'clutch'
@@ -608,6 +639,59 @@ function skipCalc() {
   snapToFinalVerdict(true)
 }
 
+/** Forget result sequence id so mock replay can fire again. */
+function forgetCurrentResultSequence() {
+  const r = result.value
+  if (!r) return
+  const seqId = resultSequenceEventId({
+    round: r.round,
+    bidValue: r.bidValue,
+    finalTotal: r.finalTotal,
+    challengerName: r.challengerName,
+    lifeLostName: r.lifeLostName,
+  })
+  resultDeduper.forget(seqId)
+}
+
+/** DEV: full result drama from scratch (dedupe bypass). */
+function debugReplayFull() {
+  if (!useMock.value) return
+  forgetCurrentResultSequence()
+  runCalcSequence()
+  scrollCardsIntoView()
+}
+
+/** DEV: only the ? zoom stage (fast loop for SP check). */
+function debugReplayQOpenOnly() {
+  if (!useMock.value) return
+  clearStepTimers()
+  openFaceKeys.value = new Set()
+  zoomingKey.value = null
+  redrawOpensDone.value = !hasRedrawOpens.value
+  // Keep verdict visible; re-run open only
+  if (!hasRedrawOpens.value) {
+    redrawOpensDone.value = true
+    return
+  }
+  if (prefersReducedMotion() || isTabHidden()) {
+    snapAllRedrawFacesOpen()
+    return
+  }
+  runRedrawOpenSequence(() => {
+    /* stay on current comparison state */
+  })
+  scrollCardsIntoView()
+}
+
+function scrollCardsIntoView() {
+  if (typeof document === 'undefined') return
+  window.requestAnimationFrame(() => {
+    document
+      .getElementById('result-cards-section')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  })
+}
+
 const confettiPalette = computed(() => {
   if (localMeta.value.isGameOver) return 'gold' as const
   if (!result.value) return 'mixed' as const
@@ -828,14 +912,6 @@ const sequenceBusy = computed(
         v-if="showVignette"
         class="verdict-vignette"
         :class="`verdict-vignette--${vignetteTone}`"
-        aria-hidden="true"
-      />
-
-      <!-- Dim while ? zooms -->
-      <div
-        v-if="hasRedrawOpens && !redrawOpensDone"
-        class="redraw-open-scrim"
-        :class="{ 'is-on': showRedrawScrim }"
         aria-hidden="true"
       />
 
@@ -1136,6 +1212,7 @@ const sequenceBusy = computed(
         >
           <!-- Revealed cards -->
           <section
+            id="result-cards-section"
             class="rounded-2xl border border-gold-400/15 bg-night-900/55 px-3 py-3.5 sm:px-4 sm:py-4"
             :class="
               totalRevealDone &&
@@ -1152,104 +1229,118 @@ const sequenceBusy = computed(
             </div>
 
             <ul
-              class="result-card-strip flex gap-2.5 overflow-x-auto pb-1 scrollbar-none sm:flex-wrap sm:overflow-visible"
+              class="result-card-strip"
+              :class="
+                hasRedrawOpens && !redrawOpensDone
+                  ? 'result-card-strip--redraw-live'
+                  : ''
+              "
             >
               <li
                 v-for="{ card, index } in visibleCardEntries"
                 :key="`${card.playerId}-${index}`"
-                class="result-card-item flex w-[4.5rem] shrink-0 flex-col items-center sm:w-[4.75rem]"
+                class="result-card-item"
                 :class="[
-                  isCardVisible(index) || isFaceOpen(card, index)
+                  isCardVisible(index) ||
+                  isFaceOpen(card, index) ||
+                  isRedrawStripActive(card, index)
                     ? 'result-card-item--in'
                     : 'result-card-item--wait',
                   card.isSelf ? 'reveal-seat--self' : '',
-                  isZooming(card, index) ? 'redraw-open-slot--active z-30' : '',
+                  isZooming(card, index) ? 'redraw-open-slot--active' : '',
                 ]"
               >
-                <div
-                  class="mb-1 flex max-w-full flex-col items-center leading-tight"
-                >
+                <div class="result-card-item__meta">
                   <span
-                    class="max-w-full truncate text-[10px] font-medium"
+                    class="result-card-item__name"
                     :class="card.isSelf ? 'text-teal-soft' : 'text-sand-dim'"
                   >
                     {{ card.isSelf ? 'あなた' : card.playerName }}
                   </span>
-                  <span
-                    v-if="card.isSelf"
-                    class="reveal-self-badge"
-                    aria-hidden="true"
-                  >自分の札</span>
                 </div>
 
-                <!-- Redraw open uses continuous zoom dual-face -->
+                <!--
+                  Fixed face slot (same size for normal / ? dual-face).
+                  Zoom plays on body Teleport; strip stays layout-stable.
+                -->
                 <div
-                  v-if="card.openedFromRedraw"
-                  class="redraw-open-zoom-slot"
+                  class="result-card-item__face"
+                  :class="
+                    isZooming(card, index) ? 'result-card-item__face--ghost' : ''
+                  "
                 >
-                  <div
-                    class="redraw-open-zoom"
-                    :class="isZooming(card, index) ? 'redraw-open-zoom--play' : ''"
-                  >
-                    <div
-                      class="redraw-open-faces"
-                      :class="
-                        isFaceOpen(card, index) ? 'redraw-open-faces--open' : ''
-                      "
-                    >
-                      <div class="redraw-open-faces__mystery">
-                        <RevealCardTile
-                          kind="redraw"
-                          label="?"
-                          :value="null"
-                          size="md"
-                          :revealed="true"
-                          emphasis="special"
-                          opened-from-redraw
-                          :face-open="false"
-                        />
-                      </div>
-                      <div class="redraw-open-faces__final">
-                        <RevealCardTile
-                          :kind="card.kind"
-                          :label="card.label"
-                          :value="card.value"
-                          size="md"
-                          :revealed="true"
-                          :emphasis="card.isSelf ? 'self' : 'special'"
-                          opened-from-redraw
-                          :face-open="true"
-                        />
+                  <template v-if="card.openedFromRedraw">
+                    <div class="redraw-open-zoom">
+                      <div
+                        class="redraw-open-faces"
+                        :class="
+                          isFaceOpen(card, index)
+                            ? 'redraw-open-faces--open'
+                            : ''
+                        "
+                      >
+                        <div class="redraw-open-faces__mystery">
+                          <RevealCardTile
+                            kind="redraw"
+                            label="?"
+                            :value="null"
+                            size="md"
+                            :revealed="true"
+                            emphasis="special"
+                            opened-from-redraw
+                            :face-open="false"
+                          />
+                        </div>
+                        <div class="redraw-open-faces__final">
+                          <RevealCardTile
+                            :kind="card.kind"
+                            :label="card.label"
+                            :value="card.value"
+                            size="md"
+                            :revealed="true"
+                            :emphasis="card.isSelf ? 'self' : 'special'"
+                            opened-from-redraw
+                            :face-open="true"
+                          />
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  </template>
+                  <RevealCardTile
+                    v-else
+                    :kind="card.kind"
+                    :label="card.label"
+                    :value="card.value"
+                    size="md"
+                    :revealed="isCardVisible(index)"
+                    :emphasis="cardEmphasis(card)"
+                  />
                 </div>
-                <RevealCardTile
-                  v-else
-                  :kind="card.kind"
-                  :label="card.label"
-                  :value="card.value"
-                  size="md"
-                  :revealed="isCardVisible(index)"
-                  :emphasis="cardEmphasis(card)"
-                />
 
+                <!-- Always reserve tag row so ?→X does not shift the next grid row -->
                 <p
-                  v-if="card.openedFromRedraw"
-                  class="mt-1 text-[9px] font-semibold tracking-wide"
+                  class="result-card-item__tag"
                   :class="
-                    isFaceOpen(card, index) ? 'text-gold-200' : 'text-sand-dim'
+                    card.openedFromRedraw && isFaceOpen(card, index)
+                      ? 'text-gold-200'
+                      : 'text-sand-dim'
                   "
                 >
-                  {{ isFaceOpen(card, index) ? '？→' + card.label : '引き直し' }}
-                </p>
-                <p
-                  v-else-if="
-                    card.kind !== 'number' && card.kind !== 'zero_mix'
-                  "
-                  class="mt-1 text-[9px] text-sand-dim"
-                >
-                  特殊
+                  <template v-if="card.openedFromRedraw">
+                    {{
+                      isFaceOpen(card, index)
+                        ? '？→' + card.label
+                        : '引き直し'
+                    }}
+                  </template>
+                  <template
+                    v-else-if="
+                      card.kind !== 'number' && card.kind !== 'zero_mix'
+                    "
+                  >
+                    特殊
+                  </template>
+                  <template v-else>&nbsp;</template>
                 </p>
               </li>
             </ul>
@@ -1470,6 +1561,141 @@ const sequenceBusy = computed(
       <p class="text-center text-xs text-sand-dim">結果を読み込んでいます…</p>
     </div>
 
-    <MockBadge />
+    <MockBadge
+      :label="
+        useQOpenDebug
+          ? 'DEV · ？オープン確認'
+          : useMock
+            ? 'DEV · 結果モック'
+            : undefined
+      "
+    />
+
+    <!-- DEV: replay controls for ? open (SP check). Production omits allowUiMock. -->
+    <div
+      v-if="useMock"
+      class="result-fx-debug"
+      role="region"
+      aria-label="？オープン演出デバッグ"
+    >
+      <p class="result-fx-debug__title">
+        ？オープン debug
+        <span class="result-fx-debug__badge">{{
+          useQOpenDebug ? '×3' : '×1'
+        }}</span>
+      </p>
+      <div class="result-fx-debug__row">
+        <button
+          type="button"
+          class="result-fx-debug__btn result-fx-debug__btn--primary"
+          :disabled="sequenceBusy && !redrawOpensDone"
+          @click="debugReplayQOpenOnly"
+        >
+          ？のみ再生
+        </button>
+        <button
+          type="button"
+          class="result-fx-debug__btn"
+          @click="debugReplayFull"
+        >
+          全演出
+        </button>
+        <button
+          type="button"
+          class="result-fx-debug__btn"
+          :disabled="!sequenceBusy"
+          @click="skipCalc"
+        >
+          スキップ
+        </button>
+      </div>
+      <p class="result-fx-debug__meta">
+        {{
+          hasRedrawOpens
+            ? `？ ${redrawOpenCards.length} 枚 · ${redrawOpensDone ? '済' : zoomingKey ? 'ズーム中' : '待機'}`
+            : '？なし'
+        }}
+        ·
+        <RouterLink
+          v-if="!useQOpenDebug"
+          class="result-fx-debug__link"
+          to="/result?mock=1&fx=qopen"
+          >複数？版</RouterLink
+        >
+        <RouterLink
+          v-else
+          class="result-fx-debug__link"
+          to="/result?mock=1"
+          >通常モック</RouterLink
+        >
+      </p>
+    </div>
+
+    <!--
+      ? open stage: Teleport to body so fixed zoom escapes strip transform /
+      overflow / desert-bg isolation (SP was stuck inside the tile frame).
+    -->
+    <Teleport to="body">
+      <div
+        v-if="zoomingEntry"
+        class="redraw-open-stage"
+        role="status"
+        aria-live="polite"
+        :aria-label="
+          isFaceOpen(zoomingEntry.card, zoomingEntry.index)
+            ? `？オープン: ${zoomingEntry.card.label}`
+            : '引き直しカードをオープン中'
+        "
+      >
+        <div class="redraw-open-scrim is-on" aria-hidden="true" />
+        <div class="redraw-open-stage__center">
+          <p class="redraw-open-caption" aria-hidden="true">？オープン</p>
+          <div class="redraw-open-zoom redraw-open-zoom--play">
+            <div
+              class="redraw-open-faces"
+              :class="
+                isFaceOpen(zoomingEntry.card, zoomingEntry.index)
+                  ? 'redraw-open-faces--open'
+                  : ''
+              "
+            >
+              <div class="redraw-open-faces__mystery">
+                <RevealCardTile
+                  kind="redraw"
+                  label="?"
+                  :value="null"
+                  size="lg"
+                  :revealed="true"
+                  emphasis="special"
+                  opened-from-redraw
+                  :face-open="false"
+                />
+              </div>
+              <div class="redraw-open-faces__final">
+                <RevealCardTile
+                  :kind="zoomingEntry.card.kind"
+                  :label="zoomingEntry.card.label"
+                  :value="zoomingEntry.card.value"
+                  size="lg"
+                  :revealed="true"
+                  :emphasis="
+                    zoomingEntry.card.isSelf ? 'self' : 'special'
+                  "
+                  opened-from-redraw
+                  :face-open="true"
+                />
+              </div>
+            </div>
+          </div>
+          <p class="redraw-open-stage__who" aria-hidden="true">
+            {{
+              zoomingEntry.card.isSelf
+                ? 'あなたの札'
+                : zoomingEntry.card.playerName
+            }}
+          </p>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>

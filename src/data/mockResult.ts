@@ -167,3 +167,38 @@ export const mockResult: ResultMock = {
   eliminated: false,
   selfIsLoser: true,
 }
+
+/**
+ * DEV debug: multiple `?` opens in one result (stagger + self/other).
+ * Open via `/result?mock=1&fx=qopen`.
+ */
+export const mockResultQOpen: ResultMock = {
+  ...mockResult,
+  roomCode: 'QOPEN1',
+  round: 7,
+  bidValue: 12,
+  cards: mockResult.cards.map((c) => {
+    // Self: ? → +2
+    if (c.playerId === 'p8') {
+      return { ...c, openedFromRedraw: true }
+    }
+    // Other mid table: ? → +5
+    if (c.playerId === 'p2') {
+      return { ...c, openedFromRedraw: true }
+    }
+    // Special from ?: ? → ×2
+    if (c.playerId === 'p7') {
+      return { ...c, openedFromRedraw: true }
+    }
+    return { ...c, openedFromRedraw: false }
+  }),
+  calcSteps: [
+    {
+      id: 'redraw_open',
+      title: '？オープン',
+      detail: '？→+5 / ？→×2 / ？→+2（あなた）',
+    },
+    ...mockResult.calcSteps.filter((s) => s.id !== 'redraw_open'),
+  ],
+  finalTotal: 20,
+}
