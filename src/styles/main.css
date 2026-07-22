@@ -229,9 +229,9 @@
   }
 
   .card-tile--compact {
-    /* SP carousel: compact for bid-dock headroom */
-    width: 2.3rem !important;
-    height: 2.95rem !important;
+    /* SP carousel: readable density (specials sheet frees dock height) */
+    width: 2.55rem !important;
+    height: 3.25rem !important;
   }
 
   .card-tile--number {
@@ -402,11 +402,11 @@
   }
 
   .card-tile--compact .card-tile__hero {
-    @apply text-[0.95rem] sm:text-base;
+    @apply text-base sm:text-[1.05rem];
   }
 
   .card-tile--compact.card-tile--dense .card-tile__hero {
-    @apply text-[0.75rem] sm:text-[0.85rem];
+    @apply text-[0.85rem] sm:text-[0.9rem];
   }
 
   .card-tile--mystery .card-tile__hero {
@@ -414,7 +414,7 @@
   }
 
   .card-tile--compact.card-tile--mystery .card-tile__hero {
-    @apply text-lg;
+    @apply text-xl;
   }
 
   .card-tile__badge {
@@ -578,7 +578,7 @@
   }
 
   .seat-chip--compact {
-    @apply px-1 py-px text-[9px];
+    @apply px-1.5 py-0.5 text-[10px];
   }
 
   .seat-chip-declared {
@@ -612,7 +612,7 @@
   }
 
   .bid-chip-sm {
-    @apply bid-chip !min-w-[1.4rem] !rounded-md !px-1 !py-px !text-[10px];
+    @apply bid-chip !min-w-[1.6rem] !rounded-md !px-1.5 !py-0.5 !text-[11px];
   }
 
   /* Fresh bid chip pop-in */

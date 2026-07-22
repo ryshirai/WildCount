@@ -305,8 +305,8 @@ const isSelfTurn = computed(
         </div>
 
         <!--
-          Full bid dock when no sheet.
-          Compact specials strip — dock sizes to content, no internal scroll.
+          Full bid dock when no chat/log sheet.
+          Specials open as bottom modal (BidControls), not inline chips.
         -->
         <div
           v-show="!sheetOpen && showDock"

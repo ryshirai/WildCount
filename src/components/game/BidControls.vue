@@ -65,7 +65,8 @@ let launchSeq = 0
 let launchTimer: ReturnType<typeof setTimeout> | null = null
 const extraChoice = ref<BidExtraChoice>('none')
 const targetId = ref<string>('')
-
+/** Mobile: specials bottom sheet (StampPicker-style) */
+const specialsSheetOpen = ref(false)
 
 watch(
   () => props.targetOptions,
@@ -85,7 +86,17 @@ watch(
 watch(
   () => props.extrasAllowed,
   (ok) => {
-    if (!ok) extraChoice.value = 'none'
+    if (!ok) {
+      extraChoice.value = 'none'
+      specialsSheetOpen.value = false
+    }
+  },
+)
+
+watch(
+  () => props.mobile,
+  (isMobile) => {
+    if (!isMobile) specialsSheetOpen.value = false
   },
 )
 
@@ -163,6 +174,22 @@ const selectedSkill = computed(() =>
   skillOptions.value.find((s) => s.id === extraChoice.value),
 )
 
+const selectedTargetName = computed(() => {
+  if (!needsTarget.value || !targetId.value) return null
+  return props.targetOptions?.find((t) => t.id === targetId.value)?.name ?? null
+})
+
+/** Dock trigger summary when a ride skill is armed */
+const specialsSummary = computed(() => {
+  if (extraChoice.value === 'none' || !selectedSkill.value) return null
+  const base = `${selectedSkill.value.emoji} ${selectedSkill.value.label}`
+  if (needsTarget.value && selectedTargetName.value) {
+    return `${base} → ${selectedTargetName.value}`
+  }
+  if (needsTarget.value) return `${base}（対象を選択）`
+  return base
+})
+
 const declareLabel = computed(() => {
   if (props.mini) return `${bid.value} を宣言`
   if (props.mobile) {
@@ -230,6 +257,16 @@ function onDeclarePointerEnd() {
   declareCharging.value = false
 }
 
+function openSpecialsSheet() {
+  if (!hasSpecials.value) return
+  specialsSheetOpen.value = true
+  playSfx('ui_tick', { pitch: 1.02 })
+}
+
+function closeSpecialsSheet() {
+  specialsSheetOpen.value = false
+}
+
 function selectSkill(id: BidExtraChoice) {
   if (!props.extrasAllowed && id !== 'none') return
   // Tap selected again to clear
@@ -238,6 +275,19 @@ function selectSkill(id: BidExtraChoice) {
     return
   }
   extraChoice.value = id
+}
+
+/** Mobile sheet: pick ride skill; stay open only when target is required */
+function selectSkillFromSheet(id: BidExtraChoice) {
+  selectSkill(id)
+  // Stay open while shot/draw1 is armed (need a target). Cleared → close.
+  if (extraChoice.value === 'shot' || extraChoice.value === 'draw1') return
+  closeSpecialsSheet()
+}
+
+function selectTargetFromSheet(id: string) {
+  targetId.value = id
+  closeSpecialsSheet()
 }
 
 function buildExtra(): ClientBidExtra | undefined {
@@ -267,7 +317,11 @@ function onDeclare() {
   ) {
     return
   }
-  if (needsTarget.value && !targetId.value) return
+  if (needsTarget.value && !targetId.value) {
+    // Need a target — open sheet so the player can finish choosing
+    if (props.mobile) openSpecialsSheet()
+    return
+  }
   declareFlash.value = true
   window.setTimeout(() => {
     declareFlash.value = false
@@ -282,6 +336,7 @@ function onDeclare() {
   emit('declare', bid.value, buildExtra())
   // Reset skill after fire so next turn starts clean if same component stays
   extraChoice.value = 'none'
+  specialsSheetOpen.value = false
 }
 
 function onChallenge() {
@@ -296,11 +351,13 @@ function onChallenge() {
 function onSame() {
   if (!props.canSame) return
   emit('same')
+  specialsSheetOpen.value = false
 }
 
 function onChange() {
   if (!props.canChange) return
   emit('change')
+  specialsSheetOpen.value = false
 }
 </script>
 
@@ -362,45 +419,42 @@ function onChange() {
   </div>
 
   <!--
-    Full dock: specials (explicit line breaks) + primary always below without scroll.
-    Rows: セイム/チェンジ → なし → リバース… → 対象 → 数字/宣言
+    Full dock:
+    - Mobile: specials via bottom sheet (trigger only in dock)
+    - Desktop: inline skill chips + target row
   -->
   <div
     v-else
     class="bid-dock flex shrink-0 flex-col border-t border-gold-400/12 bg-night-900/94"
-    :class="mobile ? 'px-2 py-1.5 pb-2' : 'px-3 py-1.5 pb-3 sm:px-5 sm:pb-3.5'"
+    :class="mobile ? 'px-2 py-1.5 pb-2' : 'px-4 py-2.5 pb-4 sm:px-6 sm:pb-5'"
   >
     <p
       v-if="forbiddenValue != null"
-      class="mb-1 text-center text-[11px] font-medium text-amber-200/90"
+      class="mb-1.5 text-center text-xs font-medium text-amber-200/90"
     >
       付け直し：{{ forbiddenValue }} は選べません
     </p>
 
+    <!-- Desktop only: inline specials (larger chips) -->
     <div
-      v-if="hasSpecials"
+      v-if="hasSpecials && !mobile"
       id="bid-specials-panel"
-      class="flex flex-col items-center"
-      :class="mobile ? 'mb-1.5 gap-1.5' : 'mb-1 gap-0.5'"
+      class="mb-2 flex flex-col items-center gap-1.5"
       role="group"
       aria-label="特殊能力（1ラウンドに1回）"
     >
-      <!-- Row 1: セイム / チェンジ / なし (same line) -->
       <div
         v-if="canSame || canChange || (showSkillBar && noneSkill)"
-        class="flex flex-wrap items-center justify-center"
-        :class="mobile ? 'gap-1.5' : 'gap-1'"
+        class="flex flex-wrap items-center justify-center gap-1.5"
       >
         <span
-          class="mr-0.5 font-medium text-sand-dim/70"
-          :class="mobile ? 'text-[11px]' : 'text-[10px]'"
+          class="mr-0.5 text-xs font-medium text-sand-dim/70"
           aria-hidden="true"
         >特殊</span>
         <button
           v-if="canSame"
           type="button"
-          class="skill-chip skill-chip--solo"
-          :class="mobile ? 'skill-chip--touch' : 'skill-chip--sm'"
+          class="skill-chip skill-chip--solo skill-chip--lg"
           title="直前の宣言と同じ数字で宣言する"
           @click="onSame"
         >
@@ -410,8 +464,7 @@ function onChange() {
         <button
           v-if="canChange"
           type="button"
-          class="skill-chip skill-chip--solo skill-chip--change"
-          :class="mobile ? 'skill-chip--touch' : 'skill-chip--sm'"
+          class="skill-chip skill-chip--solo skill-chip--change skill-chip--lg"
           title="手札を引き直す"
           @click="onChange"
         >
@@ -421,11 +474,8 @@ function onChange() {
         <button
           v-if="showSkillBar && noneSkill"
           type="button"
-          class="skill-chip"
-          :class="[
-            mobile ? 'skill-chip--touch' : 'skill-chip--sm',
-            extraChoice === 'none' ? 'skill-chip--on' : '',
-          ]"
+          class="skill-chip skill-chip--lg"
+          :class="extraChoice === 'none' ? 'skill-chip--on' : ''"
           :title="noneSkill.hint"
           :aria-pressed="extraChoice === 'none'"
           @click="selectSkill('none')"
@@ -435,11 +485,9 @@ function onChange() {
         </button>
       </div>
 
-      <!-- Row 2: リバース / ショット / … -->
       <div
         v-if="showSkillBar && rideSkills.length"
-        class="flex flex-wrap items-center justify-center"
-        :class="mobile ? 'gap-1.5' : 'gap-1'"
+        class="flex flex-wrap items-center justify-center gap-1.5"
         role="group"
         aria-label="宣言と一緒に使う能力"
       >
@@ -447,9 +495,8 @@ function onChange() {
           v-for="opt in rideSkills"
           :key="opt.id"
           type="button"
-          class="skill-chip"
+          class="skill-chip skill-chip--lg"
           :class="[
-            mobile ? 'skill-chip--touch' : 'skill-chip--sm',
             extraChoice === opt.id ? 'skill-chip--on' : '',
             `skill-chip--${opt.id}`,
           ]"
@@ -462,27 +509,19 @@ function onChange() {
         </button>
       </div>
 
-      <!-- Target: horizontal scroll only -->
       <div
         v-if="needsTarget"
-        class="flex max-w-full items-center overflow-x-auto overscroll-x-contain px-0.5 scrollbar-none"
-        :class="mobile ? 'gap-1.5' : 'gap-1'"
+        class="flex max-w-full items-center gap-1.5 overflow-x-auto overscroll-x-contain px-0.5 scrollbar-none"
         role="group"
         aria-label="対象プレイヤー"
       >
-        <span
-          class="shrink-0 text-sand-dim/80"
-          :class="mobile ? 'text-[11px]' : 'text-[10px]'"
-        >対象</span>
+        <span class="shrink-0 text-xs text-sand-dim/80">対象</span>
         <button
           v-for="t in targetOptions ?? []"
           :key="t.id"
           type="button"
-          class="skill-chip skill-chip--target shrink-0"
-          :class="[
-            mobile ? 'skill-chip--touch' : 'skill-chip--sm',
-            targetId === t.id ? 'skill-chip--on' : '',
-          ]"
+          class="skill-chip skill-chip--target skill-chip--lg shrink-0"
+          :class="targetId === t.id ? 'skill-chip--on' : ''"
           :aria-pressed="targetId === t.id"
           @click="targetId = t.id"
         >
@@ -491,17 +530,21 @@ function onChange() {
       </div>
     </div>
 
-    <!-- Primary: compact single cluster so declare stays on-screen -->
-    <div class="flex shrink-0 flex-col items-center gap-1.5">
+    <!-- Primary: number cluster + declare / coyote -->
+    <div
+      class="flex shrink-0 flex-col items-center"
+      :class="mobile ? 'gap-2' : 'gap-2.5'"
+    >
       <div
-        class="bid-number-control flex flex-wrap items-center justify-center gap-1 sm:gap-1.5"
+        class="bid-number-control flex flex-wrap items-center justify-center"
+        :class="mobile ? 'gap-1.5' : 'gap-2'"
         role="group"
         aria-label="宣言する数字"
       >
         <button
           type="button"
-          class="btn-ghost !rounded-lg !p-0 font-semibold text-sand-dim active:scale-95"
-          :class="mobile ? '!h-9 !w-9 text-lg' : '!h-10 !w-10 text-xl'"
+          class="btn-ghost !rounded-xl !p-0 font-semibold text-sand-dim active:scale-95"
+          :class="mobile ? '!h-11 !w-11 text-xl' : '!h-12 !w-12 text-2xl'"
           aria-label="1減らす"
           @click="adjust(-1)"
         >
@@ -509,14 +552,18 @@ function onChange() {
         </button>
 
         <div
-          class="bid-value-readout flex items-center justify-center rounded-xl border border-gold-400/40 bg-night-950/85 px-3"
-          :class="mobile ? 'min-h-[2.5rem] min-w-[3.75rem]' : 'min-h-[2.75rem] min-w-[4.5rem] sm:min-w-[5rem]'"
+          class="bid-value-readout flex items-center justify-center rounded-xl border border-gold-400/40 bg-night-950/85"
+          :class="
+            mobile
+              ? 'min-h-[3rem] min-w-[4.25rem] px-3.5'
+              : 'min-h-[3.5rem] min-w-[5.5rem] px-5'
+          "
         >
           <span
             :key="tickKey"
             class="bid-step-tick font-display font-bold leading-none tabular-nums text-gold-50"
             :class="[
-              mobile ? 'text-3xl' : 'text-4xl sm:text-[2.65rem]',
+              mobile ? 'text-4xl' : 'text-5xl',
               stepDir === 'up' ? 'bid-step-tick--up' : '',
               stepDir === 'down' ? 'bid-step-tick--down' : '',
             ]"
@@ -528,8 +575,8 @@ function onChange() {
 
         <button
           type="button"
-          class="btn-ghost !rounded-lg !p-0 font-semibold text-sand-dim active:scale-95"
-          :class="mobile ? '!h-9 !w-9 text-lg' : '!h-10 !w-10 text-xl'"
+          class="btn-ghost !rounded-xl !p-0 font-semibold text-sand-dim active:scale-95"
+          :class="mobile ? '!h-11 !w-11 text-xl' : '!h-12 !w-12 text-2xl'"
           aria-label="1増やす"
           @click="adjust(1)"
         >
@@ -538,24 +585,71 @@ function onChange() {
 
         <button
           type="button"
-          class="btn-ghost !rounded-lg font-semibold text-sand active:scale-95"
-          :class="mobile ? '!px-2 !py-1.5 text-xs' : '!px-2.5 !py-2 text-sm'"
+          class="btn-ghost !rounded-xl font-semibold text-sand active:scale-95"
+          :class="
+            mobile
+              ? '!min-h-11 !px-3 !py-2 text-sm'
+              : '!min-h-12 !px-4 !py-2.5 text-base'
+          "
           @click="adjust(1)"
         >
           +1
         </button>
         <button
           type="button"
-          class="btn-ghost !rounded-lg font-semibold text-sand active:scale-95"
-          :class="mobile ? '!px-2 !py-1.5 text-xs' : '!px-2.5 !py-2 text-sm'"
+          class="btn-ghost !rounded-xl font-semibold text-sand active:scale-95"
+          :class="
+            mobile
+              ? '!min-h-11 !px-3 !py-2 text-sm'
+              : '!min-h-12 !px-4 !py-2.5 text-base'
+          "
           @click="adjust(5)"
         >
           +5
         </button>
       </div>
 
+      <!-- Mobile: open specials bottom sheet -->
+      <button
+        v-if="mobile && hasSpecials"
+        type="button"
+        class="specials-trigger flex w-full max-w-xl items-center justify-between gap-2 rounded-xl border px-3 py-2.5 text-left transition active:scale-[0.99]"
+        :class="
+          specialsSummary
+            ? 'border-teal-soft/45 bg-teal-deep/30 text-teal-soft'
+            : 'border-gold-400/25 bg-night-950/70 text-sand'
+        "
+        :aria-expanded="specialsSheetOpen"
+        aria-controls="specials-sheet"
+        aria-haspopup="dialog"
+        @click="openSpecialsSheet"
+      >
+        <span class="min-w-0 flex items-center gap-2">
+          <span class="text-base leading-none" aria-hidden="true">✨</span>
+          <span class="min-w-0">
+            <span class="block text-sm font-semibold leading-tight">
+              {{ specialsSummary ?? '特殊能力' }}
+            </span>
+            <span
+              class="mt-0.5 block text-[11px] font-normal leading-tight opacity-75"
+            >
+              {{
+                specialsSummary
+                  ? 'タップで変更・解除'
+                  : 'セイム・チェンジ・リバースなど（1ラウンド1回）'
+              }}
+            </span>
+          </span>
+        </span>
+        <span
+          class="shrink-0 text-xs font-medium opacity-70"
+          aria-hidden="true"
+        >選ぶ</span>
+      </button>
+
       <div
-        class="relative flex w-full max-w-xl flex-wrap items-stretch justify-center gap-2"
+        class="relative flex w-full flex-wrap items-stretch justify-center"
+        :class="mobile ? 'max-w-xl gap-2' : 'max-w-2xl gap-3'"
       >
         <span
           v-if="launchFx"
@@ -572,11 +666,13 @@ function onChange() {
         </span>
         <button
           type="button"
-          class="btn-gold relative min-w-0 flex-[1.35] !rounded-xl shadow-gold sm:min-w-[11rem] sm:flex-none sm:px-8"
+          class="btn-gold relative min-w-0 flex-[1.35] !rounded-xl shadow-gold"
           :class="[
             declareFlash ? 'btn-fx-press' : '',
             declareCharging ? 'btn-declare-charge' : '',
-            mobile ? '!py-2.5 text-sm font-bold' : '!py-2.5 text-base font-bold',
+            mobile
+              ? '!min-h-12 !py-3 text-base font-bold'
+              : '!min-h-[3.25rem] !px-10 !py-3.5 text-lg font-bold sm:min-w-[13rem] sm:flex-none',
             extraChoice !== 'none' ? 'ring-1 ring-teal-soft/40' : '',
           ]"
           :disabled="canDeclare === false"
@@ -590,10 +686,12 @@ function onChange() {
         </button>
         <button
           type="button"
-          class="btn-coyote min-w-0 flex-1 !rounded-xl sm:min-w-[9rem] sm:flex-none sm:px-6"
+          class="btn-coyote min-w-0 flex-1 !rounded-xl"
           :class="[
             challengeFlash ? 'btn-fx-press' : '',
-            mobile ? '!py-2.5 text-sm font-semibold' : '!py-2.5 text-base font-semibold',
+            mobile
+              ? '!min-h-12 !py-3 text-base font-semibold'
+              : '!min-h-[3.25rem] !px-8 !py-3.5 text-lg font-semibold sm:min-w-[11rem] sm:flex-none',
           ]"
           :disabled="canChallenge === false"
           @click="onChallenge"
@@ -604,6 +702,150 @@ function onChange() {
       </div>
     </div>
   </div>
+
+  <!-- Mobile specials bottom sheet (Teleport — same pattern as StampPickerSheet) -->
+  <Teleport to="body">
+    <Transition
+      enter-active-class="transition duration-200 ease-out"
+      enter-from-class="opacity-0"
+      enter-to-class="opacity-100"
+      leave-active-class="transition duration-150 ease-in"
+      leave-from-class="opacity-100"
+      leave-to-class="opacity-0"
+    >
+      <div
+        v-if="mobile && specialsSheetOpen"
+        id="specials-sheet"
+        class="fixed inset-0 z-[70] flex flex-col justify-end"
+        role="dialog"
+        aria-modal="true"
+        aria-label="特殊能力を選ぶ"
+      >
+        <button
+          type="button"
+          class="absolute inset-0 bg-night-950/60"
+          aria-label="閉じる"
+          @click="closeSpecialsSheet"
+        />
+        <div
+          class="relative z-10 mx-auto flex max-h-[min(78dvh,32rem)] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-gold-400/25 border-b-0 bg-night-900/98 shadow-panel safe-bottom"
+          @click.stop
+        >
+          <div class="mb-1 flex shrink-0 justify-center pt-2" aria-hidden="true">
+            <div class="h-1 w-10 rounded-full bg-gold-400/30" />
+          </div>
+          <div class="mb-2 flex shrink-0 items-center justify-between px-4">
+            <div>
+              <p class="text-sm font-semibold text-gold-200">特殊能力</p>
+              <p class="text-[11px] text-sand-dim">1ラウンドに1回まで</p>
+            </div>
+            <button
+              type="button"
+              class="btn-ghost !px-2.5 !py-1.5 text-xs"
+              @click="closeSpecialsSheet"
+            >
+              閉じる
+            </button>
+          </div>
+
+          <div
+            class="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-3 pb-3"
+          >
+            <!-- Immediate: セイム / チェンジ -->
+            <section v-if="canSame || canChange" aria-label="すぐ使う">
+              <p class="mb-1.5 px-1 text-[11px] font-medium text-sand-dim">
+                すぐ使う
+              </p>
+              <div class="grid gap-2" :class="canSame && canChange ? 'grid-cols-2' : 'grid-cols-1'">
+                <button
+                  v-if="canSame"
+                  type="button"
+                  class="sheet-skill-btn sheet-skill-btn--solo"
+                  title="直前の宣言と同じ数字で宣言する"
+                  @click="onSame"
+                >
+                  <span class="text-xl leading-none" aria-hidden="true">✋</span>
+                  <span class="min-w-0">
+                    <span class="block text-sm font-bold">セイム</span>
+                    <span class="mt-0.5 block text-[11px] font-normal opacity-75"
+                    >同じ数字で宣言</span
+                    >
+                  </span>
+                </button>
+                <button
+                  v-if="canChange"
+                  type="button"
+                  class="sheet-skill-btn sheet-skill-btn--change"
+                  title="手札を引き直す"
+                  @click="onChange"
+                >
+                  <span class="text-xl leading-none" aria-hidden="true">🔀</span>
+                  <span class="min-w-0">
+                    <span class="block text-sm font-bold">チェンジ</span>
+                    <span class="mt-0.5 block text-[11px] font-normal opacity-75"
+                    >手札を引き直す</span
+                    >
+                  </span>
+                </button>
+              </div>
+            </section>
+
+            <!-- Ride skills with declare -->
+            <section v-if="showSkillBar" aria-label="宣言と一緒に使う">
+              <p class="mb-1.5 px-1 text-[11px] font-medium text-sand-dim">
+                宣言と一緒に使う
+              </p>
+              <div class="grid grid-cols-2 gap-2">
+                <button
+                  v-for="opt in skillOptions"
+                  :key="opt.id"
+                  type="button"
+                  class="sheet-skill-btn"
+                  :class="[
+                    extraChoice === opt.id ? 'sheet-skill-btn--on' : '',
+                    `sheet-skill-btn--${opt.id}`,
+                  ]"
+                  :title="opt.hint"
+                  :aria-pressed="extraChoice === opt.id"
+                  @click="selectSkillFromSheet(opt.id)"
+                >
+                  <span class="text-xl leading-none" aria-hidden="true">{{
+                    opt.emoji
+                  }}</span>
+                  <span class="min-w-0">
+                    <span class="block text-sm font-bold">{{ opt.label }}</span>
+                    <span class="mt-0.5 block text-[11px] font-normal opacity-75">{{
+                      opt.hint
+                    }}</span>
+                  </span>
+                </button>
+              </div>
+            </section>
+
+            <!-- Target picker -->
+            <section v-if="needsTarget" aria-label="対象プレイヤー">
+              <p class="mb-1.5 px-1 text-[11px] font-medium text-sand-dim">
+                対象を選ぶ
+              </p>
+              <div class="flex flex-col gap-2">
+                <button
+                  v-for="t in targetOptions ?? []"
+                  :key="t.id"
+                  type="button"
+                  class="sheet-skill-btn sheet-skill-btn--target w-full"
+                  :class="targetId === t.id ? 'sheet-skill-btn--on' : ''"
+                  :aria-pressed="targetId === t.id"
+                  @click="selectTargetFromSheet(t.id)"
+                >
+                  <span class="text-sm font-bold">{{ t.name }}</span>
+                </button>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
 </template>
 
 <style scoped>
@@ -633,12 +875,12 @@ function onChange() {
   padding: 0.28rem 0.5rem;
   font-size: 0.68rem;
 }
-/* Mobile touch targets: ~40–44px height (easier to hit than --sm) */
-.skill-chip--touch {
+/* Desktop bid dock: roomy chips */
+.skill-chip--lg {
   min-height: 2.5rem;
-  padding: 0.5rem 0.85rem;
-  font-size: 0.8125rem;
-  gap: 0.35rem;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
 }
 .skill-chip--on {
   border-color: rgba(94, 200, 200, 0.55);
@@ -677,6 +919,62 @@ function onChange() {
 .skill-chip--life_double.skill-chip--on {
   border-color: rgba(248, 113, 113, 0.55);
   box-shadow: 0 0 14px rgba(248, 113, 113, 0.18);
+}
+
+/* Mobile specials bottom sheet — large touch rows */
+.sheet-skill-btn {
+  display: flex;
+  min-height: 3.25rem;
+  align-items: center;
+  gap: 0.65rem;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(201, 168, 76, 0.28);
+  background: rgba(12, 18, 30, 0.92);
+  padding: 0.7rem 0.85rem;
+  text-align: left;
+  color: rgba(232, 220, 190, 0.95);
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.12s ease;
+}
+.sheet-skill-btn:active {
+  transform: scale(0.98);
+}
+.sheet-skill-btn--on {
+  border-color: rgba(94, 200, 200, 0.55);
+  background: linear-gradient(
+    145deg,
+    rgba(30, 70, 70, 0.55),
+    rgba(18, 24, 38, 0.95)
+  );
+  color: #e8f7f5;
+  box-shadow:
+    0 0 0 1px rgba(94, 200, 200, 0.2),
+    0 0 14px rgba(45, 212, 191, 0.15);
+}
+.sheet-skill-btn--solo {
+  border-color: rgba(214, 199, 168, 0.4);
+}
+.sheet-skill-btn--change {
+  border-color: rgba(251, 191, 36, 0.45);
+}
+.sheet-skill-btn--target {
+  justify-content: center;
+  min-height: 2.75rem;
+}
+.sheet-skill-btn--reverse.sheet-skill-btn--on {
+  border-color: rgba(45, 212, 191, 0.55);
+}
+.sheet-skill-btn--shot.sheet-skill-btn--on {
+  border-color: rgba(240, 215, 140, 0.6);
+}
+.sheet-skill-btn--draw1.sheet-skill-btn--on {
+  border-color: rgba(167, 139, 250, 0.55);
+}
+.sheet-skill-btn--life_double.sheet-skill-btn--on {
+  border-color: rgba(248, 113, 113, 0.55);
 }
 
 .bid-step-tick--up {

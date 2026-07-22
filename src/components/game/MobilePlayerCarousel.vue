@@ -60,7 +60,7 @@ watch(
     <!-- Fixed turn summary (does not scroll away with seats) -->
     <div
       v-if="turnPlayer"
-      class="flex items-center gap-1.5 border-b border-gold-400/10 px-2.5 py-0.5"
+      class="flex items-center gap-2 border-b border-gold-400/10 px-2.5 py-1"
       :class="
         turnPlayer.isSelf
           ? 'bg-gold-400/12'
@@ -82,28 +82,31 @@ watch(
         :self="turnPlayer.isSelf"
         size="sm"
         hide-name
-        class="scale-[0.85] origin-center"
+        class="origin-center scale-90"
       />
       <span
-        class="min-w-0 flex-1 truncate text-xs font-bold"
+        class="min-w-0 flex-1 truncate text-sm font-bold"
         :class="turnPlayer.isSelf ? 'text-gold-50' : 'text-sand'"
       >
         {{ turnPlayer.isSelf ? 'あなた' : turnPlayer.name }}
       </span>
     </div>
 
-    <!-- SP seats: one more step smaller for bid-dock headroom -->
+    <!--
+      SP seats: readable density (specials are in a bottom sheet,
+      so we can give the carousel more room than the old ultra-compact strip).
+    -->
     <div
-      class="flex gap-1.5 overflow-x-auto px-2 py-1 scrollbar-none"
+      class="flex gap-2 overflow-x-auto px-2.5 py-1.5 scrollbar-none"
       style="scrollbar-width: none"
     >
       <div
         v-for="player in players"
         :key="player.id"
         :ref="(el) => setSeatEl(player.id, el)"
-        class="seat-unit flex shrink-0 flex-col items-center px-0.5 py-0 transition"
+        class="seat-unit flex shrink-0 flex-col items-center px-0.5 py-0.5 transition"
         :class="[
-          player.handCount >= 2 ? 'w-[4.6rem]' : 'w-[4rem]',
+          player.handCount >= 2 ? 'w-[5.25rem]' : 'w-[4.75rem]',
           player.isCurrentTurn
             ? 'seat-unit--turn scale-105'
             : player.isSelf
@@ -113,7 +116,7 @@ watch(
         ]"
       >
         <!-- Same stack as desktop: avatar → name → life → cards → status -->
-        <div class="seat-unit__stack !gap-0">
+        <div class="seat-unit__stack !gap-0.5">
           <PlayerAvatar
             :avatar="player.avatar"
             :avatar-src="player.avatarSrc"
@@ -122,10 +125,10 @@ watch(
             :self="player.isSelf"
             size="sm"
             hide-name
-            class="-mb-2.5 origin-top scale-[0.8]"
+            class="-mb-1.5 origin-top scale-95"
           />
           <div
-            class="seat-unit__name max-w-full truncate !text-[10px] !leading-tight"
+            class="seat-unit__name max-w-full truncate !text-[11px] !leading-tight"
             :class="
               player.isCurrentTurn
                 ? 'seat-unit__name--turn'
@@ -137,10 +140,10 @@ watch(
             <span class="truncate">{{ player.name }}</span>
             <span
               v-if="player.isSelf && player.name !== 'あなた'"
-              class="seat-unit__you !text-[8px] !px-0.5"
+              class="seat-unit__you !text-[9px] !px-0.5"
             >あなた</span>
           </div>
-          <LifeHearts :lives="player.lives" :max-visible="3" size-class="text-[9px]" />
+          <LifeHearts :lives="player.lives" :max-visible="3" size-class="text-[11px]" />
           <SeatContent :player="player" compact />
         </div>
       </div>
