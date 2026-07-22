@@ -242,29 +242,25 @@ const sparkleDensity = computed(() => {
 
     <!-- Frame content only: turn (optional) + label + number + turns hint -->
     <div class="relative flex w-full flex-col items-center">
-      <!-- SP / compact: whose turn sits above the bid so it is not missed -->
+      <!-- SP / compact: whose turn above the bid (name only — seats already mark turn) -->
       <div
         v-if="turnCaption"
-        class="mb-1 flex max-w-full items-center justify-center gap-1 rounded-full border px-2.5 py-0.5"
+        class="mb-1 flex max-w-full items-center justify-center gap-1.5 rounded-full border px-2.5 py-0.5"
         :class="[
           compact ? 'text-[11px]' : 'text-xs',
           isSelfTurn
             ? 'border-gold-400/55 bg-gold-400/20 font-bold text-gold-50 shadow-[0_0_12px_rgba(201,168,76,0.35)]'
-            : 'border-gold-400/30 bg-night-800/85 font-semibold text-gold-100',
+            : 'border-gold-400/25 bg-night-800/80 font-semibold text-sand',
         ]"
         role="status"
+        :aria-label="isSelfTurn ? 'あなたの手番' : `${turnCaption}の手番`"
       >
         <span
           class="inline-flex h-1.5 w-1.5 shrink-0 rounded-full"
-          :class="isSelfTurn ? 'animate-pulse bg-gold-300' : 'bg-gold-400/70'"
+          :class="isSelfTurn ? 'animate-pulse bg-gold-300' : 'bg-gold-400/60'"
           aria-hidden="true"
         />
-        <span class="min-w-0 truncate">
-          <template v-if="isSelfTurn">あなたの手番</template>
-          <template v-else
-            ><span class="text-sand-dim">いま </span>{{ turnCaption }}</template
-          >
-        </span>
+        <span class="min-w-0 truncate">{{ turnCaption }}</span>
       </div>
 
       <p

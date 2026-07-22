@@ -68,13 +68,12 @@ watch(
       "
       role="status"
       aria-live="polite"
+      :aria-label="
+        turnPlayer.isSelf
+          ? 'いまの手番はあなた'
+          : `いまの手番は${turnPlayer.name}`
+      "
     >
-      <span
-        class="shrink-0 text-[9px] font-bold tracking-wide"
-        :class="turnPlayer.isSelf ? 'text-gold-200' : 'text-sand-dim'"
-      >
-        いまの番
-      </span>
       <PlayerAvatar
         :avatar="turnPlayer.avatar"
         :avatar-src="turnPlayer.avatarSrc"
@@ -90,16 +89,6 @@ watch(
         :class="turnPlayer.isSelf ? 'text-gold-50' : 'text-sand'"
       >
         {{ turnPlayer.isSelf ? 'あなた' : turnPlayer.name }}
-      </span>
-      <span
-        class="shrink-0 rounded-full border px-1.5 py-px text-[9px] font-bold"
-        :class="
-          turnPlayer.isSelf
-            ? 'border-gold-400/50 bg-gold-400/25 text-gold-100'
-            : 'border-gold-400/30 bg-night-800/80 text-gold-200'
-        "
-      >
-        {{ turnPlayer.isSelf ? 'あなたの番' : '番' }}
       </span>
     </div>
 

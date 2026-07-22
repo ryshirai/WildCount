@@ -461,8 +461,12 @@ const isSelfTurn = computed(
               : 'bg-night-900/95 text-sand'
           "
           role="status"
+          :aria-label="
+            turnPlayer.isSelf
+              ? 'いまの手番はあなた'
+              : `いまの手番は${turnPlayer.name}`
+          "
         >
-          <span class="text-sand-dim">いまの番</span>
           <span class="truncate">{{
             turnPlayer.isSelf
               ? 'あなた'
