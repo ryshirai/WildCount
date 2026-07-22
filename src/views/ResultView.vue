@@ -1,7 +1,8 @@
 <script setup lang="ts">
 /**
- * Result screen after game-side card reveal (D3: hold + rare tags + once-only).
- * Focus: verdict + calculation steps (cards are a static recap).
+ * Result screen after Coyote challenge.
+ * Hierarchy: verdict → bid vs total → life loss → cards → formula → actions.
+ * Drama (D3 rare tags, confetti, once-only sequence) kept; calc steps are secondary.
  */
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -14,7 +15,6 @@ import { useOnlineGameStore } from '@/stores/onlineGame'
 import AppHeader from '@/components/common/AppHeader.vue'
 import FxConfetti from '@/components/common/FxConfetti.vue'
 import MockBadge from '@/components/common/MockBadge.vue'
-import StatusChip from '@/components/common/StatusChip.vue'
 import PlayerAvatar from '@/components/game/PlayerAvatar.vue'
 import RevealCardTile from '@/components/game/RevealCardTile.vue'
 import { allowLocalPlay, allowUiMock } from '@/config/runtime'
@@ -26,15 +26,19 @@ import {
   markResultSequencePlayed,
 } from '@/utils/coyoteDramaContext'
 import {
+  buildSimpleCalcSummary,
+  cardRevealStaggerMs,
   classifyMargin,
   classifyRareTags,
+  comparisonOperator,
+  comparisonReasonFor,
   confettiDensityFor,
   isExtremeNumber,
+  livesBeforeLoss,
   marginChipLabel,
   preSlamHoldMs,
   rareTagLabel,
   resultSequenceEventId,
-  verdictDetailFor,
   verdictTitleFor,
   type MarginTier,
   type RareTag,
@@ -68,11 +72,8 @@ const localMeta = computed(() => {
     return { isGameOver: false, winnerName: null as string | null }
   }
   const r = activeResult.value
-  // Prefer the frozen result snapshot — live game flags can flip when peers act
   return {
-    isGameOver:
-      r.isGameOver ||
-      (!isOnline.value && isGameOver.value),
+    isGameOver: r.isGameOver || (!isOnline.value && isGameOver.value),
     winnerName: r.winnerName,
   }
 })
@@ -98,7 +99,15 @@ const eliminated = computed(
 
 const selfIsLoser = computed(() => result.value?.selfIsLoser === true)
 
-/** D3 rare tags from public result + frozen COYOTE context */
+const livesAfter = computed(() => {
+  const n = result.value?.livesAfter
+  return typeof n === 'number' && Number.isFinite(n) ? n : null
+})
+
+const livesBefore = computed(() =>
+  livesBeforeLoss(livesAfter.value, lifeLossAmount.value),
+)
+
 const rareTags = computed<RareTag[]>(() => {
   const r = result.value
   if (!r) return []
@@ -119,16 +128,13 @@ const rareTags = computed<RareTag[]>(() => {
     lastSecondBid: match ? ctx.lastSecondBid : false,
     roundBidCount: match
       ? ctx.roundBidCount
-      : (isOnline.value
-          ? onlineGame.gameView?.roundBidCount
-          : undefined) ?? null,
+      : (isOnline.value ? onlineGame.gameView?.roundBidCount : undefined) ??
+        null,
   })
 })
 
-/** Prefer English rare tags; fall back to Japanese margin chip when none */
 const showJapaneseDramaChip = computed(() => {
   if (!dramaChip.value) return false
-  // PERFECT/CLUTCH already cover exact/clutch
   if (rareTags.value.includes('perfect') || rareTags.value.includes('clutch')) {
     return false
   }
@@ -149,44 +155,111 @@ const verdictTitle = computed(() => {
   })
 })
 
-const verdictDetail = computed(() => {
+const compareOp = computed(() =>
+  result.value ? comparisonOperator(result.value.bidderWins) : '>',
+)
+
+const comparisonReason = computed(() => {
   if (!result.value) return ''
-  return verdictDetailFor({
+  return comparisonReasonFor({
+    bidderWins: result.value.bidderWins,
     finalTotal: result.value.finalTotal,
     bidValue: result.value.bidValue,
-    bidderWins: result.value.bidderWins,
-    lifeLoss: lifeLossAmount.value,
-    selfIsLoser: selfIsLoser.value,
-    eliminated: eliminated.value,
-    lifeLostName: result.value.lifeLostName,
   })
 })
 
-/** Active calc step index (-1 = not started; steps.length = all done) */
-const activeStepIndex = ref(-1)
-const calcDone = ref(false)
-/** Animated final total (count-up when calc finishes) */
+const lifeLossReason = computed(() => {
+  const r = result.value
+  if (!r) return ''
+  const who = selfIsLoser.value
+    ? 'あなた'
+    : r.lifeLostName || (r.bidderWins ? 'チャレンジャー' : '宣言者')
+  if (eliminated.value) {
+    return `${who}が脱落しました`
+  }
+  if (lifeLossAmount.value > 1) {
+    return `${who}がライフを${lifeLossAmount.value}失います（ダブル）`
+  }
+  return `${who}がライフを1失います`
+})
+
+const calcSummary = computed(() => {
+  if (!result.value) {
+    return { terms: [] as string[], baseSum: null as number | null, specials: [] }
+  }
+  return buildSimpleCalcSummary(result.value.calcSteps)
+})
+
+/** Collapsed card list: specials / self / extreme / redraw first */
+const CARD_COLLAPSE_AT = 6
+const showAllCards = ref(false)
+const showCalcDetails = ref(false)
+
+const rankedCardIndexes = computed(() => {
+  const r = result.value
+  if (!r) return [] as number[]
+  const scored = r.cards.map((card, index) => {
+    let score = 0
+    if (card.openedFromRedraw) score += 40
+    if (card.isSelf) score += 30
+    if (
+      card.kind === 'double' ||
+      card.kind === 'max_to_zero' ||
+      card.kind === 'half' ||
+      card.kind === 'redraw' ||
+      card.kind === 'zero_mix'
+    ) {
+      score += 25
+    }
+    if (card.kind === 'number' && isExtremeNumber(card.value)) score += 15
+    return { index, score, order: index }
+  })
+  scored.sort((a, b) => b.score - a.score || a.order - b.order)
+  return scored.map((s) => s.index)
+})
+
+const visibleCardEntries = computed(() => {
+  const r = result.value
+  if (!r) return [] as Array<{ card: ResultMock['cards'][number]; index: number }>
+  const indexes =
+    showAllCards.value || rankedCardIndexes.value.length <= CARD_COLLAPSE_AT
+      ? r.cards.map((_, i) => i)
+      : rankedCardIndexes.value.slice(0, CARD_COLLAPSE_AT)
+  // Preserve seat order among visible set
+  const set = new Set(indexes)
+  return r.cards
+    .map((card, index) => ({ card, index }))
+    .filter(({ index }) => set.has(index))
+})
+
+const hiddenCardCount = computed(() => {
+  const r = result.value
+  if (!r || showAllCards.value) return 0
+  return Math.max(0, r.cards.length - CARD_COLLAPSE_AT)
+})
+
+// --- Sequence state ---------------------------------------------------------
+
+/** Bid number visible in comparison */
+const showBidReveal = ref(false)
+/** Operator between bid and total */
+const showOpReveal = ref(false)
+/** Animated final total (count-up) */
 const displayTotal = ref<number | null>(null)
+const calcDone = ref(false)
 const showConfetti = ref(false)
-/** True after count-up finishes — triggers slam + confetti */
 const totalRevealDone = ref(false)
-/** Full-screen vignette flash on verdict */
 const showVignette = ref(false)
-/** D3: hold beat after calc before slam */
 const holdingBeforeSlam = ref(false)
 
 /**
- * `?` open sequence (before calc).
- * Keys into result.cards that have openedFromRedraw and are face-open.
+ * `?` open sequence keys (openedFromRedraw faces).
  */
 const openFaceKeys = ref<Set<string>>(new Set())
-/**
- * Card key mid single continuous zoom (1→3→1).
- * One class for the whole motion — no rush/settle handoff (that caused jank).
- */
 const zoomingKey = ref<string | null>(null)
-/** True after all ? opens finished (or none / skip) */
 const redrawOpensDone = ref(true)
+/** How many non-mystery cards have staggered in */
+const cardsRevealedCount = ref(0)
 
 let stepTimers: ReturnType<typeof setTimeout>[] = []
 let holdTimer: ReturnType<typeof setTimeout> | null = null
@@ -194,24 +267,16 @@ let openTimers: ReturnType<typeof setTimeout>[] = []
 let countRaf = 0
 const resultDeduper = getCoyoteSequenceDeduper()
 
-const STEP_INTERVAL_MS = 480
-const STEP_START_MS = 220
-/** Beat before first ? open */
-const REDRAW_OPEN_START_MS = 360
-/**
- * Full zoom timeline (must match CSS `redraw-zoom-full` duration 1.6s).
- * Peak hold ~22–55% ≈ 0.5s before shrink.
- */
+const REDRAW_OPEN_START_MS = 280
 const REDRAW_OPEN_TOTAL_MS = 1600
-/** Face crossfade just after arriving at peak (~24%) */
 const REDRAW_OPEN_FACE_MS = Math.round(REDRAW_OPEN_TOTAL_MS * 0.24)
-/** Gap between multiple ? opens */
-const REDRAW_OPEN_STAGGER_MS = REDRAW_OPEN_TOTAL_MS + 140
-/** Hold after last open before calc starts */
-const REDRAW_OPEN_HOLD_MS = 280
-/** Slightly longer count-up on exact / clutch for drama */
+const REDRAW_OPEN_STAGGER_MS = REDRAW_OPEN_TOTAL_MS + 100
+const REDRAW_OPEN_HOLD_MS = 200
+const BID_REVEAL_MS = 180
+const OP_REVEAL_MS = 320
 const COUNT_UP_MS_BASE = 620
 const COUNT_UP_MS_SLOW = 820
+const CARD_STAGGER_START_MS = 80
 
 function cardKey(card: ResultMock['cards'][number], index: number): string {
   return `${card.playerId}:${index}`
@@ -236,7 +301,6 @@ function isZooming(card: ResultMock['cards'][number], index: number): boolean {
   return zoomingKey.value === cardKey(card, index)
 }
 
-/** Dim rest of screen while a ? is mid continuous zoom */
 const showRedrawScrim = computed(() => zoomingKey.value != null)
 
 const countUpMs = computed(() =>
@@ -294,31 +358,30 @@ function snapAllRedrawFacesOpen() {
 function playVerdictSfx() {
   if (isTabHidden()) return
   playSfx('result_slam')
-  // Self-centric win/lose from public selfIsLoser; no private hand info
   const lose = selfIsLoser.value
-  // D4: life-loss haptic only when you lost life (public selfIsLoser)
   if (lose) {
     playHaptic('life_loss')
   }
-  // Small delay so slam and verdict don't fully stack
   window.setTimeout(() => {
     playSfx(lose ? 'result_lose' : 'result_win')
   }, 120)
 }
 
-/** Jump to final total + life UI (skip / remount / hidden). */
 function snapToFinalVerdict(playSfxOnReveal = false) {
   clearStepTimers()
   snapAllRedrawFacesOpen()
   const r = result.value
   if (!r) return
-  activeStepIndex.value = r.calcSteps.length
+  showBidReveal.value = true
+  showOpReveal.value = true
   calcDone.value = true
   displayTotal.value = r.finalTotal
   totalRevealDone.value = true
   showConfetti.value = true
   showVignette.value = true
   holdingBeforeSlam.value = false
+  cardsRevealedCount.value = r.cards.length
+  showAllCards.value = r.cards.length > CARD_COLLAPSE_AT
   if (playSfxOnReveal) playVerdictSfx()
 }
 
@@ -331,14 +394,15 @@ function animateTotalTo(target: number) {
     showConfetti.value = true
     showVignette.value = true
     playVerdictSfx()
+    scheduleCardStagger()
     return
   }
 
   const start = performance.now()
   const from = 0
   const span = target - from
-
   const duration = countUpMs.value
+
   function frame(now: number) {
     const t = Math.min(1, (now - start) / duration)
     const eased = 1 - (1 - t) ** 3
@@ -352,23 +416,39 @@ function animateTotalTo(target: number) {
       showVignette.value = true
       countRaf = 0
       playVerdictSfx()
+      scheduleCardStagger()
     }
   }
   countRaf = requestAnimationFrame(frame)
 }
 
-function onCalcDone() {
+function scheduleCardStagger() {
+  const r = result.value
+  if (!r) return
+  if (prefersReducedMotion() || isTabHidden()) {
+    cardsRevealedCount.value = r.cards.length
+    return
+  }
+  const stagger = cardRevealStaggerMs(marginTier.value)
+  cardsRevealedCount.value = 0
+  for (let i = 0; i < r.cards.length; i++) {
+    const t = setTimeout(() => {
+      cardsRevealedCount.value = i + 1
+    }, CARD_STAGGER_START_MS + i * stagger)
+    stepTimers.push(t)
+  }
+}
+
+function onComparisonReady() {
   calcDone.value = true
   const r = result.value
   if (!r) return
 
-  // Tab hidden or reduced motion: skip hold, still slam quickly
   if (isTabHidden() || prefersReducedMotion()) {
     animateTotalTo(r.finalTotal)
     return
   }
 
-  // Plan §4.7: ~500ms hold (longer for clutch/exact) before total slam
   clearHoldTimer()
   holdingBeforeSlam.value = true
   const holdMs = preSlamHoldMs(marginTier.value)
@@ -379,45 +459,45 @@ function onCalcDone() {
   }, holdMs)
 }
 
-/** Calc steps only (called after ? open sequence finishes). */
-function runCalcStepsOnly() {
-  clearStepTimers()
-  // clearStepTimers wipes open timers but keeps face-open state
-  const r = result.value
-  if (!r) return
-
-  activeStepIndex.value = -1
+/** Bid → operator → hold → total count-up */
+function runComparisonSequence() {
+  clearHoldTimer()
+  showBidReveal.value = false
+  showOpReveal.value = false
   calcDone.value = false
   showConfetti.value = false
   showVignette.value = false
   totalRevealDone.value = false
   displayTotal.value = null
   holdingBeforeSlam.value = false
+  cardsRevealedCount.value = 0
 
-  const steps = r.calcSteps
-  if (steps.length === 0) {
-    onCalcDone()
+  const r = result.value
+  if (!r) return
+
+  if (prefersReducedMotion() || isTabHidden()) {
+    showBidReveal.value = true
+    showOpReveal.value = true
+    onComparisonReady()
     return
   }
 
-  for (let i = 0; i < steps.length; i++) {
-    const t = setTimeout(() => {
-      activeStepIndex.value = i
-    }, STEP_START_MS + i * STEP_INTERVAL_MS)
-    stepTimers.push(t)
-  }
+  const tBid = setTimeout(() => {
+    showBidReveal.value = true
+  }, BID_REVEAL_MS)
+  stepTimers.push(tBid)
 
-  const doneT = setTimeout(() => {
-    activeStepIndex.value = steps.length
-    onCalcDone()
-  }, STEP_START_MS + steps.length * STEP_INTERVAL_MS)
-  stepTimers.push(doneT)
+  const tOp = setTimeout(() => {
+    showOpReveal.value = true
+  }, OP_REVEAL_MS)
+  stepTimers.push(tOp)
+
+  const tGo = setTimeout(() => {
+    onComparisonReady()
+  }, OP_REVEAL_MS + 200)
+  stepTimers.push(tGo)
 }
 
-/**
- * Dedicated `?` open beat on the result screen (dopamine).
- * One continuous zoom (1→3→1); face crossfades at peak — no class handoff.
- */
 function runRedrawOpenSequence(then: () => void) {
   clearOpenTimers()
   openFaceKeys.value = new Set()
@@ -447,7 +527,6 @@ function runRedrawOpenSequence(then: () => void) {
         playSfx('card_flip')
         playHaptic('wild_call')
       }
-      // Crossfade face at peak (opacity only — scale keeps running)
       const tFace = setTimeout(() => {
         const next = new Set(openFaceKeys.value)
         next.add(key)
@@ -475,7 +554,8 @@ function runRedrawOpenSequence(then: () => void) {
 
 function runCalcSequence() {
   clearStepTimers()
-  activeStepIndex.value = -1
+  showBidReveal.value = false
+  showOpReveal.value = false
   calcDone.value = false
   showConfetti.value = false
   showVignette.value = false
@@ -485,6 +565,9 @@ function runCalcSequence() {
   openFaceKeys.value = new Set()
   zoomingKey.value = null
   redrawOpensDone.value = !hasRedrawOpens.value
+  cardsRevealedCount.value = 0
+  showAllCards.value = false
+  showCalcDetails.value = false
 
   const r = result.value
   if (!r) return
@@ -503,7 +586,6 @@ function runCalcSequence() {
     lifeLostName: r.lifeLostName,
   })
 
-  // Same challenge already finished result sequence → final state only
   if (!resultDeduper.tryConsume(seqId)) {
     snapToFinalVerdict(false)
     markResultSequencePlayed(challengeKey)
@@ -511,31 +593,21 @@ function runCalcSequence() {
   }
   markResultSequencePlayed(challengeKey)
 
-  // Hidden tab: converge immediately
   if (isTabHidden()) {
     snapToFinalVerdict(false)
     return
   }
 
-  // ? open first (if any), then calc steps
+  // Cards strip visible early; ? opens first if needed, then comparison drama
   runRedrawOpenSequence(() => {
-    runCalcStepsOnly()
+    runComparisonSequence()
   })
 }
 
-function stepClass(i: number) {
-  if (activeStepIndex.value < 0) return ''
-  if (i < activeStepIndex.value) return 'calc-step--done'
-  if (i === activeStepIndex.value) return 'calc-step--active'
-  return ''
-}
-
 function skipCalc() {
-  // Skip opens + calc → correct final total, win/loss, life (plan D3 acceptance)
   snapToFinalVerdict(true)
 }
 
-/** Self-perspective: did "あなた" survive / win the challenge? */
 const confettiPalette = computed(() => {
   if (localMeta.value.isGameOver) return 'gold' as const
   if (!result.value) return 'mixed' as const
@@ -543,7 +615,6 @@ const confettiPalette = computed(() => {
     return 'mixed' as const
   }
   if (hasWildReversal.value) return 'mixed' as const
-  // Challenge success → teal; bidder held → gold
   return result.value.bidderWins ? ('gold' as const) : ('teal' as const)
 })
 
@@ -559,7 +630,6 @@ const vignetteTone = computed(() => {
   if (localMeta.value.isGameOver) return 'gameover' as const
   if (!result.value) return 'win' as const
   if (eliminated.value || lifeLossAmount.value > 1) return 'lose' as const
-  // Coyote success (challenger correct) → teal win feel; bidder held → gold
   return result.value.bidderWins ? ('lose' as const) : ('win' as const)
 })
 
@@ -580,7 +650,32 @@ function cardEmphasis(card: ResultMock['cards'][number]) {
   return 'none' as const
 }
 
-// Restart calc only when the challenge identity changes (not peer view noise)
+function isCardVisible(index: number): boolean {
+  return cardsRevealedCount.value > index || totalRevealDone.value
+}
+
+/** Heart row: before → after (filled + lost) */
+const heartSlots = computed(() => {
+  const before = livesBefore.value
+  const after = livesAfter.value
+  const loss = lifeLossAmount.value
+  if (before == null || after == null) {
+    // Fallback when lives unknown: show lost hearts only
+    return {
+      mode: 'loss-only' as const,
+      before: loss,
+      after: 0,
+      loss,
+    }
+  }
+  return {
+    mode: 'full' as const,
+    before,
+    after,
+    loss,
+  }
+})
+
 watch(
   () => {
     const r = result.value
@@ -620,7 +715,6 @@ async function bootstrapResult() {
     return
   }
 
-  // Production: local result only exists after a local game (DEV)
   if (!allowLocalPlay) {
     void router.replace({ name: 'home' })
     return
@@ -635,7 +729,6 @@ onUnmounted(() => {
   clearStepTimers()
 })
 
-// Only the player who pressed「もう一度遊ぶ」auto-navigates to lobby
 watch(
   () => onlineGame.rematchNavigateToken,
   (token, prev) => {
@@ -659,7 +752,6 @@ function goToLobbyAfterRematch() {
   })
 }
 
-// Host dissolved room / idle purge during result screen
 watch(
   () => onlineGame.lastErrorCode,
   (code) => {
@@ -693,13 +785,18 @@ async function playAgain() {
     return
   }
   if (isOnline.value) {
-    // Server rematch → lobby (same seats); navigation via status watch
     onlineGame.requestRematch()
     return
   }
   await store.restartLastGame()
   void router.push({ name: 'game' })
 }
+
+const sequenceBusy = computed(
+  () =>
+    result.value != null &&
+    (!totalRevealDone.value || !redrawOpensDone.value),
+)
 </script>
 
 <template>
@@ -707,7 +804,7 @@ async function playAgain() {
     <AppHeader :sticky="false">
       <template #actions>
         <button
-          v-if="result && (!calcDone || !redrawOpensDone)"
+          v-if="sequenceBusy"
           type="button"
           class="btn-ghost btn-sm"
           @click="skipCalc"
@@ -719,12 +816,11 @@ async function playAgain() {
 
     <div
       v-if="result"
-      class="relative z-10 mx-auto w-full max-w-3xl min-h-0 flex-1 overflow-y-auto scrollbar-none px-4 py-5 safe-bottom sm:py-6 lg:py-5"
+      class="relative z-10 mx-auto flex w-full max-w-[1080px] min-h-0 flex-1 flex-col overflow-hidden"
     >
-      <!-- Confetti + vignette once calc resolves -->
       <FxConfetti
         v-if="showConfetti"
-        class="fixed inset-0 z-20"
+        class="fixed inset-0 z-20 pointer-events-none"
         :density="confettiDensity"
         :palette="confettiPalette"
       />
@@ -735,235 +831,7 @@ async function playAgain() {
         aria-hidden="true"
       />
 
-      <!-- Single verdict banner (game-over winner folded in) -->
-      <section
-        class="panel result-banner-in relative mb-5 overflow-hidden p-5 text-center sm:mb-6 sm:p-6"
-        :class="[
-          localMeta.isGameOver
-            ? 'ring-1 ring-gold-400/40'
-            : result.bidderWins
-              ? 'ring-1 ring-gold-400/35'
-              : 'ring-1 ring-teal-soft/45',
-          totalRevealDone && !localMeta.isGameOver
-            ? result.bidderWins
-              ? 'verdict-lose-glow'
-              : 'verdict-win-glow'
-            : '',
-        ]"
-      >
-        <!-- Game-over (sole winner or multi-survivor first-elimination end) -->
-        <template v-if="localMeta.isGameOver">
-          <p class="mb-1 text-xs tracking-[0.18em] text-sand-dim">
-            {{ localMeta.winnerName ? '勝者' : '試合終了' }}
-          </p>
-          <h2
-            class="font-display text-2xl font-bold text-gold-100 sm:text-3xl"
-            :class="totalRevealDone || showConfetti ? 'total-slam' : ''"
-          >
-            <template v-if="localMeta.winnerName">
-              {{ localMeta.winnerName }} の勝利！
-            </template>
-            <template v-else> 脱落者が出たため終了 </template>
-          </h2>
-          <p class="mt-2 text-xs text-sand-dim">
-            {{
-              localMeta.winnerName
-                ? '最後の1人が生き残りました。下の「もう一度遊ぶ」から再戦できます。'
-                : '誰かがライフをすべて失ったため、試合が終わりました。下の「もう一度遊ぶ」から再戦できます。'
-            }}
-          </p>
-          <div class="my-4 h-px w-full bg-gold-400/15" />
-        </template>
-
-        <p class="mb-1 text-xs tracking-[0.18em] text-sand-dim">
-          {{ localMeta.isGameOver ? '最終ラウンド' : 'コヨーテ！ 結果' }}
-        </p>
-        <h2
-          class="font-display font-bold text-gold-200"
-          :class="[
-            localMeta.isGameOver ? 'text-xl sm:text-2xl' : 'text-2xl sm:text-3xl',
-            totalRevealDone && (marginTier === 'exact' || rareTags.includes('perfect'))
-              ? 'total-slam total-slam--exact total-slam--perfect'
-              : '',
-            totalRevealDone && marginTier === 'clutch' ? 'total-slam--clutch' : '',
-            totalRevealDone && hasWildReversal ? 'total-slam--reversal' : '',
-            totalRevealDone && hasMaxHeat ? 'total-slam--max-heat' : '',
-          ]"
-        >
-          {{ verdictTitle }}
-        </h2>
-        <!-- D3 rare tags (PERFECT / CLUTCH / WILD REVERSAL / …) -->
-        <div
-          v-if="totalRevealDone && rareTags.length"
-          class="mt-2 flex flex-wrap items-center justify-center gap-1.5"
-        >
-          <span
-            v-for="tag in rareTags"
-            :key="tag"
-            class="rare-tag-chip"
-            :class="`rare-tag-chip--${tag}`"
-          >{{ rareTagLabel(tag) }}</span>
-        </div>
-        <div
-          v-else-if="totalRevealDone && showJapaneseDramaChip && dramaChip"
-          class="mt-2 flex justify-center"
-        >
-          <span
-            class="drama-tier-chip"
-            :class="`drama-tier-chip--${marginTier}`"
-          >{{ dramaChip }}</span>
-        </div>
-        <p
-          v-if="holdingBeforeSlam"
-          class="mt-2 text-[11px] tracking-wider text-sand-dim/80"
-          aria-hidden="true"
-        >
-          …
-        </p>
-        <p class="mt-2 text-sm text-sand-dim">{{ verdictDetail }}</p>
-
-        <div class="mt-5 flex flex-wrap items-center justify-center gap-4 sm:gap-8">
-          <div class="flex flex-col items-center gap-1">
-            <span class="text-[10px] tracking-wider text-sand-dim">宣言</span>
-            <div class="flex items-center gap-2">
-              <PlayerAvatar
-                :avatar="result.bidderAvatar"
-                :avatar-src="result.bidderAvatarSrc"
-                :name="result.bidderName"
-                size="sm"
-                hide-name
-              />
-              <span class="text-sm font-semibold text-sand">{{ result.bidderName }}</span>
-            </div>
-            <span class="font-display text-3xl font-bold tabular-nums text-gold-200">{{
-              result.bidValue
-            }}</span>
-          </div>
-
-          <div
-            class="flex h-10 w-10 items-center justify-center rounded-full border border-gold-400/20 bg-night-900/60 text-xs font-semibold text-sand-dim"
-            aria-hidden="true"
-          >
-            vs
-          </div>
-
-          <div class="flex flex-col items-center gap-1">
-            <span class="text-[10px] tracking-wider text-sand-dim">チャレンジ</span>
-            <div class="flex items-center gap-2">
-              <PlayerAvatar
-                :avatar="result.challengerAvatar"
-                :avatar-src="result.challengerAvatarSrc"
-                :name="result.challengerName"
-                size="sm"
-                hide-name
-              />
-              <span class="text-sm font-semibold text-sand">{{ result.challengerName }}</span>
-            </div>
-            <span class="chip chip-teal">コヨーテ！</span>
-          </div>
-
-          <div
-            class="flex flex-col items-center gap-1 border-l border-gold-400/15 pl-4 sm:pl-8"
-          >
-            <span class="text-[10px] tracking-wider text-sand-dim">実際の合計</span>
-            <span
-              class="font-display text-4xl font-bold tabular-nums text-gold-100 transition-opacity duration-300"
-              :class="[
-                calcDone || holdingBeforeSlam ? 'opacity-100' : 'opacity-40',
-                holdingBeforeSlam ? 'total-hold-pulse' : '',
-                totalRevealDone ? 'total-slam' : '',
-                totalRevealDone && (marginTier === 'exact' || rareTags.includes('perfect'))
-                  ? 'total-slam--exact total-slam--perfect'
-                  : '',
-                totalRevealDone && marginTier === 'clutch' ? 'total-slam--clutch' : '',
-                totalRevealDone && hasWildReversal ? 'total-slam--reversal' : '',
-                totalRevealDone && hasMaxHeat ? 'total-slam--max-heat' : '',
-                totalRevealDone && hasLastSecond ? 'total-slam--last-second' : '',
-              ]"
-            >
-              {{ displayTotal ?? (holdingBeforeSlam ? '…' : '—') }}
-            </span>
-          </div>
-        </div>
-
-        <!-- Life loss: avatar + hearts + short line (no triple redundancy) -->
-        <div
-          v-if="totalRevealDone"
-          class="life-lost-panel life-lost-pulse mt-6 w-full max-w-md mx-auto rounded-2xl border border-red-400/40 bg-gradient-to-b from-red-950/80 via-night-900/90 to-night-950/95 px-5 py-5 text-center shadow-[0_0_36px_rgba(248,113,113,0.18)] sm:px-8 sm:py-6"
-          :class="[
-            eliminated ? 'life-lost-panel--ko' : '',
-            lifeLossAmount > 1 ? 'life-lost-panel--double' : '',
-            hasSurvived ? 'life-lost-panel--survived' : '',
-            hasWildReversal ? 'life-lost-panel--reversal' : '',
-          ]"
-          role="status"
-        >
-          <div class="life-lost-avatar-wrap mx-auto mb-2 inline-flex">
-            <PlayerAvatar
-              :avatar="result.lifeLostAvatar"
-              :avatar-src="result.lifeLostAvatarSrc"
-              :name="result.lifeLostName"
-              size="lg"
-              hide-name
-            />
-          </div>
-
-          <p class="life-lost-name font-display text-xl font-bold text-red-50 sm:text-2xl">
-            {{ result.lifeLostName }}
-          </p>
-
-          <p
-            v-if="eliminated"
-            class="life-lost-ko-label mt-1 font-display text-lg font-bold tracking-wide text-rose-300 sm:text-xl"
-          >
-            脱落！
-          </p>
-
-          <div
-            class="life-lost-hearts mt-3 flex items-center justify-center gap-2 sm:gap-3"
-            :aria-label="
-              eliminated
-                ? `${result.lifeLostName} が脱落した`
-                : `${result.lifeLostName} がライフを ${lifeLossAmount} 失った`
-            "
-          >
-            <span
-              v-for="i in lifeLossAmount"
-              :key="`lost-h-${i}`"
-              class="heart-crack life-lost-heart text-4xl leading-none text-rose-400 sm:text-5xl"
-              :style="{ animationDelay: `${(i - 1) * 0.12}s` }"
-              aria-hidden="true"
-              >♥</span
-            >
-            <!-- SURVIVED: remaining life re-lights -->
-            <span
-              v-if="hasSurvived"
-              class="heart-survive life-lost-heart text-4xl leading-none text-rose-300 sm:text-5xl"
-              aria-hidden="true"
-              >♥</span
-            >
-          </div>
-
-          <p class="mt-3 text-sm text-red-200/90 sm:text-base">
-            <template v-if="eliminated">ライフ 0</template>
-            <template v-else>
-              ライフ −{{ lifeLossAmount
-              }}<span
-                v-if="lifeLossAmount > 1"
-                class="ml-1.5 rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-200"
-                >ダブル</span
-              >
-              <span
-                v-if="hasSurvived"
-                class="ml-1.5 rounded-full bg-teal-soft/20 px-2 py-0.5 text-[10px] font-bold text-teal-soft"
-                >残り 1</span
-              >
-            </template>
-          </p>
-        </div>
-      </section>
-
-      <!-- Dim rest of screen while ? zooms (opacity only — no mount/unmount flash) -->
+      <!-- Dim while ? zooms -->
       <div
         v-if="hasRedrawOpens && !redrawOpensDone"
         class="redraw-open-scrim"
@@ -971,271 +839,623 @@ async function playAgain() {
         aria-hidden="true"
       />
 
-      <!-- ? open hero (before calc) when any card was a redraw -->
-      <section
-        v-if="hasRedrawOpens"
-        class="panel redraw-open-panel mb-5 p-4 sm:mb-6 sm:p-5"
-        :class="!redrawOpensDone ? 'redraw-open-panel--live' : ''"
-        aria-live="polite"
+      <!-- Scrollable body -->
+      <div
+        class="min-h-0 flex-1 overflow-y-auto scrollbar-none px-4 pt-4 pb-3 sm:px-6 sm:pt-5 lg:px-8 lg:pt-5"
       >
-        <div class="mb-3 flex flex-wrap items-center justify-center gap-2">
-          <span
-            class="rounded-full border border-gold-400/40 bg-gold-400/10 px-2.5 py-0.5 text-[10px] font-bold tracking-[0.18em] text-gold-200"
-          >
-            ？ OPEN
-          </span>
-          <h3 class="text-sm font-semibold text-gold-200">引き直しカードをオープン</h3>
-        </div>
-        <p class="mb-4 text-center text-[11px] text-sand-dim">
-          チャレンジ後に山札から引き直した結果です
-        </p>
-        <ul class="flex flex-wrap items-end justify-center gap-4 sm:gap-6">
-          <li
-            v-for="{ card, index } in redrawOpenCards"
-            :key="`open-${card.playerId}-${index}`"
-            class="redraw-open-slot flex flex-col items-center"
-            :class="isZooming(card, index) ? 'redraw-open-slot--active' : ''"
-          >
-            <div
-              class="mb-1 max-w-[5.5rem] truncate text-[10px] font-medium"
-              :class="card.isSelf ? 'text-teal-soft' : 'text-sand-dim'"
-            >
-              {{ card.isSelf ? 'あなた' : card.playerName }}
-            </div>
-            <!--
-              One continuous zoom (1→3→1). Dual faces crossfade at peak so
-              the scale animation never restarts mid-flight.
-            -->
-            <div class="redraw-open-zoom-slot">
-              <div
-                class="redraw-open-zoom"
-                :class="isZooming(card, index) ? 'redraw-open-zoom--play' : ''"
-              >
-                <div
-                  class="redraw-open-faces"
-                  :class="isFaceOpen(card, index) ? 'redraw-open-faces--open' : ''"
-                >
-                  <div class="redraw-open-faces__mystery">
-                    <RevealCardTile
-                      kind="redraw"
-                      label="?"
-                      :value="null"
-                      size="lg"
-                      :revealed="true"
-                      emphasis="special"
-                      opened-from-redraw
-                      :face-open="false"
-                    />
-                  </div>
-                  <div class="redraw-open-faces__final">
-                    <RevealCardTile
-                      :kind="card.kind"
-                      :label="card.label"
-                      :value="card.value"
-                      size="lg"
-                      :revealed="true"
-                      :emphasis="card.isSelf ? 'self' : 'special'"
-                      opened-from-redraw
-                      :face-open="true"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-            <p
-              v-if="isFaceOpen(card, index)"
-              class="redraw-open-result mt-1.5 font-display text-xs font-bold text-gold-100"
-            >
-              {{ card.label }}
+        <!-- ========== 1. Unified result hero ========== -->
+        <section
+          class="result-banner-in relative mb-4 overflow-hidden rounded-2xl border border-gold-400/20 bg-night-900/75 px-4 py-5 text-center sm:mb-5 sm:px-6 sm:py-6"
+          :class="[
+            localMeta.isGameOver
+              ? 'ring-1 ring-gold-400/40'
+              : result.bidderWins
+                ? 'ring-1 ring-gold-400/30'
+                : 'ring-1 ring-teal-soft/40',
+            totalRevealDone && !localMeta.isGameOver
+              ? result.bidderWins
+                ? 'verdict-lose-glow'
+                : 'verdict-win-glow'
+              : '',
+          ]"
+        >
+          <!-- Game over banner -->
+          <template v-if="localMeta.isGameOver">
+            <p class="mb-1 text-[10px] tracking-[0.18em] text-sand-dim sm:text-xs">
+              {{ localMeta.winnerName ? '勝者' : '試合終了' }}
             </p>
-            <p v-else class="mt-1.5 text-[10px] text-sand-dim">？？？</p>
-          </li>
-        </ul>
-      </section>
+            <h2
+              class="font-display text-2xl font-bold text-gold-100 sm:text-3xl"
+              :class="totalRevealDone || showConfetti ? 'total-slam' : ''"
+            >
+              <template v-if="localMeta.winnerName">
+                {{ localMeta.winnerName }} の勝利！
+              </template>
+              <template v-else> 脱落者が出たため終了 </template>
+            </h2>
+            <div class="my-3 h-px w-full bg-gold-400/15" />
+          </template>
 
-      <!-- Calculation steps (main animation on this screen) -->
-      <section
-        class="panel mb-5 p-4 sm:mb-6 sm:p-5"
-        :class="[
-          hasWildReversal && totalRevealDone ? 'result-calc--reversal' : '',
-          !redrawOpensDone ? 'opacity-50' : '',
-        ]"
-      >
-        <h3 class="mb-1 text-sm font-semibold text-gold-200">合計の出し方</h3>
-        <p class="mb-3 text-[11px] text-sand-dim sm:mb-4">
-          特殊札の効果を、決まった順番で適用した結果です
-          <span v-if="hasWildReversal" class="text-violet-300"> · 特殊札で勝敗が逆転しました</span>
-        </p>
-        <ol class="space-y-2.5 sm:space-y-3">
-          <li
-            v-for="(step, i) in result.calcSteps"
-            :key="step.id"
-            class="calc-step"
+          <p class="mb-1 text-[10px] tracking-[0.2em] text-sand-dim sm:text-xs">
+            {{ localMeta.isGameOver ? '最終ラウンド' : 'コヨーテ！ 結果' }}
+          </p>
+          <h2
+            class="result-title-in font-display font-bold text-gold-200"
             :class="[
-              stepClass(i),
-              hasWildReversal &&
-              (step.id === 'double' ||
-                step.id === 'half' ||
-                step.id === 'multiplier' ||
-                step.id === 'max_to_zero') &&
-              i <= activeStepIndex
-                ? 'calc-step--special-hit'
+              localMeta.isGameOver ? 'text-xl sm:text-2xl' : 'text-2xl sm:text-3xl',
+              totalRevealDone &&
+              (marginTier === 'exact' || rareTags.includes('perfect'))
+                ? 'total-slam total-slam--exact total-slam--perfect'
                 : '',
+              totalRevealDone && marginTier === 'clutch' ? 'total-slam--clutch' : '',
+              totalRevealDone && hasWildReversal ? 'total-slam--reversal' : '',
+              totalRevealDone && hasMaxHeat ? 'total-slam--max-heat' : '',
             ]"
           >
-            <span class="calc-step__badge">
-              <template v-if="i < activeStepIndex">✓</template>
-              <template v-else>{{ i + 1 }}</template>
-            </span>
-            <div class="min-w-0 flex-1">
-              <div class="text-sm font-medium text-sand">{{ step.title }}</div>
-              <div class="mt-0.5 text-xs text-sand-dim">{{ step.detail }}</div>
-            </div>
-            <div
-              v-if="step.totalAfter != null"
-              class="shrink-0 self-center font-display text-lg font-bold tabular-nums text-gold-200"
-              :class="i <= activeStepIndex ? 'opacity-100' : 'opacity-30'"
-            >
-              {{ step.totalAfter }}
-            </div>
-          </li>
-        </ol>
+            {{ verdictTitle }}
+          </h2>
 
-        <!-- Post-calc summary: secondary after count-up (verdict total is primary) -->
-        <div
-          v-if="totalRevealDone"
-          class="calc-done-pop mt-4 flex flex-wrap items-center justify-center gap-2 rounded-xl border border-gold-400/25 bg-night-900/60 px-4 py-3 shadow-[0_0_24px_rgba(201,168,76,0.12)]"
-        >
-          <span class="text-xs text-sand-dim">最終合計</span>
-          <span class="font-display text-2xl font-bold tabular-nums text-gold-100">{{
-            displayTotal ?? result.finalTotal
-          }}</span>
-          <span class="text-sand-dim">vs 宣言</span>
-          <span class="font-display text-xl font-bold tabular-nums text-gold-300">{{
-            result.bidValue
-          }}</span>
-          <StatusChip
-            :variant="result.bidderWins ? 'gold' : 'teal'"
-            class="ml-1 text-[10px]"
-            :label="result.bidderWins ? '宣言が通った' : 'コヨーテ成功'"
-          />
-        </div>
-      </section>
-
-      <!-- Card recap (already revealed on game screen) -->
-      <section
-        class="panel mb-5 p-4 sm:mb-6 sm:p-5"
-        :class="
-          totalRevealDone && (marginTier === 'exact' || marginTier === 'clutch')
-            ? 'result-cards-pulse'
-            : ''
-        "
-      >
-        <h3 class="mb-3 text-sm font-semibold text-gold-200">みんなの札</h3>
-        <ul class="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
-          <li
-            v-for="(card, ci) in result.cards"
-            :key="`${card.playerId}-${ci}`"
-            class="flex flex-col items-center rounded-xl border border-gold-400/10 bg-night-900/40 px-1.5 py-2"
-            :class="card.isSelf ? 'ring-2 ring-teal-soft/55 reveal-seat--self' : ''"
+          <div
+            v-if="totalRevealDone && rareTags.length"
+            class="mt-2 flex flex-wrap items-center justify-center gap-1.5"
           >
+            <span
+              v-for="tag in rareTags"
+              :key="tag"
+              class="rare-tag-chip"
+              :class="`rare-tag-chip--${tag}`"
+              >{{ rareTagLabel(tag) }}</span
+            >
+          </div>
+          <div
+            v-else-if="totalRevealDone && showJapaneseDramaChip && dramaChip"
+            class="mt-2 flex justify-center"
+          >
+            <span
+              class="drama-tier-chip"
+              :class="`drama-tier-chip--${marginTier}`"
+              >{{ dramaChip }}</span
+            >
+          </div>
+
+          <!-- Primary visual: bid  op  total -->
+          <div
+            class="result-compare mt-5 flex items-end justify-center gap-3 sm:gap-6 sm:mt-6"
+            role="group"
+            :aria-label="`宣言 ${result.bidValue} ${compareOp} 実際の合計 ${result.finalTotal}`"
+          >
+            <!-- Bid -->
+            <div
+              class="result-compare__side flex min-w-0 flex-1 flex-col items-center gap-1.5 sm:max-w-[11rem]"
+              :class="showBidReveal ? 'result-compare__side--in' : 'opacity-40'"
+            >
+              <span class="text-[10px] tracking-wider text-sand-dim">宣言</span>
+              <div class="flex items-center gap-1.5">
+                <PlayerAvatar
+                  :avatar="result.bidderAvatar"
+                  :avatar-src="result.bidderAvatarSrc"
+                  :name="result.bidderName"
+                  size="sm"
+                  hide-name
+                />
+                <span
+                  class="max-w-[5.5rem] truncate text-xs font-semibold text-sand sm:max-w-[7rem] sm:text-sm"
+                  >{{ result.bidderName }}</span
+                >
+              </div>
+              <span
+                class="font-display text-4xl font-bold tabular-nums text-gold-200 sm:text-5xl"
+                >{{ showBidReveal ? result.bidValue : '—' }}</span
+              >
+            </div>
+
+            <!-- Operator -->
+            <div
+              class="result-compare__op mb-1 flex shrink-0 flex-col items-center justify-end pb-1"
+              :class="showOpReveal ? 'result-compare__op--in' : 'opacity-30'"
+              aria-hidden="true"
+            >
+              <span
+                class="font-display text-3xl font-bold leading-none sm:text-4xl"
+                :class="
+                  result.bidderWins
+                    ? 'text-gold-300'
+                    : 'text-teal-soft'
+                "
+              >
+                {{ showOpReveal ? compareOp : '·' }}
+              </span>
+            </div>
+
+            <!-- Actual total -->
+            <div
+              class="result-compare__side flex min-w-0 flex-1 flex-col items-center gap-1.5 sm:max-w-[11rem]"
+              :class="
+                calcDone || holdingBeforeSlam ? 'opacity-100' : 'opacity-40'
+              "
+            >
+              <span class="text-[10px] tracking-wider text-sand-dim"
+                >実際の合計</span
+              >
+              <div class="flex h-6 items-center gap-1.5 sm:h-7">
+                <span
+                  class="chip text-[10px]"
+                  :class="result.bidderWins ? 'chip-gold' : 'chip-teal'"
+                >
+                  {{ result.bidderWins ? '宣言側' : 'コヨーテ' }}
+                </span>
+              </div>
+              <span
+                class="font-display text-4xl font-bold tabular-nums text-gold-100 sm:text-5xl"
+                :class="[
+                  holdingBeforeSlam ? 'total-hold-pulse' : '',
+                  totalRevealDone ? 'total-slam' : '',
+                  totalRevealDone &&
+                  (marginTier === 'exact' || rareTags.includes('perfect'))
+                    ? 'total-slam--exact total-slam--perfect'
+                    : '',
+                  totalRevealDone && marginTier === 'clutch'
+                    ? 'total-slam--clutch'
+                    : '',
+                  totalRevealDone && hasWildReversal
+                    ? 'total-slam--reversal'
+                    : '',
+                  totalRevealDone && hasMaxHeat ? 'total-slam--max-heat' : '',
+                  totalRevealDone && hasLastSecond
+                    ? 'total-slam--last-second'
+                    : '',
+                ]"
+              >
+                {{
+                  displayTotal ??
+                  (holdingBeforeSlam ? '…' : calcDone ? result.finalTotal : '—')
+                }}
+              </span>
+            </div>
+          </div>
+
+          <p
+            v-if="totalRevealDone"
+            class="result-compare__reason mt-3 text-sm text-sand-dim sm:mt-4"
+          >
+            {{ comparisonReason }}
+          </p>
+          <p
+            v-else-if="holdingBeforeSlam"
+            class="mt-3 text-[11px] tracking-wider text-sand-dim/80"
+            aria-hidden="true"
+          >
+            …
+          </p>
+
+          <!-- Life loss: compact horizontal bar -->
+          <div
+            v-if="totalRevealDone"
+            class="life-lost-bar life-lost-pulse mx-auto mt-4 w-full max-w-lg sm:mt-5"
+            :class="[
+              eliminated ? 'life-lost-bar--ko' : '',
+              lifeLossAmount > 1 ? 'life-lost-bar--double' : '',
+              hasSurvived ? 'life-lost-bar--survived' : '',
+            ]"
+            role="status"
+          >
+            <div class="life-lost-bar__accent" aria-hidden="true" />
             <PlayerAvatar
-              class="mb-0.5"
-              :avatar="card.avatar"
-              :avatar-src="card.avatarSrc"
-              :name="card.playerName"
-              :self="card.isSelf"
-              size="sm"
+              class="shrink-0"
+              :avatar="result.lifeLostAvatar"
+              :avatar-src="result.lifeLostAvatarSrc"
+              :name="result.lifeLostName"
+              size="md"
               hide-name
             />
-            <div
-              class="mb-1 max-w-full truncate text-[10px] font-medium"
-              :class="card.isSelf ? 'text-teal-soft' : 'text-sand-dim'"
-            >
-              {{ card.isSelf ? 'あなたの札' : card.playerName }}
+            <div class="min-w-0 flex-1 text-left">
+              <p class="truncate font-display text-base font-bold text-red-50 sm:text-lg">
+                {{ result.lifeLostName }}
+                <span
+                  v-if="eliminated"
+                  class="ml-1.5 align-middle text-sm font-bold tracking-wide text-rose-300"
+                  >脱落</span
+                >
+              </p>
+              <p class="mt-0.5 text-xs text-red-200/85 sm:text-sm">
+                {{ lifeLossReason }}
+              </p>
             </div>
-            <RevealCardTile
-              :kind="card.kind"
-              :label="card.label"
-              :value="card.value"
-              size="md"
-              :revealed="true"
-              :emphasis="cardEmphasis(card)"
-              :opened-from-redraw="card.openedFromRedraw === true"
-              :face-open="isFaceOpen(card, ci)"
-            />
-          </li>
-        </ul>
-      </section>
+            <div
+              class="life-lost-bar__hearts shrink-0 text-right"
+              :aria-label="
+                heartSlots.mode === 'full'
+                  ? `ライフ ${heartSlots.before} から ${heartSlots.after}`
+                  : `ライフ −${lifeLossAmount}`
+              "
+            >
+              <div
+                class="flex items-center justify-end gap-1.5 font-display text-sm tabular-nums text-sand sm:text-base"
+              >
+                <template v-if="heartSlots.mode === 'full'">
+                  <span class="inline-flex gap-0.5" aria-hidden="true">
+                    <span
+                      v-for="i in heartSlots.before"
+                      :key="`b-${i}`"
+                      class="leading-none"
+                      :class="
+                        i > heartSlots.after
+                          ? 'life-heart-lost text-rose-400/90'
+                          : 'text-rose-400'
+                      "
+                      >{{ i > heartSlots.after ? '♡' : '♥' }}</span
+                    >
+                  </span>
+                  <span class="text-sand-dim">→</span>
+                  <span class="inline-flex gap-0.5" aria-hidden="true">
+                    <template v-if="heartSlots.after > 0">
+                      <span
+                        v-for="i in heartSlots.after"
+                        :key="`a-${i}`"
+                        class="leading-none text-rose-400"
+                        >♥</span
+                      >
+                    </template>
+                    <span v-else class="text-sand-dim">0</span>
+                  </span>
+                </template>
+                <template v-else>
+                  <span
+                    v-for="i in lifeLossAmount"
+                    :key="`lo-${i}`"
+                    class="life-heart-lost text-lg leading-none text-rose-400"
+                    :style="{ animationDelay: `${(i - 1) * 0.1}s` }"
+                    aria-hidden="true"
+                    >♥</span
+                  >
+                </template>
+              </div>
+              <p class="mt-0.5 text-[11px] text-sand-dim sm:text-xs">
+                <template v-if="heartSlots.mode === 'full'">
+                  ライフ {{ heartSlots.before }} → {{ heartSlots.after }}
+                </template>
+                <template v-else> ライフ −{{ lifeLossAmount }} </template>
+                <span
+                  v-if="lifeLossAmount > 1"
+                  class="ml-1 rounded-full bg-amber-500/20 px-1.5 py-px text-[9px] font-bold text-amber-200"
+                  >ダブル</span
+                >
+                <span
+                  v-if="hasSurvived"
+                  class="ml-1 rounded-full bg-teal-soft/20 px-1.5 py-px text-[9px] font-bold text-teal-soft"
+                  >残り1</span
+                >
+              </p>
+            </div>
+          </div>
+        </section>
 
-      <!-- Peer rematch: room is lobby; stay on result until they choose -->
-      <div
-        v-if="isOnline && onlineGame.pendingLobbyReturn"
-        class="mb-4 rounded-2xl border border-teal-soft/35 bg-night-900/90 px-4 py-3 text-center"
-      >
-        <p class="text-sm font-medium text-teal-soft">
-          ルームがロビーに戻りました
-        </p>
-        <p class="mt-1 text-[11px] text-sand-dim">
-          誰かが「もう一度遊ぶ」を押しました。結果を見終わったらロビーへどうぞ。
-        </p>
-        <button
-          type="button"
-          class="btn-gold mt-3 w-full sm:max-w-xs"
-          @click="goToLobbyAfterRematch"
+        <!-- ========== 2. Mid: cards | calc (PC 2-col) ========== -->
+        <div
+          class="mb-4 grid gap-4 sm:mb-5 lg:grid-cols-2 lg:gap-5 lg:items-start"
         >
-          ロビーへ
-        </button>
+          <!-- Revealed cards -->
+          <section
+            class="rounded-2xl border border-gold-400/15 bg-night-900/55 px-3 py-3.5 sm:px-4 sm:py-4"
+            :class="
+              totalRevealDone &&
+              (marginTier === 'exact' || marginTier === 'clutch')
+                ? 'result-cards-pulse'
+                : ''
+            "
+          >
+            <div class="mb-2.5 flex items-baseline justify-between gap-2">
+              <h3 class="text-sm font-semibold text-gold-200">公開されたカード</h3>
+              <span class="text-[10px] text-sand-dim"
+                >{{ result.cards.length }} 枚</span
+              >
+            </div>
+
+            <ul
+              class="result-card-strip flex gap-2.5 overflow-x-auto pb-1 scrollbar-none sm:flex-wrap sm:overflow-visible"
+            >
+              <li
+                v-for="{ card, index } in visibleCardEntries"
+                :key="`${card.playerId}-${index}`"
+                class="result-card-item flex w-[4.5rem] shrink-0 flex-col items-center sm:w-[4.75rem]"
+                :class="[
+                  isCardVisible(index) || isFaceOpen(card, index)
+                    ? 'result-card-item--in'
+                    : 'result-card-item--wait',
+                  card.isSelf ? 'reveal-seat--self' : '',
+                  isZooming(card, index) ? 'redraw-open-slot--active z-30' : '',
+                ]"
+              >
+                <div
+                  class="mb-1 max-w-full truncate text-[10px] font-medium"
+                  :class="card.isSelf ? 'text-teal-soft' : 'text-sand-dim'"
+                >
+                  {{ card.isSelf ? 'あなた' : card.playerName }}
+                </div>
+
+                <!-- Redraw open uses continuous zoom dual-face -->
+                <div
+                  v-if="card.openedFromRedraw"
+                  class="redraw-open-zoom-slot"
+                >
+                  <div
+                    class="redraw-open-zoom"
+                    :class="isZooming(card, index) ? 'redraw-open-zoom--play' : ''"
+                  >
+                    <div
+                      class="redraw-open-faces"
+                      :class="
+                        isFaceOpen(card, index) ? 'redraw-open-faces--open' : ''
+                      "
+                    >
+                      <div class="redraw-open-faces__mystery">
+                        <RevealCardTile
+                          kind="redraw"
+                          label="?"
+                          :value="null"
+                          size="md"
+                          :revealed="true"
+                          emphasis="special"
+                          opened-from-redraw
+                          :face-open="false"
+                        />
+                      </div>
+                      <div class="redraw-open-faces__final">
+                        <RevealCardTile
+                          :kind="card.kind"
+                          :label="card.label"
+                          :value="card.value"
+                          size="md"
+                          :revealed="true"
+                          :emphasis="card.isSelf ? 'self' : 'special'"
+                          opened-from-redraw
+                          :face-open="true"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <RevealCardTile
+                  v-else
+                  :kind="card.kind"
+                  :label="card.label"
+                  :value="card.value"
+                  size="md"
+                  :revealed="isCardVisible(index)"
+                  :emphasis="cardEmphasis(card)"
+                />
+
+                <p
+                  v-if="card.openedFromRedraw"
+                  class="mt-1 text-[9px] font-semibold tracking-wide"
+                  :class="
+                    isFaceOpen(card, index) ? 'text-gold-200' : 'text-sand-dim'
+                  "
+                >
+                  {{ isFaceOpen(card, index) ? '？→' + card.label : '引き直し' }}
+                </p>
+                <p
+                  v-else-if="
+                    card.kind !== 'number' && card.kind !== 'zero_mix'
+                  "
+                  class="mt-1 text-[9px] text-sand-dim"
+                >
+                  特殊
+                </p>
+              </li>
+            </ul>
+
+            <button
+              v-if="hiddenCardCount > 0"
+              type="button"
+              class="btn-ghost btn-sm mt-2 w-full"
+              @click="showAllCards = true"
+            >
+              すべて見る（あと {{ hiddenCardCount }} 枚）
+            </button>
+            <button
+              v-else-if="
+                showAllCards && result.cards.length > CARD_COLLAPSE_AT
+              "
+              type="button"
+              class="btn-ghost btn-sm mt-2 w-full"
+              @click="showAllCards = false"
+            >
+              折りたたむ
+            </button>
+          </section>
+
+          <!-- Calculation summary -->
+          <section
+            class="rounded-2xl border border-gold-400/15 bg-night-900/55 px-3 py-3.5 sm:px-4 sm:py-4"
+            :class="[
+              hasWildReversal && totalRevealDone ? 'result-calc--reversal' : '',
+              !redrawOpensDone ? 'opacity-50' : '',
+            ]"
+          >
+            <h3 class="mb-2.5 text-sm font-semibold text-gold-200">
+              合計の計算
+            </h3>
+
+            <!-- Concise formula -->
+            <div
+              class="rounded-xl border border-gold-400/15 bg-night-950/50 px-3 py-3 text-center sm:px-4"
+            >
+              <p
+                v-if="calcSummary.terms.length"
+                class="font-display text-base font-semibold tabular-nums tracking-wide text-sand sm:text-lg"
+                :class="totalRevealDone ? 'opacity-100' : 'opacity-50'"
+              >
+                {{ calcSummary.terms.join('  ') }}
+              </p>
+              <p v-else class="text-sm text-sand-dim">数字カードなし</p>
+              <div
+                class="mx-auto my-2 h-px w-24 bg-gold-400/35 sm:w-32"
+                aria-hidden="true"
+              />
+              <p
+                class="font-display text-3xl font-bold tabular-nums text-gold-100 sm:text-4xl"
+                :class="[
+                  totalRevealDone ? 'total-slam' : 'opacity-40',
+                  totalRevealDone && hasWildReversal
+                    ? 'total-slam--reversal'
+                    : '',
+                ]"
+              >
+                {{
+                  totalRevealDone
+                    ? (displayTotal ?? result.finalTotal)
+                    : '—'
+                }}
+              </p>
+            </div>
+
+            <!-- Specials only when applied -->
+            <ul
+              v-if="totalRevealDone && calcSummary.specials.length"
+              class="mt-3 space-y-1.5"
+            >
+              <li
+                v-for="sp in calcSummary.specials"
+                :key="sp.id"
+                class="flex items-start gap-2 rounded-lg border border-violet-400/20 bg-violet-950/25 px-2.5 py-1.5 text-left"
+              >
+                <span
+                  class="shrink-0 rounded bg-violet-500/20 px-1.5 py-0.5 text-[10px] font-bold text-violet-200"
+                  >{{ sp.label }}</span
+                >
+                <span class="min-w-0 text-[11px] leading-snug text-sand-dim">{{
+                  sp.detail
+                }}</span>
+              </li>
+            </ul>
+            <p
+              v-else-if="totalRevealDone && hasWildReversal"
+              class="mt-2 text-center text-[11px] text-violet-300"
+            >
+              特殊札で勝敗が逆転しました
+            </p>
+
+            <!-- Details collapsible -->
+            <div class="mt-3 border-t border-gold-400/10 pt-2.5">
+              <button
+                type="button"
+                class="flex w-full items-center justify-between gap-2 rounded-lg px-1 py-1.5 text-left text-xs text-sand-dim transition hover:text-sand"
+                :aria-expanded="showCalcDetails"
+                @click="showCalcDetails = !showCalcDetails"
+              >
+                <span>計算の詳細を見る</span>
+                <span class="text-gold-300" aria-hidden="true">{{
+                  showCalcDetails ? '▲' : '▼'
+                }}</span>
+              </button>
+              <ol
+                v-if="showCalcDetails"
+                class="mt-2 space-y-2"
+              >
+                <li
+                  v-for="(step, i) in result.calcSteps"
+                  :key="step.id"
+                  class="calc-step calc-step--done opacity-100"
+                >
+                  <span class="calc-step__badge">{{ i + 1 }}</span>
+                  <div class="min-w-0 flex-1">
+                    <div class="text-sm font-medium text-sand">
+                      {{ step.title }}
+                    </div>
+                    <div class="mt-0.5 text-xs text-sand-dim">
+                      {{ step.detail }}
+                    </div>
+                  </div>
+                  <div
+                    v-if="step.totalAfter != null"
+                    class="shrink-0 self-center font-display text-lg font-bold tabular-nums text-gold-200"
+                  >
+                    {{ step.totalAfter }}
+                  </div>
+                </li>
+              </ol>
+            </div>
+          </section>
+        </div>
       </div>
 
-      <!-- Actions: single primary CTA only (no トップへ — easy mis-tap) -->
+      <!-- ========== 3. Actions (sticky footer) ========== -->
       <div
-        v-else
-        class="flex flex-col gap-3 sm:flex-row sm:justify-center"
+        class="result-actions z-20 shrink-0 border-t border-gold-400/15 bg-night-900/95 px-4 py-3 backdrop-blur-md safe-bottom sm:px-6 lg:px-8"
       >
-        <button
-          v-if="localMeta.isGameOver && !useMock"
-          type="button"
-          class="btn-gold w-full sm:max-w-xs"
-          @click="playAgain"
+        <div
+          v-if="isOnline && onlineGame.pendingLobbyReturn"
+          class="mx-auto max-w-lg text-center"
         >
-          もう一度遊ぶ
-        </button>
-        <button
+          <p class="text-sm font-medium text-teal-soft">
+            ルームがロビーに戻りました
+          </p>
+          <p class="mt-0.5 text-[11px] text-sand-dim">
+            結果を見終わったらロビーへどうぞ
+          </p>
+          <button
+            type="button"
+            class="btn-gold mt-2.5 w-full sm:mx-auto sm:max-w-xs"
+            @click="goToLobbyAfterRematch"
+          >
+            ロビーへ
+          </button>
+        </div>
+        <div
           v-else
-          type="button"
-          class="btn-gold w-full sm:max-w-xs"
-          @click="goNextRound"
+          class="mx-auto flex w-full max-w-lg flex-col gap-2 sm:flex-row sm:justify-center"
         >
-          次のラウンドへ
-        </button>
+          <button
+            v-if="localMeta.isGameOver && !useMock"
+            type="button"
+            class="btn-gold w-full sm:max-w-xs"
+            @click="playAgain"
+          >
+            もう一度遊ぶ
+          </button>
+          <button
+            v-else
+            type="button"
+            class="btn-gold w-full sm:max-w-xs"
+            :class="!totalRevealDone ? 'opacity-90' : ''"
+            @click="goNextRound"
+          >
+            次のラウンドへ
+          </button>
+        </div>
       </div>
     </div>
 
     <!-- Loading skeleton -->
     <div
       v-else
-      class="relative z-10 mx-auto flex w-full max-w-3xl min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-5 safe-bottom sm:py-6"
+      class="relative z-10 mx-auto flex w-full max-w-[1080px] min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-5 safe-bottom sm:px-6 sm:py-6"
       aria-busy="true"
       aria-label="結果を読み込み中"
     >
-      <div class="panel animate-pulse p-5 sm:p-6">
+      <div class="animate-pulse rounded-2xl border border-gold-400/15 bg-night-900/60 p-5 sm:p-6">
         <div class="mx-auto mb-3 h-3 w-24 rounded bg-gold-400/15" />
         <div class="mx-auto mb-4 h-8 w-48 rounded-lg bg-gold-400/20" />
-        <div class="mx-auto mb-6 h-3 w-64 max-w-full rounded bg-gold-400/10" />
-        <div class="flex justify-center gap-6">
+        <div class="mx-auto mb-6 flex justify-center gap-6">
           <div class="h-16 w-20 rounded-xl bg-night-800/80" />
           <div class="h-10 w-10 self-center rounded-full bg-night-800/60" />
           <div class="h-16 w-20 rounded-xl bg-night-800/80" />
-          <div class="h-16 w-16 rounded-xl bg-night-800/80" />
         </div>
+        <div class="mx-auto h-14 max-w-md rounded-xl bg-red-950/30" />
       </div>
-      <div class="panel animate-pulse p-4 sm:p-5">
-        <div class="mb-3 h-4 w-28 rounded bg-gold-400/15" />
-        <div class="space-y-2.5">
-          <div class="h-12 rounded-xl bg-night-800/60" />
-          <div class="h-12 rounded-xl bg-night-800/50" />
-          <div class="h-12 rounded-xl bg-night-800/40" />
+      <div class="grid gap-4 lg:grid-cols-2">
+        <div class="animate-pulse rounded-2xl border border-gold-400/10 bg-night-900/50 p-4">
+          <div class="mb-3 h-4 w-28 rounded bg-gold-400/15" />
+          <div class="flex gap-2">
+            <div class="h-16 w-14 rounded-lg bg-night-800/60" />
+            <div class="h-16 w-14 rounded-lg bg-night-800/50" />
+            <div class="h-16 w-14 rounded-lg bg-night-800/40" />
+          </div>
+        </div>
+        <div class="animate-pulse rounded-2xl border border-gold-400/10 bg-night-900/50 p-4">
+          <div class="mb-3 h-4 w-24 rounded bg-gold-400/15" />
+          <div class="h-20 rounded-xl bg-night-800/50" />
         </div>
       </div>
       <p class="text-center text-xs text-sand-dim">結果を読み込んでいます…</p>

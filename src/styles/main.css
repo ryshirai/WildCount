@@ -1069,6 +1069,15 @@
   .life-lost-panel--ko,
   .life-lost-panel--double,
   .life-lost-ko-label,
+  .life-lost-bar,
+  .life-lost-bar--ko,
+  .life-lost-bar--double,
+  .life-lost-bar--survived,
+  .life-heart-lost,
+  .result-compare__side--in,
+  .result-compare__op--in,
+  .result-title-in,
+  .result-card-item--in,
   .avatar-turn-ring,
   .avatar-turn-badge,
   .round-slam,
@@ -1486,6 +1495,127 @@
 
 .life-lost-heart {
   filter: drop-shadow(0 0 10px rgba(251, 113, 133, 0.55));
+}
+
+/* Compact life-loss row (result hero) */
+.life-lost-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  overflow: hidden;
+  border-radius: 0.875rem;
+  border: 1px solid rgba(248, 113, 113, 0.28);
+  background: linear-gradient(
+    90deg,
+    rgba(127, 29, 29, 0.28) 0%,
+    rgba(15, 23, 42, 0.55) 42%,
+    rgba(15, 23, 42, 0.4) 100%
+  );
+  padding: 0.65rem 0.85rem 0.65rem 0.75rem;
+  animation: life-lost-panel-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.life-lost-bar__accent {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  background: linear-gradient(
+    180deg,
+    rgba(251, 113, 133, 0.95),
+    rgba(185, 28, 28, 0.75)
+  );
+}
+
+.life-lost-bar--ko {
+  border-color: rgba(251, 113, 133, 0.45);
+  background: linear-gradient(
+    90deg,
+    rgba(127, 29, 29, 0.4) 0%,
+    rgba(15, 23, 42, 0.55) 50%,
+    rgba(15, 23, 42, 0.4) 100%
+  );
+}
+
+.life-lost-bar--double {
+  border-color: rgba(251, 191, 36, 0.35);
+}
+
+.life-lost-bar--survived {
+  border-color: rgba(94, 234, 212, 0.28);
+}
+
+@keyframes life-heart-lost {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+    filter: brightness(1.1);
+  }
+  55% {
+    opacity: 0.55;
+    transform: scale(0.72);
+  }
+  100% {
+    opacity: 0.55;
+    transform: scale(0.85);
+    filter: grayscale(0.35) brightness(0.9);
+  }
+}
+
+.life-heart-lost {
+  display: inline-block;
+  animation: life-heart-lost 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Bid vs total comparison entrance */
+@keyframes result-compare-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.result-compare__side--in {
+  animation: result-compare-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.result-compare__op--in {
+  animation: result-compare-in 0.35s 0.05s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.result-title-in {
+  animation: result-banner-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.result-card-item {
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.result-card-item--wait {
+  opacity: 0.35;
+  transform: translateY(6px);
+}
+
+.result-card-item--in {
+  opacity: 1;
+  transform: translateY(0);
+  animation: result-compare-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.result-card-strip {
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x proximity;
+}
+
+.result-card-strip > li {
+  scroll-snap-align: start;
 }
 
 /* Current-turn avatar pulse */

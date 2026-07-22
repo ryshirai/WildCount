@@ -352,3 +352,125 @@ export function cardRevealStaggerMs(tier: MarginTier): number {
   if (tier === 'exact' || tier === 'clutch') return 130
   return 100
 }
+
+// ---------------------------------------------------------------------------
+// Result screen — concise total summary (display-only)
+// ---------------------------------------------------------------------------
+
+export type CalcStepLike = {
+  id: string
+  title: string
+  detail: string
+  totalAfter?: number
+}
+
+export type SpecialEffectSummary = {
+  id: string
+  label: string
+  detail: string
+}
+
+export type SimpleCalcSummary = {
+  /** Terms for the main formula line, e.g. ["+2", "+1", "+5", "-5"] */
+  terms: string[]
+  /** Raw number sum after M→0 (from sum step), if known */
+  baseSum: number | null
+  /** Only specials that actually changed the total (or board) this round */
+  specials: SpecialEffectSummary[]
+}
+
+/**
+ * Operator between bid (left) and actual total (right).
+ * Coyote success (total < bid) → bid > total.
+ * Declaration holds (total ≥ bid) → bid ≤ total.
+ */
+export function comparisonOperator(bidderWins: boolean): '>' | '≤' {
+  return bidderWins ? '≤' : '>'
+}
+
+/** One-line reason for the bid vs total relation (no life copy). */
+export function comparisonReasonFor(opts: {
+  bidderWins: boolean
+  finalTotal: number
+  bidValue: number
+}): string {
+  if (opts.bidderWins) {
+    if (opts.finalTotal === opts.bidValue) {
+      return '実際の合計が宣言値と一致しました'
+    }
+    return '実際の合計が宣言値以上でした'
+  }
+  return '宣言値が実際の合計を超えました'
+}
+
+/**
+ * Build a concise formula + applied specials from engine calc steps.
+ * Falls back to empty terms when steps are missing.
+ */
+export function buildSimpleCalcSummary(
+  steps: readonly CalcStepLike[],
+): SimpleCalcSummary {
+  const sumStep = steps.find((s) => s.id === 'sum')
+  const terms = parseSumTerms(sumStep?.detail ?? '')
+  const baseSum =
+    typeof sumStep?.totalAfter === 'number' && Number.isFinite(sumStep.totalAfter)
+      ? sumStep.totalAfter
+      : null
+
+  const specials: SpecialEffectSummary[] = []
+
+  const maxStep = steps.find((s) => s.id === 'max_to_zero')
+  if (maxStep && isMaxToZeroApplied(maxStep.detail)) {
+    specials.push({
+      id: 'max_to_zero',
+      label: 'M→0',
+      detail: maxStep.detail,
+    })
+  }
+
+  for (const id of ['double', 'half', 'multiplier'] as const) {
+    const step = steps.find((s) => s.id === id)
+    if (!step || isSpecialNotApplied(step.detail)) continue
+    const label =
+      id === 'half' ? '1/2' : id === 'multiplier' ? '×2 / 1/2' : '×2'
+    specials.push({ id, label, detail: step.detail })
+  }
+
+  return { terms, baseSum, specials }
+}
+
+function isMaxToZeroApplied(detail: string): boolean {
+  if (!detail) return false
+  if (/出ません|変化なし/.test(detail)) return false
+  return true
+}
+
+function isSpecialNotApplied(detail: string): boolean {
+  return /出ませんでした|変化なし/.test(detail)
+}
+
+/** Split sum-step detail into display terms (left of `=`). */
+export function parseSumTerms(detail: string): string[] {
+  if (!detail || /数字なし/.test(detail)) return []
+  const left = detail.split('=')[0]?.trim() ?? ''
+  if (!left) return []
+  if (left === '0') return ['0']
+  // Engine joins with " + " (negatives already include their sign)
+  return left
+    .split(/\s+\+\s+/)
+    .map((t) => t.trim())
+    .filter(Boolean)
+}
+
+/**
+ * Loser's lives before this challenge, when after + loss are known.
+ * Returns null when livesAfter is unknown.
+ */
+export function livesBeforeLoss(
+  livesAfter: number | null | undefined,
+  lifeLoss: number,
+): number | null {
+  if (typeof livesAfter !== 'number' || !Number.isFinite(livesAfter)) return null
+  const loss = lifeLoss > 0 ? lifeLoss : 1
+  return Math.max(0, livesAfter + loss)
+}

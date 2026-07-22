@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildSimpleCalcSummary,
   cardRevealStaggerMs,
   classifyMargin,
   classifyRareTags,
+  comparisonOperator,
+  comparisonReasonFor,
   confettiDensityFor,
   COYOTE_SILENCE_MS,
   hasAffectingSpecials,
@@ -11,9 +14,11 @@ import {
   isSurvived,
   isWildReversal,
   LAST_SECOND_MS,
+  livesBeforeLoss,
   marginChipLabel,
   MAX_HEAT_BID_COUNT,
   naiveNumberSum,
+  parseSumTerms,
   preSlamHoldMs,
   PRE_SLAM_HOLD_CLUTCH_MS,
   PRE_SLAM_HOLD_MS,
@@ -299,5 +304,92 @@ describe('D3 rare tags / timing', () => {
     })
     expect(a).toBe(b)
     expect(a).toContain('result_verdict:')
+  })
+})
+
+describe('comparisonOperator / comparisonReasonFor', () => {
+  it('coyote success uses > (bid exceeds total)', () => {
+    expect(comparisonOperator(false)).toBe('>')
+    expect(
+      comparisonReasonFor({ bidderWins: false, finalTotal: 3, bidValue: 8 }),
+    ).toContain('超えました')
+  })
+
+  it('bidder holds uses ≤', () => {
+    expect(comparisonOperator(true)).toBe('≤')
+    expect(
+      comparisonReasonFor({ bidderWins: true, finalTotal: 20, bidValue: 18 }),
+    ).toContain('以上')
+    expect(
+      comparisonReasonFor({ bidderWins: true, finalTotal: 18, bidValue: 18 }),
+    ).toContain('一致')
+  })
+})
+
+describe('buildSimpleCalcSummary / parseSumTerms', () => {
+  it('parses sum terms and only applied specials', () => {
+    expect(parseSumTerms('-5 + 5 + 0 + 3 + 4 + 2 + 1 + 0 = 10')).toEqual([
+      '-5',
+      '5',
+      '0',
+      '3',
+      '4',
+      '2',
+      '1',
+      '0',
+    ])
+    const summary = buildSimpleCalcSummary([
+      {
+        id: 'max_to_zero',
+        title: 'M→0',
+        detail: 'いちばん大きいプラス 10 を 0 に（1 枚）',
+      },
+      {
+        id: 'sum',
+        title: '数字を足す',
+        detail: '-5 + 5 + 0 + 3 = 3',
+        totalAfter: 3,
+      },
+      {
+        id: 'double',
+        title: '×2',
+        detail: 'このラウンドでは出ませんでした',
+        totalAfter: 3,
+      },
+    ])
+    expect(summary.baseSum).toBe(3)
+    expect(summary.terms).toEqual(['-5', '5', '0', '3'])
+    expect(summary.specials.map((s) => s.id)).toEqual(['max_to_zero'])
+  })
+
+  it('omits max_to_zero when not on board', () => {
+    const summary = buildSimpleCalcSummary([
+      {
+        id: 'max_to_zero',
+        title: 'M→0',
+        detail: 'このラウンドでは出ませんでした',
+      },
+      {
+        id: 'sum',
+        title: '数字を足す',
+        detail: '+2 +1 = 3',
+        totalAfter: 3,
+      },
+      {
+        id: 'double',
+        title: '×2',
+        detail: '3 × 2（×2 が 1 枚）',
+        totalAfter: 6,
+      },
+    ])
+    expect(summary.specials.map((s) => s.label)).toEqual(['×2'])
+  })
+})
+
+describe('livesBeforeLoss', () => {
+  it('adds loss to after', () => {
+    expect(livesBeforeLoss(1, 1)).toBe(2)
+    expect(livesBeforeLoss(0, 2)).toBe(2)
+    expect(livesBeforeLoss(null, 1)).toBeNull()
   })
 })

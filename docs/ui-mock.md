@@ -20,7 +20,7 @@ npm run dev
 | 待機ロビー | オンライン: 参加者一覧が主役・最大10席・準備状態強調。PC: 横長コードヘッダ + 左参加者 / 右設定タグ+チャット（max ~1100px）。設定詳細・プロフィールはモーダル（インライン展開なし＝縦伸び防止）。開始理由表示・解散は危険アウトライン |
 | ゲーム画面（PC） | 楕円席 + 中央宣言 + 操作バー + 右レール（ログ/チャット）。`AppHeader` + テーブル felt（R5）。ヘッダは 設定/説明/退出 |
 | ゲーム画面（モバイル） | ヘッダ 1 本（設定/説明/退出）・カルーセル・特殊能力折りたたみ・ミニドック・チャット中も操作可（R4） |
-| 結果・カード公開 | スタッガー公開・特殊札・計算ステップ + 合計カウントアップ / 紙吹雪。`AppHeader` シェル（ルーム/ラウンドチップなし） |
+| 結果・カード公開 | 結果ヒーロー（成功/失敗 + 宣言 vs 合計 + ライフ変化）→ 公開カード｜合計式（詳細は折りたたみ）。PC `max-w-[1080px]` 2 カラム + 下固定 CTA。紙吹雪・短い結果演出 |
 | デザインシステム | `.field` / `btn-sm` / `chip-*` / `AppHeader` / `AppToast` / `AppConfirmDialog` / `StatusChip`（R0） |
 | マイクロ演出 | 宣言 FX・Coyote・Extra・ROUND・confetti・stamp float 等（CSS、`prefers-reduced-motion` 対応）+ SFX（D2）+ 触覚（D4、初期 OFF） |
 | ドラマ差（第3波） | 結果マージン（ジャスト/ギリギリ/大差）・脱落・自己視点コピー・札強調（self/特殊/極端）・初手/+5 宣言 cut-in |
@@ -58,7 +58,7 @@ npm run dev
 | ヘッダ | Lobby / Game / Result | `AppHeader`（同一 blur・border。Game は `compact` 可） |
 | safe-area | `safe-top` はヘッダ **または** 切断バナーのどちらか一方 | 二重 padding 禁止。下端 fixed / ボトムシートは `safe-bottom` |
 | `safe-x` / `safe-bottom` | 全画面ルート | ノッチ・ホームインジケータ |
-| max-width | Home SP `max-w-lg` · PC `max-w-[1080px]` 2 カラム / Lobby PC `max-w-[1100px]` 2 カラム（参加者｜設定+チャット） / Result `max-w-3xl` / Game full | |
+| max-width | Home SP `max-w-lg` · PC `max-w-[1080px]` 2 カラム / Lobby PC `max-w-[1100px]` 2 カラム（参加者｜設定+チャット） / Result `max-w-[1080px]`（ヒーロー + カード｜計算 + sticky CTA） / Game full | |
 
 共通クラス: `.panel` / `.btn-gold` / `.btn-teal` / `.btn-ghost` / `.btn-sm` / `.btn-icon` / `.btn-danger` / `.chip` / `.chip-teal|muted|danger|gold` / `.field` / `.field-label` / `.field-mono` / `.desert-bg` / `.seat-chip-*` / `.bid-chip` / `.game-table-felt`（PC 卓）
 
@@ -101,7 +101,7 @@ src/
 | Home | `AppLogo` / `AvatarPicker` / `StatusChip` / `AppToast` / `HelpModal` |
 | Lobby | `AppHeader` + sticky CTA / `DeckSettingsPanel` / `ExtraRulesPanel` / `TimeControlPanel` / `ChatPanel` |
 | Game | `GameHeader`（設定・説明メニュー + 退出）/ `PlayerCircle`+`PlayerSeat`+`SeatContent` / `MobilePlayerCarousel` / `CurrentBidDisplay` / `BidControls` / `EventLog` / `ChatPanel` / cut-ins |
-| Result | `AppHeader` / `RevealCardTile` / `FxConfetti` / 計算ステップ |
+| Result | `AppHeader` / 結果ヒーロー（数値比較・ライフバー）/ `RevealCardTile` 横並び / 簡潔な合計式 + 詳細折りたたみ / sticky CTA / `FxConfetti` |
 
 席表示の hand / status / bid は **`SeatContent`** に集約（PC 席と SP カルーセルで共有）。
 

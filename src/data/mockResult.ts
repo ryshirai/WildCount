@@ -162,4 +162,8 @@ export const mockResult: ResultMock = {
   lifeLostName: 'あなた',
   lifeLostAvatar: '🐻',
   lifeLostAvatarSrc: avatarSrc('self'),
+  lifeLoss: 1,
+  livesAfter: 2,
+  eliminated: false,
+  selfIsLoser: true,
 }
