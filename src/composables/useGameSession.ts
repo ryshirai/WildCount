@@ -880,7 +880,8 @@ export function useGameSession() {
         turnKey,
       })
       if (!dramaDeduper.tryConsume(eventId)) return
-      playSfx('turn_self')
+      // Noticeable “your turn” chime (unlocked path; policy respects mute/volume)
+      playSfx('turn_self', { gain: 1 })
       // D4: short pulse on own turn only (public turn state)
       playHaptic('turn_self')
     },

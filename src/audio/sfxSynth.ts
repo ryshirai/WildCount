@@ -101,11 +101,22 @@ export function scheduleSfx(id: SfxId, opts: SynthOpts): number {
       return 0.2
     }
     case 'turn_self': {
-      const a = envGain(ctx, dest, when, g * 0.32, 0.01, 0.12)
-      osc(ctx, 'sine', 523.25 * p, when, 0.14, a)
-      const b = envGain(ctx, dest, when + 0.09, g * 0.28, 0.01, 0.14)
-      osc(ctx, 'sine', 659.25 * p, when + 0.09, 0.16, b)
-      return 0.28
+      // Clear “your turn” attention chime — easy to notice without looking.
+      // Soft body thump + bright ascending C–E–G triad (distinct from bid_land).
+      const body = envGain(ctx, dest, when, g * 0.42, 0.005, 0.14)
+      osc(ctx, 'sine', 160 * p, when, 0.16, body)
+      playNoise(ctx, dest, when, 0.035, g * 0.07)
+      const notes = [523.25, 659.25, 783.99] // C5 E5 G5
+      notes.forEach((f, i) => {
+        const t = when + 0.05 + i * 0.11
+        const peak = g * (0.52 - i * 0.05)
+        const eg = envGain(ctx, dest, t, peak, 0.008, 0.22)
+        osc(ctx, 'sine', f * p, t, 0.24, eg)
+        // Octave harmonic for cut-through on phone speakers
+        const bright = envGain(ctx, dest, t, peak * 0.38, 0.004, 0.12)
+        osc(ctx, 'triangle', f * 2 * p, t, 0.12, bright)
+      })
+      return 0.48
     }
     case 'extra': {
       const eg = envGain(ctx, dest, when, g * 0.34, 0.006, 0.18)
