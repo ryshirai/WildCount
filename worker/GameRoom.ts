@@ -1314,9 +1314,6 @@ export class GameRoom {
       }
 
       // CHALLENGE
-      const handsSnapshot: Record<PlayerId, readonly Card[]> = {
-        ...room.game.hands,
-      }
       const challengedRound = room.game.round
       const challengerId = playerId
 
@@ -1331,9 +1328,10 @@ export class GameRoom {
         throw new Error('Challenge resolved without lastOutcome')
       }
 
+      // Post-`?` open hands (engine resolvedHands) for result reveal UI
       room.pendingResult = buildPendingResultSnapshot({
         outcome,
-        hands: handsSnapshot,
+        hands: outcome.resolvedHands,
         round: challengedRound,
         winnerId: room.game.winnerId,
         isGameOver: room.game.phase === 'game_over',
@@ -1675,9 +1673,6 @@ export class GameRoom {
       }
 
       if (decision.kind === 'challenge') {
-        const handsSnapshot: Record<PlayerId, readonly Card[]> = {
-          ...room.game.hands,
-        }
         const challengedRound = room.game.round
         room.game = applyAction(
           room.game,
@@ -1690,7 +1685,7 @@ export class GameRoom {
         }
         room.pendingResult = buildPendingResultSnapshot({
           outcome,
-          hands: handsSnapshot,
+          hands: outcome.resolvedHands,
           round: challengedRound,
           winnerId: room.game.winnerId,
           isGameOver: room.game.phase === 'game_over',

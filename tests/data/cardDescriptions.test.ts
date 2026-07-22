@@ -17,6 +17,7 @@ describe('describeCardFace', () => {
     expect(describeCardFace('1/2')?.effect).toMatch(/半分/)
     expect(describeCardFace('M→0')?.name).toContain('最大値')
     expect(describeCardFace('?')?.name).toContain('引き直し')
+    expect(describeCardFace('?')?.effect).toMatch(/オープン|チャレンジ/)
     expect(describeCardFace('0*')?.effect).toMatch(/山/)
   })
 

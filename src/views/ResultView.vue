@@ -175,16 +175,69 @@ const showVignette = ref(false)
 /** D3: hold beat after calc before slam */
 const holdingBeforeSlam = ref(false)
 
+/**
+ * `?` open sequence (before calc).
+ * Keys into result.cards that have openedFromRedraw and are face-open.
+ */
+const openFaceKeys = ref<Set<string>>(new Set())
+/**
+ * Card key mid single continuous zoom (1→3→1).
+ * One class for the whole motion — no rush/settle handoff (that caused jank).
+ */
+const zoomingKey = ref<string | null>(null)
+/** True after all ? opens finished (or none / skip) */
+const redrawOpensDone = ref(true)
+
 let stepTimers: ReturnType<typeof setTimeout>[] = []
 let holdTimer: ReturnType<typeof setTimeout> | null = null
+let openTimers: ReturnType<typeof setTimeout>[] = []
 let countRaf = 0
 const resultDeduper = getCoyoteSequenceDeduper()
 
 const STEP_INTERVAL_MS = 480
 const STEP_START_MS = 220
+/** Beat before first ? open */
+const REDRAW_OPEN_START_MS = 360
+/**
+ * Full zoom timeline (must match CSS `redraw-zoom-full` duration 1.6s).
+ * Peak hold ~22–55% ≈ 0.5s before shrink.
+ */
+const REDRAW_OPEN_TOTAL_MS = 1600
+/** Face crossfade just after arriving at peak (~24%) */
+const REDRAW_OPEN_FACE_MS = Math.round(REDRAW_OPEN_TOTAL_MS * 0.24)
+/** Gap between multiple ? opens */
+const REDRAW_OPEN_STAGGER_MS = REDRAW_OPEN_TOTAL_MS + 140
+/** Hold after last open before calc starts */
+const REDRAW_OPEN_HOLD_MS = 280
 /** Slightly longer count-up on exact / clutch for drama */
 const COUNT_UP_MS_BASE = 620
 const COUNT_UP_MS_SLOW = 820
+
+function cardKey(card: ResultMock['cards'][number], index: number): string {
+  return `${card.playerId}:${index}`
+}
+
+const redrawOpenCards = computed(() => {
+  const r = result.value
+  if (!r) return [] as Array<{ card: ResultMock['cards'][number]; index: number }>
+  return r.cards
+    .map((card, index) => ({ card, index }))
+    .filter(({ card }) => card.openedFromRedraw === true)
+})
+
+const hasRedrawOpens = computed(() => redrawOpenCards.value.length > 0)
+
+function isFaceOpen(card: ResultMock['cards'][number], index: number): boolean {
+  if (!card.openedFromRedraw) return true
+  return openFaceKeys.value.has(cardKey(card, index))
+}
+
+function isZooming(card: ResultMock['cards'][number], index: number): boolean {
+  return zoomingKey.value === cardKey(card, index)
+}
+
+/** Dim rest of screen while a ? is mid continuous zoom */
+const showRedrawScrim = computed(() => zoomingKey.value != null)
 
 const countUpMs = computed(() =>
   marginTier.value === 'exact' || marginTier.value === 'clutch'
@@ -211,14 +264,31 @@ function clearHoldTimer() {
   holdingBeforeSlam.value = false
 }
 
+function clearOpenTimers() {
+  for (const t of openTimers) clearTimeout(t)
+  openTimers = []
+  zoomingKey.value = null
+}
+
 function clearStepTimers() {
   for (const t of stepTimers) clearTimeout(t)
   stepTimers = []
   clearHoldTimer()
+  clearOpenTimers()
   if (countRaf) {
     cancelAnimationFrame(countRaf)
     countRaf = 0
   }
+}
+
+function snapAllRedrawFacesOpen() {
+  const keys = new Set<string>()
+  for (const { card, index } of redrawOpenCards.value) {
+    keys.add(cardKey(card, index))
+  }
+  openFaceKeys.value = keys
+  zoomingKey.value = null
+  redrawOpensDone.value = true
 }
 
 function playVerdictSfx() {
@@ -239,6 +309,7 @@ function playVerdictSfx() {
 /** Jump to final total + life UI (skip / remount / hidden). */
 function snapToFinalVerdict(playSfxOnReveal = false) {
   clearStepTimers()
+  snapAllRedrawFacesOpen()
   const r = result.value
   if (!r) return
   activeStepIndex.value = r.calcSteps.length
@@ -308,6 +379,100 @@ function onCalcDone() {
   }, holdMs)
 }
 
+/** Calc steps only (called after ? open sequence finishes). */
+function runCalcStepsOnly() {
+  clearStepTimers()
+  // clearStepTimers wipes open timers but keeps face-open state
+  const r = result.value
+  if (!r) return
+
+  activeStepIndex.value = -1
+  calcDone.value = false
+  showConfetti.value = false
+  showVignette.value = false
+  totalRevealDone.value = false
+  displayTotal.value = null
+  holdingBeforeSlam.value = false
+
+  const steps = r.calcSteps
+  if (steps.length === 0) {
+    onCalcDone()
+    return
+  }
+
+  for (let i = 0; i < steps.length; i++) {
+    const t = setTimeout(() => {
+      activeStepIndex.value = i
+    }, STEP_START_MS + i * STEP_INTERVAL_MS)
+    stepTimers.push(t)
+  }
+
+  const doneT = setTimeout(() => {
+    activeStepIndex.value = steps.length
+    onCalcDone()
+  }, STEP_START_MS + steps.length * STEP_INTERVAL_MS)
+  stepTimers.push(doneT)
+}
+
+/**
+ * Dedicated `?` open beat on the result screen (dopamine).
+ * One continuous zoom (1→3→1); face crossfades at peak — no class handoff.
+ */
+function runRedrawOpenSequence(then: () => void) {
+  clearOpenTimers()
+  openFaceKeys.value = new Set()
+  zoomingKey.value = null
+  redrawOpensDone.value = false
+
+  const targets = redrawOpenCards.value
+  if (targets.length === 0) {
+    redrawOpensDone.value = true
+    then()
+    return
+  }
+
+  if (prefersReducedMotion() || isTabHidden()) {
+    snapAllRedrawFacesOpen()
+    then()
+    return
+  }
+
+  let elapsed = REDRAW_OPEN_START_MS
+  for (const { card, index } of targets) {
+    const key = cardKey(card, index)
+    const atZoom = elapsed
+    const tZoom = setTimeout(() => {
+      zoomingKey.value = key
+      if (!isTabHidden()) {
+        playSfx('card_flip')
+        playHaptic('wild_call')
+      }
+      // Crossfade face at peak (opacity only — scale keeps running)
+      const tFace = setTimeout(() => {
+        const next = new Set(openFaceKeys.value)
+        next.add(key)
+        openFaceKeys.value = next
+      }, REDRAW_OPEN_FACE_MS)
+      openTimers.push(tFace)
+
+      const tEnd = setTimeout(() => {
+        if (zoomingKey.value === key) zoomingKey.value = null
+      }, REDRAW_OPEN_TOTAL_MS)
+      openTimers.push(tEnd)
+    }, atZoom)
+    openTimers.push(tZoom)
+    elapsed += REDRAW_OPEN_STAGGER_MS
+  }
+
+  const doneAt =
+    elapsed - REDRAW_OPEN_STAGGER_MS + REDRAW_OPEN_TOTAL_MS + REDRAW_OPEN_HOLD_MS
+  const tDone = setTimeout(() => {
+    snapAllRedrawFacesOpen()
+    then()
+  }, doneAt)
+  openTimers.push(tDone)
+}
+
 function runCalcSequence() {
   clearStepTimers()
   activeStepIndex.value = -1
@@ -317,6 +482,9 @@ function runCalcSequence() {
   totalRevealDone.value = false
   displayTotal.value = null
   holdingBeforeSlam.value = false
+  openFaceKeys.value = new Set()
+  zoomingKey.value = null
+  redrawOpensDone.value = !hasRedrawOpens.value
 
   const r = result.value
   if (!r) return
@@ -349,24 +517,10 @@ function runCalcSequence() {
     return
   }
 
-  const steps = r.calcSteps
-  if (steps.length === 0) {
-    onCalcDone()
-    return
-  }
-
-  for (let i = 0; i < steps.length; i++) {
-    const t = setTimeout(() => {
-      activeStepIndex.value = i
-    }, STEP_START_MS + i * STEP_INTERVAL_MS)
-    stepTimers.push(t)
-  }
-
-  const doneT = setTimeout(() => {
-    activeStepIndex.value = steps.length
-    onCalcDone()
-  }, STEP_START_MS + steps.length * STEP_INTERVAL_MS)
-  stepTimers.push(doneT)
+  // ? open first (if any), then calc steps
+  runRedrawOpenSequence(() => {
+    runCalcStepsOnly()
+  })
 }
 
 function stepClass(i: number) {
@@ -377,7 +531,7 @@ function stepClass(i: number) {
 }
 
 function skipCalc() {
-  // Skip → correct final total, win/loss, life (plan D3 acceptance)
+  // Skip opens + calc → correct final total, win/loss, life (plan D3 acceptance)
   snapToFinalVerdict(true)
 }
 
@@ -553,7 +707,7 @@ async function playAgain() {
     <AppHeader :sticky="false">
       <template #actions>
         <button
-          v-if="result && !calcDone"
+          v-if="result && (!calcDone || !redrawOpensDone)"
           type="button"
           class="btn-ghost btn-sm"
           @click="skipCalc"
@@ -809,10 +963,103 @@ async function playAgain() {
         </div>
       </section>
 
+      <!-- Dim rest of screen while ? zooms (opacity only — no mount/unmount flash) -->
+      <div
+        v-if="hasRedrawOpens && !redrawOpensDone"
+        class="redraw-open-scrim"
+        :class="{ 'is-on': showRedrawScrim }"
+        aria-hidden="true"
+      />
+
+      <!-- ? open hero (before calc) when any card was a redraw -->
+      <section
+        v-if="hasRedrawOpens"
+        class="panel redraw-open-panel mb-5 p-4 sm:mb-6 sm:p-5"
+        :class="!redrawOpensDone ? 'redraw-open-panel--live' : ''"
+        aria-live="polite"
+      >
+        <div class="mb-3 flex flex-wrap items-center justify-center gap-2">
+          <span
+            class="rounded-full border border-gold-400/40 bg-gold-400/10 px-2.5 py-0.5 text-[10px] font-bold tracking-[0.18em] text-gold-200"
+          >
+            ？ OPEN
+          </span>
+          <h3 class="text-sm font-semibold text-gold-200">引き直しカードをオープン</h3>
+        </div>
+        <p class="mb-4 text-center text-[11px] text-sand-dim">
+          チャレンジ後に山札から引き直した結果です
+        </p>
+        <ul class="flex flex-wrap items-end justify-center gap-4 sm:gap-6">
+          <li
+            v-for="{ card, index } in redrawOpenCards"
+            :key="`open-${card.playerId}-${index}`"
+            class="redraw-open-slot flex flex-col items-center"
+            :class="isZooming(card, index) ? 'redraw-open-slot--active' : ''"
+          >
+            <div
+              class="mb-1 max-w-[5.5rem] truncate text-[10px] font-medium"
+              :class="card.isSelf ? 'text-teal-soft' : 'text-sand-dim'"
+            >
+              {{ card.isSelf ? 'あなた' : card.playerName }}
+            </div>
+            <!--
+              One continuous zoom (1→3→1). Dual faces crossfade at peak so
+              the scale animation never restarts mid-flight.
+            -->
+            <div class="redraw-open-zoom-slot">
+              <div
+                class="redraw-open-zoom"
+                :class="isZooming(card, index) ? 'redraw-open-zoom--play' : ''"
+              >
+                <div
+                  class="redraw-open-faces"
+                  :class="isFaceOpen(card, index) ? 'redraw-open-faces--open' : ''"
+                >
+                  <div class="redraw-open-faces__mystery">
+                    <RevealCardTile
+                      kind="redraw"
+                      label="?"
+                      :value="null"
+                      size="lg"
+                      :revealed="true"
+                      emphasis="special"
+                      opened-from-redraw
+                      :face-open="false"
+                    />
+                  </div>
+                  <div class="redraw-open-faces__final">
+                    <RevealCardTile
+                      :kind="card.kind"
+                      :label="card.label"
+                      :value="card.value"
+                      size="lg"
+                      :revealed="true"
+                      :emphasis="card.isSelf ? 'self' : 'special'"
+                      opened-from-redraw
+                      :face-open="true"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+            <p
+              v-if="isFaceOpen(card, index)"
+              class="redraw-open-result mt-1.5 font-display text-xs font-bold text-gold-100"
+            >
+              {{ card.label }}
+            </p>
+            <p v-else class="mt-1.5 text-[10px] text-sand-dim">？？？</p>
+          </li>
+        </ul>
+      </section>
+
       <!-- Calculation steps (main animation on this screen) -->
       <section
         class="panel mb-5 p-4 sm:mb-6 sm:p-5"
-        :class="hasWildReversal && totalRevealDone ? 'result-calc--reversal' : ''"
+        :class="[
+          hasWildReversal && totalRevealDone ? 'result-calc--reversal' : '',
+          !redrawOpensDone ? 'opacity-50' : '',
+        ]"
       >
         <h3 class="mb-1 text-sm font-semibold text-gold-200">合計の出し方</h3>
         <p class="mb-3 text-[11px] text-sand-dim sm:mb-4">
@@ -914,6 +1161,8 @@ async function playAgain() {
               size="md"
               :revealed="true"
               :emphasis="cardEmphasis(card)"
+              :opened-from-redraw="card.openedFromRedraw === true"
+              :face-open="isFaceOpen(card, ci)"
             />
           </li>
         </ul>

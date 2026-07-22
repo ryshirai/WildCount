@@ -55,8 +55,8 @@ export interface StartLocalGameOptions {
 type RememberedStartOptions = StartLocalGameOptions
 
 /**
- * Pending challenge result kept after the engine auto-advances to the next round.
- * Policy: snapshot hands + round before CHALLENGE; map outcome after applyAction.
+ * Pending challenge result kept after the engine resolves a challenge.
+ * Policy: use outcome.resolvedHands (post-`?` open) + round; map after applyAction.
  * UI stays on the game screen until the player taps “結果を見る”.
  */
 export type PendingResult = ResultViewModel
@@ -251,9 +251,6 @@ export const useLocalGameStore = defineStore('localGame', () => {
       throw new Error(`Unexpected local action: ${action.type}`)
     }
 
-    const handsSnapshot: Record<PlayerId, readonly Card[]> = {
-      ...state.value.hands,
-    }
     const challengedRound = state.value.round
     const bidderId = state.value.currentBidderId
     const bid = state.value.currentBid
@@ -285,9 +282,10 @@ export const useLocalGameStore = defineStore('localGame', () => {
       pushSeparator('ゲーム終了')
     }
 
+    // Use post-`?` open hands from the outcome (engine resolvedHands)
     pendingResult.value = toResultView({
       outcome,
-      hands: handsSnapshot,
+      hands: outcome.resolvedHands,
       players: state.value.players,
       round: challengedRound,
       roomCode: roomCode.value,

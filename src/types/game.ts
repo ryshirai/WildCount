@@ -125,6 +125,11 @@ export interface RevealedCard {
   /** Label for display e.g. "+5", "×2", "M→0" */
   label: string
   isSelf: boolean
+  /**
+   * True when this face was obtained by opening a `?` at challenge resolve.
+   * Result UI shows `?` first, then a dedicated open animation.
+   */
+  openedFromRedraw?: boolean
 }
 
 export interface CalcStep {

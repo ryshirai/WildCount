@@ -24,14 +24,42 @@ const props = withDefaults(
     revealed?: boolean
     /** Drama emphasis (wave-3) */
     emphasis?: CardEmphasis
+    /**
+     * This face came from opening a `?`. While `faceOpen` is false, show
+     * the mystery `?` face; when true, play the open transition to `kind`.
+     */
+    openedFromRedraw?: boolean
+    /** Final face visible (default true for normal cards / skip). */
+    faceOpen?: boolean
+    /** Mid-open pulse (parent sets briefly while flipping). */
+    opening?: boolean
   }>(),
   {
     value: null,
     size: 'lg',
     revealed: true,
     emphasis: 'none',
+    openedFromRedraw: false,
+    faceOpen: true,
+    opening: false,
   },
 )
+
+/** Face shown right now — stay on `?` until faceOpen. */
+const displayKind = computed<CardKind>(() => {
+  if (props.openedFromRedraw && !props.faceOpen) return 'redraw'
+  return props.kind
+})
+
+const displayLabel = computed(() => {
+  if (props.openedFromRedraw && !props.faceOpen) return '?'
+  return props.label
+})
+
+const displayValue = computed(() => {
+  if (props.openedFromRedraw && !props.faceOpen) return null
+  return props.value
+})
 
 const sizeClass: Record<'md' | 'lg', string> = {
   md: 'h-[3.85rem] w-[2.95rem]',
@@ -40,18 +68,36 @@ const sizeClass: Record<'md' | 'lg', string> = {
 
 const isSpecial = computed(
   () =>
-    props.kind === 'double' ||
-    props.kind === 'max_to_zero' ||
-    props.kind === 'redraw' ||
-    props.kind === 'zero_mix' ||
-    props.kind === 'half',
+    displayKind.value === 'double' ||
+    displayKind.value === 'max_to_zero' ||
+    displayKind.value === 'redraw' ||
+    displayKind.value === 'zero_mix' ||
+    displayKind.value === 'half',
 )
 
 const resolvedEmphasis = computed<CardEmphasis>(() => {
   if (props.emphasis !== 'none') return props.emphasis
   if (isSpecial.value) return 'special'
-  if (props.kind === 'number' && isExtremeNumber(props.value)) return 'extreme'
+  if (displayKind.value === 'number' && isExtremeNumber(displayValue.value))
+    return 'extreme'
   return 'none'
+})
+
+/** Final face just opened from ? — extra sparkle burst */
+const justOpened = computed(
+  () => props.openedFromRedraw && props.faceOpen && props.revealed,
+)
+
+/**
+ * Flip-in / sparkle-ring set `animation` (incl. transform).
+ * That overrides --opening / --from-redraw later in the stylesheet —
+ * so never attach them during a ? open sequence.
+ */
+const entranceClass = computed(() => {
+  if (!props.revealed) return 'reveal-card--hidden'
+  if (props.openedFromRedraw || props.opening) return ''
+  if (isSpecial.value) return 'reveal-card--sparkle-ring'
+  return 'reveal-card--in'
 })
 </script>
 
@@ -60,43 +106,53 @@ const resolvedEmphasis = computed<CardEmphasis>(() => {
     class="reveal-card"
     :class="[
       sizeClass[size],
-      revealed
-        ? isSpecial
-          ? 'reveal-card--sparkle-ring'
-          : 'reveal-card--in'
-        : 'reveal-card--hidden',
-      kind === 'double' ? 'reveal-card--double' : '',
-      kind === 'max_to_zero' ? 'reveal-card--max0' : '',
-      kind === 'redraw' ? 'reveal-card--redraw' : '',
-      kind === 'zero_mix' ? 'reveal-card--zeromix' : '',
-      kind === 'number' ? 'reveal-card--number' : '',
+      entranceClass,
+      displayKind === 'double' ? 'reveal-card--double' : '',
+      displayKind === 'max_to_zero' ? 'reveal-card--max0' : '',
+      displayKind === 'redraw' ? 'reveal-card--redraw' : '',
+      displayKind === 'zero_mix' ? 'reveal-card--zeromix' : '',
+      displayKind === 'number' ? 'reveal-card--number' : '',
+      displayKind === 'half' ? 'reveal-card--double' : '',
       revealed && resolvedEmphasis === 'self' ? 'reveal-card--self' : '',
       revealed && resolvedEmphasis === 'extreme' ? 'reveal-card--extreme' : '',
       revealed &&
       (resolvedEmphasis === 'special' || isSpecial) &&
-      (kind === 'double' || kind === 'max_to_zero')
+      (displayKind === 'double' || displayKind === 'max_to_zero') &&
+      !openedFromRedraw
         ? 'reveal-card--impact'
         : '',
+      openedFromRedraw && !faceOpen && revealed && !opening
+        ? 'reveal-card--mystery-wait'
+        : '',
+      opening ? 'reveal-card--opening' : '',
+      justOpened && !opening ? 'reveal-card--from-redraw' : '',
     ]"
-    :title="label"
+    :title="displayLabel"
     role="img"
-    :aria-label="label"
+    :aria-label="
+      openedFromRedraw && !faceOpen
+        ? '引き直しカード（未オープン）'
+        : openedFromRedraw
+          ? `？からオープン: ${label}`
+          : label
+    "
   >
     <span class="reveal-card__sheen" aria-hidden="true" />
     <span class="reveal-card__pip reveal-card__pip--tl" aria-hidden="true" />
     <span class="reveal-card__pip reveal-card__pip--br" aria-hidden="true" />
+    <!-- Skip particle FX on ? open path — remount mid-zoom causes hitch -->
     <span
-      v-if="revealed && isSpecial"
+      v-if="revealed && isSpecial && !openedFromRedraw"
       class="reveal-sparkle"
       aria-hidden="true"
     />
     <FxSparkleBurst
-      v-if="revealed && isSpecial"
+      v-if="revealed && isSpecial && !openedFromRedraw"
       density="sm"
-      :palette="kind === 'double' ? 'mixed' : 'gold'"
+      :palette="displayKind === 'double' ? 'mixed' : 'gold'"
     />
     <!-- DOUBLE ×2 -->
-    <template v-if="kind === 'double'">
+    <template v-if="displayKind === 'double'">
       <svg class="reveal-card__glyph" viewBox="0 0 40 40" fill="none" aria-hidden="true">
         <circle cx="20" cy="20" r="15.5" stroke="currentColor" stroke-width="1.75" opacity="0.55" />
         <circle cx="20" cy="20" r="11" stroke="currentColor" stroke-width="1" opacity="0.3" />
@@ -105,8 +161,13 @@ const resolvedEmphasis = computed<CardEmphasis>(() => {
       <span class="reveal-card__badge">DBL</span>
     </template>
 
+    <!-- HALF 1/2 -->
+    <template v-else-if="displayKind === 'half'">
+      <span class="reveal-card__hero font-display">1/2</span>
+    </template>
+
     <!-- MAX → 0（2行: 小さな MAX + 大きな →0。1行 "MAX→0" は幅不足で潰れる） -->
-    <template v-else-if="kind === 'max_to_zero'">
+    <template v-else-if="displayKind === 'max_to_zero'">
       <svg
         class="reveal-card__glyph reveal-card__glyph--wide"
         viewBox="0 0 48 28"
@@ -139,8 +200,8 @@ const resolvedEmphasis = computed<CardEmphasis>(() => {
       </span>
     </template>
 
-    <!-- REDRAW ? -->
-    <template v-else-if="kind === 'redraw'">
+    <!-- REDRAW ? (including pre-open mystery) -->
+    <template v-else-if="displayKind === 'redraw'">
       <svg class="reveal-card__glyph" viewBox="0 0 40 40" fill="none" aria-hidden="true">
         <path
           d="M28 14.5a9 9 0 1 0 1.8 8.2"
@@ -151,10 +212,15 @@ const resolvedEmphasis = computed<CardEmphasis>(() => {
         <path d="M26.5 11.5 L30.5 16.5 L24.5 16.5 Z" fill="currentColor" />
       </svg>
       <span class="reveal-card__hero font-display">?</span>
+      <span
+        v-if="openedFromRedraw && !faceOpen"
+        class="reveal-card__badge"
+        >OPEN</span
+      >
     </template>
 
     <!-- 0 捨て札→山札IN（通常 0 と区別: 暗い特殊枠 + 循環矢印 + 山IN） -->
-    <template v-else-if="kind === 'zero_mix'">
+    <template v-else-if="displayKind === 'zero_mix'">
       <svg class="reveal-card__glyph" viewBox="0 0 40 40" fill="none" aria-hidden="true">
         <path
           d="M12 16c1.8-3.2 5.2-5.2 9-5.2 4.6 0 8.5 3 9.8 7.2"
@@ -182,11 +248,16 @@ const resolvedEmphasis = computed<CardEmphasis>(() => {
       <span
         class="reveal-card__hero font-display tabular-nums"
         :class="{
-          'text-rose-700': value != null && value < 0,
+          'text-rose-700': displayValue != null && displayValue < 0,
         }"
       >
-        {{ label }}
+        {{ displayLabel }}
       </span>
+      <span
+        v-if="openedFromRedraw && faceOpen"
+        class="reveal-card__badge reveal-card__badge--from-q"
+        >？→</span
+      >
     </template>
   </div>
 </template>

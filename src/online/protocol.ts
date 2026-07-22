@@ -165,6 +165,8 @@ export interface WireCard {
   kind: 'number' | 'double' | 'half' | 'max_to_zero' | 'redraw' | 'zero_mix'
   value?: number
   label: string
+  /** True when this face was opened from a `?` at challenge resolve. */
+  openedFromRedraw?: boolean
 }
 
 export interface MaskedSeat {

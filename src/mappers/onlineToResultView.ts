@@ -61,6 +61,7 @@ export function onlineToResultView(
         value: hand.value ?? null,
         label: hand.label,
         isSelf: playerId === selfId,
+        openedFromRedraw: hand.openedFromRedraw === true,
       })
     }
   }

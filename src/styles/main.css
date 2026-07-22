@@ -1155,6 +1155,212 @@
   }
 }
 
+/* ? open: sealed mystery pulse while waiting */
+@keyframes reveal-mystery-wait {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 0 rgba(201, 168, 76, 0.15),
+      0 2px 0 rgba(255, 255, 255, 0.12) inset,
+      0 8px 18px rgba(0, 0, 0, 0.4);
+    filter: brightness(1);
+  }
+  50% {
+    box-shadow:
+      0 0 22px 4px rgba(201, 168, 76, 0.35),
+      0 2px 0 rgba(255, 255, 255, 0.18) inset,
+      0 8px 22px rgba(0, 0, 0, 0.45);
+    filter: brightness(1.12);
+  }
+}
+
+.reveal-card--mystery-wait {
+  animation: reveal-mystery-wait 1.1s ease-in-out infinite;
+}
+
+/* Legacy hooks on the tile itself (glow only — scale is on .redraw-open-zoom) */
+.reveal-card--opening,
+.reveal-card--from-redraw {
+  position: relative;
+  z-index: 2;
+  filter: brightness(1.15);
+}
+
+.reveal-card__badge--from-q {
+  @apply tracking-[0.08em] text-night-800/80 opacity-90;
+}
+
+.redraw-open-panel {
+  overflow: visible;
+}
+
+.redraw-open-panel--live {
+  box-shadow:
+    0 0 0 1px rgba(201, 168, 76, 0.25),
+    0 0 36px rgba(201, 168, 76, 0.12);
+}
+
+.redraw-open-slot {
+  position: relative;
+  z-index: 0;
+  min-height: 6.5rem;
+  min-width: 4.5rem;
+  padding: 0.75rem 0.5rem 0.35rem;
+}
+
+.redraw-open-slot--active {
+  z-index: 6;
+}
+
+/* Holds list layout space while the card is position:fixed mid-zoom */
+.redraw-open-zoom-slot {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.65rem;
+  height: 5rem;
+}
+
+/* Scale lives on this wrapper so tile face animations cannot override it */
+.redraw-open-zoom {
+  display: inline-flex;
+  transform-origin: center center;
+  /* GPU layer; avoid filter/shadow animation (main jank sources) */
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: translateZ(0);
+}
+
+/*
+ * Single continuous timeline: 1 → ~3× → hold ~0.5s → 1.
+ * Duration 1.6s (must match REDRAW_OPEN_TOTAL_MS).
+ * 0–22% zoom in · 22–55% peak hold (~0.53s) · 55–100% settle.
+ * Face crossfade timed in JS near peak (REDRAW_OPEN_FACE_MS).
+ */
+@keyframes redraw-zoom-full {
+  0% {
+    transform: translate3d(-50%, -50%, 0) scale(1);
+  }
+  22% {
+    transform: translate3d(-50%, -53%, 0) scale(3);
+  }
+  /* Hold large so the open face is readable before shrink */
+  55% {
+    transform: translate3d(-50%, -53%, 0) scale(3);
+  }
+  100% {
+    transform: translate3d(-50%, -50%, 0) scale(1);
+  }
+}
+
+.redraw-open-zoom--play {
+  position: fixed;
+  left: 50%;
+  top: 46%;
+  z-index: 90;
+  margin: 0;
+  will-change: transform;
+  animation: redraw-zoom-full 1.6s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+/* Soft glow without animating box-shadow on the card itself */
+.redraw-open-zoom--play::before {
+  content: '';
+  position: absolute;
+  inset: -40%;
+  z-index: -1;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(250, 204, 21, 0.35) 0%,
+    rgba(250, 204, 21, 0) 68%
+  );
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+/* Stacked faces for crossfade (no hard cut mid-zoom) */
+.redraw-open-faces {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.redraw-open-faces > * {
+  grid-area: 1 / 1;
+  transition: opacity 0.14s linear;
+}
+
+.redraw-open-faces__mystery {
+  opacity: 1;
+  z-index: 1;
+}
+
+.redraw-open-faces__final {
+  opacity: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.redraw-open-faces--open .redraw-open-faces__mystery {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.redraw-open-faces--open .redraw-open-faces__final {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Dim the rest of the result while a ? is flying open */
+.redraw-open-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 85;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(12, 18, 28, 0.12) 0%,
+    rgba(8, 12, 20, 0.65) 72%
+  );
+  opacity: 0;
+  transition: opacity 0.28s ease;
+}
+
+.redraw-open-scrim.is-on {
+  opacity: 1;
+}
+
+.redraw-open-result {
+  animation: result-banner-in 0.35s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal-card--mystery-wait,
+  .reveal-card--opening,
+  .reveal-card--from-redraw,
+  .redraw-open-zoom--play {
+    animation: none !important;
+  }
+
+  .redraw-open-zoom--play {
+    position: relative;
+    left: auto;
+    top: auto;
+    transform: none;
+    will-change: auto;
+  }
+
+  .redraw-open-faces > * {
+    transition: none;
+  }
+
+  .redraw-open-scrim {
+    transition: none;
+  }
+}
+
 /* Verdict / life-loss entrance */
 @keyframes result-banner-in {
   from {

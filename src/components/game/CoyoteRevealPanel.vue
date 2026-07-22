@@ -22,6 +22,8 @@ withDefaults(
 )
 
 function cardEmphasis(card: RevealedCard) {
+  // Still sealed as ? on this panel — open drama is on ResultView
+  if (card.openedFromRedraw) return 'special' as const
   if (card.isSelf) return 'self' as const
   if (
     card.kind === 'double' ||
@@ -36,6 +38,19 @@ function cardEmphasis(card: RevealedCard) {
     return 'extreme' as const
   }
   return 'none' as const
+}
+
+/** Coyote panel keeps ? sealed; ResultView runs the open animation. */
+function tileKind(card: RevealedCard) {
+  return card.openedFromRedraw ? ('redraw' as const) : card.kind
+}
+
+function tileLabel(card: RevealedCard) {
+  return card.openedFromRedraw ? '?' : card.label
+}
+
+function tileValue(card: RevealedCard) {
+  return card.openedFromRedraw ? null : card.value
 }
 
 const emit = defineEmits<{
@@ -138,12 +153,14 @@ const emit = defineEmits<{
             {{ card.isSelf ? 'あなたの札' : card.playerName }}
           </div>
           <RevealCardTile
-            :kind="card.kind"
-            :label="card.label"
-            :value="card.value"
+            :kind="tileKind(card)"
+            :label="tileLabel(card)"
+            :value="tileValue(card)"
             size="md"
             :revealed="i < revealedCount"
             :emphasis="cardEmphasis(card)"
+            :opened-from-redraw="card.openedFromRedraw === true"
+            :face-open="false"
           />
         </li>
       </ul>

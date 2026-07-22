@@ -63,7 +63,7 @@ export const HELP_SPECIALS: readonly HelpSpecialCard[] = [
     kind: 'redraw',
     name: '引き直し',
     effect:
-      '配られた瞬間に捨てて、山札から別の1枚を引き直します。最終的な手札には残りません。',
+      '場に「？」のまま残ります。コヨーテ（チャレンジ）のあと、結果画面で専用演出とともに山札から1枚オープンし、その札が合計に使われます。',
     count: 1,
   },
   {

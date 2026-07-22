@@ -28,6 +28,8 @@ export interface WireCard {
   kind: Card['kind']
   value?: number
   label: string
+  /** True when this face was opened from a `?` at challenge resolve. */
+  openedFromRedraw?: boolean
 }
 
 export interface MaskedSeat {
@@ -106,12 +108,16 @@ export interface PendingResultSnapshot {
   loserId: string
 }
 
-export function cardToWire(card: Card): WireCard {
+export function cardToWire(
+  card: Card,
+  opts?: { openedFromRedraw?: boolean },
+): WireCard {
   return {
     id: card.id,
     kind: card.kind,
     value: card.value,
     label: cardLabel(card),
+    ...(opts?.openedFromRedraw ? { openedFromRedraw: true } : {}),
   }
 }
 
@@ -219,9 +225,12 @@ export function buildPendingResultSnapshot(args: {
   winnerId: string | null
   isGameOver: boolean
 }): PendingResultSnapshot {
+  const opened = new Set(args.outcome.openedFromRedrawIds ?? [])
   const hands: Record<string, WireCard[]> = {}
   for (const [id, cards] of Object.entries(args.hands)) {
-    hands[id] = cards.map(cardToWire)
+    hands[id] = cards.map((c) =>
+      cardToWire(c, { openedFromRedraw: opened.has(c.id) }),
+    )
   }
   return {
     round: args.round,

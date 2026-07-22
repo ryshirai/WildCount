@@ -87,6 +87,8 @@ describe('toResultView', () => {
       bidderId: 'bot1',
       challengerId: SELF_ID,
       lifeLoss: 1,
+      resolvedHands: {},
+      openedFromRedrawIds: [],
     }
 
     const hands = {
@@ -137,6 +139,8 @@ describe('toResultView', () => {
       bidderId: 'bot1',
       challengerId: SELF_ID,
       lifeLoss: 1,
+      resolvedHands: {},
+      openedFromRedrawIds: [],
     }
 
     const players: Player[] = [
@@ -184,6 +188,8 @@ describe('toResultView', () => {
       bidderId: 'bot1',
       challengerId: SELF_ID,
       lifeLoss: 1,
+      resolvedHands: {},
+      openedFromRedrawIds: [],
     }
 
     const vm = toResultView({
@@ -224,6 +230,8 @@ describe('toResultView', () => {
       bidderId: 'bot1',
       challengerId: SELF_ID,
       lifeLoss: 2,
+      resolvedHands: {},
+      openedFromRedrawIds: [],
     }
 
     const vm = toResultView({
@@ -241,5 +249,59 @@ describe('toResultView', () => {
     })
 
     expect(vm.lifeLoss).toBe(2)
+  })
+
+  it('flags cards opened from ? and prefers resolvedHands', () => {
+    const replacement = { id: 'rep1', kind: 'number' as const, value: 10 }
+    const outcome: ChallengeOutcome = {
+      bid: 5,
+      actualTotal: 10,
+      calculation: {
+        steps: [
+          { id: 'redraw_open', title: '？オープン', detail: '？→+10' },
+          { id: 's1', title: '合計', detail: '10', totalAfter: 10 },
+        ],
+        finalTotal: 10,
+        adjustedCards: [],
+        doubleCount: 0,
+        halfCount: 0,
+        maxToZeroApplied: false,
+        rawNumberSum: 10,
+      },
+      bidderWins: true,
+      loserRole: 'challenger',
+      loserId: SELF_ID,
+      bidderId: 'bot1',
+      challengerId: SELF_ID,
+      lifeLoss: 1,
+      resolvedHands: {
+        [SELF_ID]: [replacement],
+        bot1: [{ id: 'c2', kind: 'number', value: 0 }],
+      },
+      openedFromRedrawIds: ['rep1'],
+    }
+
+    const vm = toResultView({
+      outcome,
+      // Stale pre-open hands must not win over resolvedHands
+      hands: {
+        [SELF_ID]: [{ id: 'q1', kind: 'redraw' }],
+        bot1: [{ id: 'c2', kind: 'number', value: 0 }],
+      },
+      players: [
+        { id: SELF_ID, seatIndex: 0, lives: 2, alive: true },
+        { id: 'bot1', seatIndex: 1, lives: 3, alive: true },
+      ],
+      round: 1,
+      profiles: DEFAULT_PROFILES,
+    })
+
+    const self = vm.cards.find((c) => c.playerId === SELF_ID)!
+    expect(self.kind).toBe('number')
+    expect(self.value).toBe(10)
+    expect(self.openedFromRedraw).toBe(true)
+    expect(vm.cards.find((c) => c.playerId === 'bot1')!.openedFromRedraw).toBe(
+      false,
+    )
   })
 })

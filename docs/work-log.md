@@ -4561,3 +4561,97 @@
 1. 実機/ブラウザで 4〜10 人卓の席密度を確認し、必要なら半径・scale 微調整
 2. 結果画面・ロビーを同トーンで揃える
 3. モバイルの宣言パネルと操作ドックの縦余白を実機で詰める
+
+---
+
+## 2026-07-22 — ？カード遅延オープン（リザルト専用演出）
+
+### 背景・目的
+- 引き直し `?` が配札時に即解決され、場に出ず面白みがなかった
+- チャレンジ後のリザルトで専用オープン演出を入れ、ドーパミン要素にする
+
+### 実施内容
+1. **ルール変更（エンジン）**
+   - 配札 / ドロー1: `?` を手札に残す（他プレイヤーには `?` として見える）
+   - チャレンジ解決時に `?` を捨てて山札から非 redraw を引き、合計に使う
+   - ネストした `?` はオープン時に連続解決（演出は最終面 1 回）
+   - `ChallengeOutcome` に `resolvedHands` / `openedFromRedrawIds` を付与
+   - 計算ステップ先頭に `？オープン` を追加
+2. **同期・マッパー**
+   - local / Worker の結果スナップショットは `outcome.resolvedHands` を使用
+   - WireCard / RevealedCard に `openedFromRedraw`
+3. **UI 演出**
+   - コヨーテ公開パネル: `?` は未オープンのまま表示
+   - リザルト: 「？ OPEN」セクションでパルス → フリップ → 最終面 + スパークル
+   - スキップ / reduced-motion / タブ非表示は最終状態へ収束
+4. **ドキュメント・ヘルプ・モック** を新ルールに合わせて更新
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `src/domain/game/engine.ts` / `types.ts` / `resolve.ts` / `calculate.ts` | 遅延オープン |
+| `src/mappers/toResultView.ts` / `onlineToResultView.ts` | openedFromRedraw |
+| `src/stores/localGame.ts` / `worker/GameRoom.ts` / `worker/maskedView.ts` | resolvedHands 利用 |
+| `src/views/ResultView.vue` / `RevealCardTile.vue` / `CoyoteRevealPanel.vue` | オープン演出 |
+| `src/styles/main.css` | mystery / opening / from-redraw アニメ |
+| `docs/game-rules.md` / `card-design.md` / `extra-rules.md` / help | 仕様文言 |
+
+### 明示的にやっていないこと
+- ネスト `?` の多段オープン演出（最終面 1 回のみ）
+- 専用 SFX 波形の新規追加（既存 `card_flip` / haptic `wild_call` を再利用）
+- Playwright E2E
+
+### 確認結果
+- `npm test` 全 282 テスト成功
+- `npm run build` 成功
+
+### 次に考えられる作業
+1. 実プレイで `?` の出現頻度と演出尺を調整
+2. オープン時専用 SFX の追加
+3. mock 結果画面（`?mock=1`）でオープン演出を目視確認
+
+---
+
+## 2026-07-22 — ？オープン演出を「拡大→オープン」に
+
+### 実施内容
+- フリップ中心から、カメラに向かって拡大 → ピークで面オープン → 着地、に変更
+- タイミングを CSS 尺に同期（zoom 480ms / settle 720ms）
+- パネル `overflow: visible` + スロット z-index で拡大が切れないように
+
+### 確認結果
+- `npm run build` 成功
+
+---
+
+## 2026-07-22 — ？オープン拡大を約3倍に
+
+- peak scale `1.72` → `3`（phase1/2 同期）
+- スロット余白を拡大に合わせて広げた
+
+---
+
+## 2026-07-22 — ？拡大が効かない不具合修正
+
+### 原因
+- `.reveal-card--sparkle-ring` が後勝ちで `animation` を上書きし、拡大キーフレームが無効化されていた
+- 親の `overflow-y-auto` で 3× がクリップされる可能性
+
+### 対応
+- `?` オープン中は flip/sparkle 入場アニメを付けない
+- 拡大は `.redraw-open-zoom` ラッパーに分離（`position: fixed` + `scale(3)`）
+- 画面中央ステージ + 薄いスクリム
+
+---
+
+## 2026-07-22 — ？オープンのカクつき改善
+
+### 原因
+- rush → settle の2段 `animation` 切替で手ブレ
+- `filter` / `box-shadow` アニメと面差し替え・パーティクル再マウント
+
+### 対応
+- 1本の `redraw-zoom-full`（transform + translate3d のみ、1.15s）
+- ピークで二重面の opacity クロスフェード
+- スクリムは mount/unmount せず opacity のみ
+- オープン中は sparkle パーティクルを抑制

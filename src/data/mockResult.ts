@@ -92,10 +92,12 @@ export const mockResult: ResultMock = {
       playerName: 'あなた',
       avatar: '🐻',
       avatarSrc: avatarSrc('self'),
+      // Demo: was `?` → opened to +2 on result screen
       kind: 'number',
       value: 2,
       label: '+2',
       isSelf: true,
+      openedFromRedraw: true,
     },
     {
       playerId: 'p9',
@@ -119,6 +121,11 @@ export const mockResult: ResultMock = {
     },
   ],
   calcSteps: [
+    {
+      id: 'redraw_open',
+      title: '？オープン',
+      detail: '？→+2（あなた）',
+    },
     {
       id: 's1',
       title: '1. 場のカード',

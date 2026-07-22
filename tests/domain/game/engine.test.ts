@@ -159,6 +159,76 @@ describe('startGame / bidding', () => {
     expect(Object.keys(state.hands).length).toBeGreaterThanOrEqual(2)
   })
 
+  it('keeps ? in hand on deal and opens it on challenge', () => {
+    // Composition: one redraw + numbers so deal can place ?
+    const composition = {
+      id: 'redraw-test',
+      numbers: [
+        { value: 5, count: 2 },
+        { value: 3, count: 1 },
+      ],
+      specials: {
+        double: 0,
+        half: 0,
+        max_to_zero: 0,
+        redraw: 1,
+        zero_mix: 0,
+      },
+    }
+
+    // Search seeds until someone is dealt ?
+    let state: GameState | null = null
+    let redrawHolder: string | null = null
+    for (let seed = 0; seed < 200; seed++) {
+      const s = startGame(
+        {
+          playerIds: ['a', 'b'],
+          config: { initialLives: 3, deck: composition },
+        },
+        seedRandom(seed),
+      )
+      const holder = Object.entries(s.hands).find(([, h]) =>
+        h.some((c) => c.kind === 'redraw'),
+      )
+      if (holder) {
+        state = s
+        redrawHolder = holder[0]
+        break
+      }
+    }
+    expect(state).not.toBeNull()
+    expect(redrawHolder).toBeTruthy()
+    const before = state!
+
+    // ? is visible in hand during bidding
+    expect(
+      before.hands[redrawHolder!]!.some((c) => c.kind === 'redraw'),
+    ).toBe(true)
+
+    let s = applyAction(before, { type: 'PLACE_BID', value: 1 }, seedRandom(1))
+    s = applyAction(s, { type: 'CHALLENGE' }, seedRandom(2))
+
+    const outcome = s.lastOutcome!
+    expect(outcome.openedFromRedrawIds.length).toBeGreaterThanOrEqual(1)
+    // Resolved face is never still a redraw
+    for (const hand of Object.values(outcome.resolvedHands)) {
+      for (const c of hand) {
+        expect(c.kind).not.toBe('redraw')
+      }
+    }
+    // Replacement id is in resolvedHands
+    const allIds = Object.values(outcome.resolvedHands)
+      .flat()
+      .map((c) => c.id)
+    for (const id of outcome.openedFromRedrawIds) {
+      expect(allIds).toContain(id)
+    }
+    // Calc includes open step
+    expect(outcome.calculation.steps.some((st) => st.id === 'redraw_open')).toBe(
+      true,
+    )
+  })
+
   it('forceEliminatePlayer ends match on first elimination (default)', () => {
     const rng = seedRandom(3)
     let state = startGame(

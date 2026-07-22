@@ -1,4 +1,5 @@
 import {
+  cardLabel,
   createDeck,
   resolveDeckComposition,
   shuffle,
@@ -326,7 +327,8 @@ function doPlaceBid(
       }
       case 'draw1': {
         draw1UsedThisRound = true
-        const drawn = drawResolvingRedraw(deck.slice(), discard.slice(), rng)
+        // Keep `?` in hand — opened at challenge (same as deal).
+        const drawn = drawOneCard(deck.slice(), discard.slice(), rng)
         deck = drawn.deck
         discard = drawn.discard
         let card = drawn.card
@@ -433,7 +435,7 @@ function doChange(state: GameState): GameState {
   }
 }
 
-function doChallenge(state: GameState, _rng: RandomSource): GameState {
+function doChallenge(state: GameState, rng: RandomSource): GameState {
   const err = describeIllegal(state, { type: 'CHALLENGE' })
   if (err) throw new GameError(err, 'INVALID_ACTION')
 
@@ -442,9 +444,16 @@ function doChallenge(state: GameState, _rng: RandomSource): GameState {
   const bid = state.currentBid!
   const lifeLoss = state.pendingLifeDouble ? 2 : 1
 
-  // Resolve with all cards currently in hands
-  const cards = allHandCards(state.hands)
-  const outcome = resolveChallenge({
+  // Open any `?` (redraw) still in hands before calculating the total.
+  const opened = openRedrawsInHands(
+    state.hands,
+    state.deck,
+    state.discard,
+    state.players,
+    rng,
+  )
+  const cards = allHandCards(opened.hands)
+  let outcome = resolveChallenge({
     cards,
     bid,
     bidderId,
@@ -452,11 +461,34 @@ function doChallenge(state: GameState, _rng: RandomSource): GameState {
     lifeLoss,
   })
 
+  // Attach resolve metadata + optional calc step for result UI / dopamine open.
+  if (opened.openLabels.length > 0) {
+    outcome = {
+      ...outcome,
+      calculation: {
+        ...outcome.calculation,
+        steps: [
+          {
+            id: 'redraw_open',
+            title: '？オープン',
+            detail: opened.openLabels.join(' · '),
+          },
+          ...outcome.calculation.steps,
+        ],
+      },
+    }
+  }
+  outcome = {
+    ...outcome,
+    resolvedHands: opened.hands,
+    openedFromRedrawIds: opened.openedFromRedrawIds,
+  }
+
   const players = applyLifeLoss(state.players, outcome.loserId, lifeLoss)
   const end = evaluateGameEnd(players, state.config.winCondition)
 
-  // Spent hands → discard after reveal
-  const discard = [...state.discard, ...cards]
+  // Spent hands → discard after reveal (redraw cards already in opened.discard)
+  const discard = [...opened.discard, ...cards]
 
   if (end.gameOver) {
     return {
@@ -464,6 +496,7 @@ function doChallenge(state: GameState, _rng: RandomSource): GameState {
       phase: 'game_over',
       players,
       hands: {},
+      deck: opened.deck,
       discard,
       lastOutcome: outcome,
       winnerId: end.winnerId,
@@ -484,6 +517,7 @@ function doChallenge(state: GameState, _rng: RandomSource): GameState {
     phase: 'round_end',
     players,
     hands: {},
+    deck: opened.deck,
     discard,
     lastOutcome: outcome,
     currentBid: null,
@@ -579,11 +613,11 @@ export function forceEliminatePlayer(
 // ---------------------------------------------------------------------------
 
 /**
- * Deal one card to each living player, handling REDRAW / ZERO_MIX.
+ * Deal one card to each living player, handling ZERO_MIX (and keeping REDRAW).
  *
- * Assumptions (documented for Phase 0; see work-log):
- * - REDRAW (?): on deal, discard the ? and draw again until a non-redraw card
- *   (or deck exhaustion error). The ? never stays in hand.
+ * - REDRAW (?): stays in hand as `?`. Opened at challenge resolve (result UI
+ *   plays a dedicated open animation). Nested `?` drawn as the replacement
+ *   are resolved immediately into a non-redraw face at open time.
  * - ZERO_MIX (捨て札ミックス0): after being dealt into a hand, discard pile
  *   is shuffled back into the deck (山札リセット). Card stays as value 0.
  */
@@ -605,7 +639,7 @@ function dealAndEnterBidding(
   const ordered = [...living].sort((a, b) => a.seatIndex - b.seatIndex)
 
   for (const player of ordered) {
-    const drawn = drawResolvingRedraw(deck, discard, rng)
+    const drawn = drawOneCard(deck, discard, rng)
     deck = drawn.deck
     discard = drawn.discard
     let card = drawn.card
@@ -649,9 +683,33 @@ function pickStartPlayer(living: Player[], preferredSeat: number): Player {
 }
 
 /**
- * Draw one playable card. REDRAW cards are discarded and replaced.
+ * Draw one card as-is (including `?` redraw). Used for deal / draw1.
  * If the draw pile is empty, discard is shuffled back in.
  * If still empty after that → DECK_EXHAUSTED.
+ */
+function drawOneCard(
+  deck: Card[],
+  discard: Card[],
+  rng: RandomSource,
+): { card: Card; deck: Card[]; discard: Card[] } {
+  const filled = ensureDeckHasCards(deck, discard, rng)
+  const d = filled.deck
+  const disc = filled.discard
+
+  if (d.length === 0) {
+    throw new GameError(
+      'Deck exhausted: no cards left to draw after reshuffling discard',
+      'DECK_EXHAUSTED',
+    )
+  }
+
+  const card = d[d.length - 1]!
+  return { card, deck: d.slice(0, -1), discard: disc }
+}
+
+/**
+ * Draw one non-redraw card. Nested `?` cards are discarded and replaced.
+ * Used only when opening a `?` at challenge time.
  */
 function drawResolvingRedraw(
   deck: Card[],
@@ -679,7 +737,7 @@ function drawResolvingRedraw(
     d = d.slice(0, -1)
 
     if (card.kind === 'redraw') {
-      // Assumption: redraw is discarded immediately; draw again.
+      // Nested ?: discard and draw again (one open animation → final face).
       disc = [...disc, card]
       continue
     }
@@ -691,6 +749,78 @@ function drawResolvingRedraw(
     'Deck exhausted: only REDRAW cards remaining',
     'DECK_EXHAUSTED',
   )
+}
+
+/**
+ * Replace every `?` in hands with a non-redraw draw (seat order, hand order).
+ * Nested redraws are resolved immediately into the final face.
+ */
+function openRedrawsInHands(
+  hands: Readonly<Record<PlayerId, readonly Card[]>>,
+  deck: readonly Card[],
+  discard: readonly Card[],
+  players: readonly Player[],
+  rng: RandomSource,
+): {
+  hands: Record<PlayerId, Card[]>
+  deck: Card[]
+  discard: Card[]
+  openedFromRedrawIds: string[]
+  openLabels: string[]
+} {
+  let d = deck.slice()
+  let disc = discard.slice()
+  const openedFromRedrawIds: string[] = []
+  const openLabels: string[] = []
+  const newHands: Record<PlayerId, Card[]> = {}
+
+  const ordered = [...players].sort((a, b) => a.seatIndex - b.seatIndex)
+  const seen = new Set<PlayerId>()
+
+  for (const player of ordered) {
+    seen.add(player.id)
+    const hand = hands[player.id]
+    if (!hand || hand.length === 0) continue
+
+    const out: Card[] = []
+    for (const card of hand) {
+      if (card.kind !== 'redraw') {
+        out.push(card)
+        continue
+      }
+
+      disc = [...disc, card]
+      const drawn = drawResolvingRedraw(d, disc, rng)
+      d = drawn.deck
+      disc = drawn.discard
+      let replacement = drawn.card
+
+      // ZERO_MIX drawn as the open result: reshuffle discard into deck
+      if (replacement.kind === 'zero_mix' && disc.length > 0) {
+        d = shuffle([...d, ...disc], rng)
+        disc = []
+      }
+
+      out.push(replacement)
+      openedFromRedrawIds.push(replacement.id)
+      openLabels.push(`？→${cardLabel(replacement)}`)
+    }
+    if (out.length > 0) newHands[player.id] = out
+  }
+
+  // Hands for players not in `players` (should not happen) — copy as-is
+  for (const [id, hand] of Object.entries(hands)) {
+    if (seen.has(id)) continue
+    if (hand.length > 0) newHands[id] = hand.slice()
+  }
+
+  return {
+    hands: newHands,
+    deck: d,
+    discard: disc,
+    openedFromRedrawIds,
+    openLabels,
+  }
 }
 
 /** Safety bound for redraw loops (deck is small). */

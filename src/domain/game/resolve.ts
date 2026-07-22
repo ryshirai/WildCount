@@ -39,6 +39,9 @@ export function resolveChallenge(args: {
     bidderId: args.bidderId,
     challengerId: args.challengerId,
     lifeLoss,
+    // Engine fills these after `?` open; pure calc path uses empty defaults.
+    resolvedHands: {},
+    openedFromRedrawIds: [],
   }
 }
 

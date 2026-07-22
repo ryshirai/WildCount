@@ -100,10 +100,48 @@ describe('maskedView', () => {
         bidderId: 'a',
         challengerId: 'b',
         lifeLoss: 1,
+        resolvedHands: hands,
+        openedFromRedrawIds: [],
       },
     })
     expect(snap.hands.a?.[0]?.label).toBeTruthy()
     expect(snap.hands.b?.[0]?.kind).toBe('double')
+  })
+
+  it('marks openedFromRedraw on wire cards from outcome ids', () => {
+    const hands: Record<string, Card[]> = {
+      a: [{ id: 'rep1', kind: 'number', value: 10 }],
+      b: [{ id: 'c2', kind: 'number', value: 3 }],
+    }
+    const snap = buildPendingResultSnapshot({
+      round: 2,
+      winnerId: null,
+      isGameOver: false,
+      hands,
+      outcome: {
+        bid: 5,
+        actualTotal: 13,
+        calculation: {
+          steps: [],
+          finalTotal: 13,
+          adjustedCards: [],
+          doubleCount: 0,
+          halfCount: 0,
+          maxToZeroApplied: false,
+          rawNumberSum: 13,
+        },
+        bidderWins: true,
+        loserRole: 'challenger',
+        loserId: 'b',
+        bidderId: 'a',
+        challengerId: 'b',
+        lifeLoss: 1,
+        resolvedHands: hands,
+        openedFromRedrawIds: ['rep1'],
+      },
+    })
+    expect(snap.hands.a?.[0]?.openedFromRedraw).toBe(true)
+    expect(snap.hands.b?.[0]?.openedFromRedraw).toBeUndefined()
   })
 
   it('cardToWire preserves kind/value', () => {

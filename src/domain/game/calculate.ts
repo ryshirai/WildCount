@@ -14,8 +14,9 @@ import { cardLabel } from './deck'
  * - “合計値0化” (instant zero total) from design-overview is NOT implemented
  *   (no such card in card-design). Reserved / unused.
  * - `zero_mix` contributes 0 to the numeric sum.
- * - `double` / `half` / `max_to_zero` / `redraw` do not add a number; redraw
- *   should already have been resolved at deal time.
+ * - `double` / `half` / `max_to_zero` / `redraw` do not add a number.
+ * - `redraw` (`?`) is opened at challenge time (engine); if still present here
+ *   it is a no-op for the total (should not happen after resolve).
  */
 export function calculateTotal(cards: readonly Card[]): CalculationResult {
   const steps: CalculationStep[] = []

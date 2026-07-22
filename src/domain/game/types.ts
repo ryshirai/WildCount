@@ -114,6 +114,16 @@ export interface ChallengeOutcome {
   challengerId: PlayerId
   /** Lives lost by the loser (1 default; 2 when life-double attached) */
   lifeLoss: number
+  /**
+   * Hands after `?` open (challenge resolve). Always set by the engine.
+   * Result UI uses this so opened faces match the total.
+   */
+  resolvedHands: Record<PlayerId, Card[]>
+  /**
+   * Replacement card ids that came from opening a `?` this challenge.
+   * Empty when no redraw was in play.
+   */
+  openedFromRedrawIds: readonly string[]
 }
 
 // ---------------------------------------------------------------------------

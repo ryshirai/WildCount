@@ -35,7 +35,8 @@ export interface ResultViewModel extends ResultMock {
 }
 
 /**
- * Map ChallengeOutcome + pre-challenge hands → UI ResultMock (+ game-over meta).
+ * Map ChallengeOutcome + hands → UI ResultMock (+ game-over meta).
+ * Prefer `outcome.resolvedHands` (post-`?` open) when present.
  */
 export function toResultView(input: ToResultViewInput): ResultViewModel {
   const {
@@ -62,9 +63,21 @@ export function toResultView(input: ToResultViewInput): ResultViewModel {
   // Fallback: object key order
   const ids = orderedIds.length > 0 ? orderedIds : Object.keys(hands)
 
+  const openedIds = new Set(outcome.openedFromRedrawIds ?? [])
+  // Prefer engine-resolved hands (post-`?` open) when present
+  const revealHands =
+    outcome.resolvedHands && Object.keys(outcome.resolvedHands).length > 0
+      ? outcome.resolvedHands
+      : hands
+
+  const revealIds =
+    orderedIds.length > 0
+      ? orderedIds.filter((id) => (revealHands[id]?.length ?? 0) > 0)
+      : Object.keys(revealHands)
+
   const cards: RevealedCard[] = []
-  for (const playerId of ids) {
-    const hand = hands[playerId] ?? []
+  for (const playerId of revealIds.length > 0 ? revealIds : ids) {
+    const hand = revealHands[playerId] ?? hands[playerId] ?? []
     const profile = getProfile(playerId, profiles)
     for (const card of hand) {
       cards.push({
@@ -76,6 +89,7 @@ export function toResultView(input: ToResultViewInput): ResultViewModel {
         value: card.value ?? null,
         label: cardLabel(card),
         isSelf: playerId === selfId,
+        openedFromRedraw: openedIds.has(card.id),
       })
     }
   }

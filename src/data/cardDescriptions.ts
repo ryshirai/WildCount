@@ -38,11 +38,11 @@ const SPECIALS: Readonly<Record<string, CardFaceDescription>> = {
   },
   '?': {
     name: '引き直し',
-    effect: '配られた瞬間に捨てて、山札から別の1枚を引き直す。',
+    effect: 'チャレンジ後の公開で山札から1枚オープンする（合計に使う）。',
   },
   '？': {
     name: '引き直し',
-    effect: '配られた瞬間に捨てて、山札から別の1枚を引き直す。',
+    effect: 'チャレンジ後の公開で山札から1枚オープンする（合計に使う）。',
   },
   '0*': {
     name: '山に戻す（0）',
