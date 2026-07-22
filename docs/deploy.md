@@ -143,17 +143,23 @@ npm run build
 
 成果物: `dist/`（PWA 含む）。`public/_headers` も `dist/` にコピーされる（Pages 用キャッシュ制御）。
 
-### 5.1b PWA 更新が反映されないとき
+### 5.1b PWA / デプロイ反映（ユーザーにハードリロードさせない）
 
-本番は Service Worker が静的資産を precache する。次を入れてある:
+本番は Service Worker があるが、**ナビを precache の `index.html` に固定しない**（古いシェルが残り続ける原因だった）。ユーザー操作のハードリロードは不要な設計。
 
 | 仕組み | 役割 |
 |--------|------|
-| `src/pwa.ts`（`virtual:pwa-register` + `autoUpdate`） | 新 SW 有効化時にタブを自動リロード |
-| フォーカス / 5 分間隔の `registration.update()` | 開きっぱなしタブでも更新を検知 |
-| `public/_headers` | `index.html` / `sw.js` を `no-cache`（CDN が古い SW を握らない） |
+| SW: `navigateFallback` 無効 + HTML を precache しない | 通常リロード / 再訪で常にネットワークの HTML を取得 |
+| `public/_redirects`（`/* → /index.html 200`） | SPA ディープリンクを Pages 側で解決 |
+| `dist/version.json`（ビルド時生成・`no-cache`） | 実行中ビルドとデプロイ版の差分検知 |
+| `src/pwa.ts` | 30 秒ごとに version ポーリング → **ソフト**リロード。ダメなら SW 解除 + Cache 削除して再読込 |
+| フォーカス / 60 秒の `registration.update()` | 新 SW の検知 |
+| `autoUpdate` + 有効化時リロード | 新 SW が来たらタブを自動更新 |
+| 対戦中（`/game`） | リロードを遅延し、画面を出たら適用 |
+| `vite:preloadError` / dynamic import 失敗 | 1 回だけソフトリロードで回復 |
+| `public/_headers` | `index.html` / `sw.js` / `version.json` を `no-cache` |
 
-**この修正を初めて載せた直後**は、すでに古い SW を掴んでいる端末が 1 回だけ強制リロード（または DevTools → Application → Unregister）が必要なことがある。それ以降のデプロイは自動更新を期待できる。
+**既に極端に古い SW を掴んでいる端末**だけ、最初の 1 回は自動の nuclear clear（SW 解除）まで進む。利用者に「強制リロードして」と頼む必要は基本的にない。
 
 ### 5.2 Pages へ載せる
 
@@ -251,7 +257,7 @@ curl -sS -X POST "https://wildcount.rysh.dev/api/rooms"
 | `/api/health` が HTML / 404 | Worker ルート `wildcount.rysh.dev/api/*` が無い、または Pages に吸われている |
 | ルーム作成失敗・UI は出る | 同上。Network タブで `/api/rooms` の向き先 |
 | WS だけ切れる | `wss://wildcount.rysh.dev/...` になっているか（http ページや別ホスト混在に注意） |
-| 古い UI | PWA キャッシュ。ハードリロード / SW 更新待ち |
+| 古い UI | 通常は数十秒以内に自動ソフトリロード。`/version.json` と実行中ビルドが一致するか確認。開きっぱなし対戦中はゲーム終了後に反映 |
 | DNS / SSL 待ち | Pages カスタムドメインが Active か。ゾーンが Cloudflare プロキシ（オレンジ雲）か |
 | 誤って `VITE_WORKER_URL` を入れた build | 別ホストを向く。同一オリジン運用なら **外して rebuild → Pages 再デプロイ** |
 

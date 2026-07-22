@@ -5059,3 +5059,38 @@
 
 - 名前 / カード面 / タグを固定スロット化。数字札もタグ行を予約
 - redraw 用スロットを `md` タイル寸法に合わせ、？→X 表示で次段がずれないように
+
+## 2026-07-22 — デプロイ後の自動更新（ハードリロード不要）
+
+### 背景・目的
+- Pages / Worker デプロイ後に一部モジュールが古いままになる
+- ユーザーにハードリロードを頼むのは避けたい
+
+### 実施内容
+1. **根因** — SW の `NavigationRoute(createHandlerBoundToURL("/index.html"))` がナビを precache シェルに固定し、通常リロードでも新 HTML を取れなかった
+2. **SW** — `navigateFallback` 無効、HTML を precache しない。hashed JS/CSS のみ precache。`version.json` は NetworkOnly
+3. **Pages** — `public/_redirects` で SPA ディープリンク。`version.json` を no-cache
+4. **ビルド** — `dist/version.json`（`{ v: assetVersion }`）を出力
+5. **クライアント** — 30 秒 version ポーリング → ソフトリロード。再試行後も古い場合は SW 解除 + Cache 削除。`/game` 中は遅延。chunk load 失敗も 1 回自動回復
+
+### 主なパス変更
+| パス | 内容 |
+|------|------|
+| `vite.config.ts` | version.json 出力 / workbox 策略 |
+| `src/pwa.ts` | 自動更新・nuclear clear・遅延リロード |
+| `public/_headers` | version.json no-cache |
+| `public/_redirects` | SPA fallback |
+| `docs/deploy.md` | §5.1b 更新 |
+
+### 明示的にやっていないこと
+- 本番への Pages / Worker デプロイ自体
+- 更新バナー UI（自動リロードのみ）
+
+### 確認結果
+- `npm run build` 成功。`dist/sw.js` に NavigationRoute / index.html precache なし
+- `dist/version.json` / `_redirects` 出力確認
+- `npm test` 287 件 pass
+
+### 次に考えられる作業
+1. Pages にこの `dist` をデプロイ（以後はユーザー操作なしで更新が乗る想定）
+2. 必要なら更新トーストを足す

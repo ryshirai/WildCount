@@ -1,0 +1,3 @@
+# Cloudflare Pages SPA: missing paths serve the app shell (static files win first).
+# Worker route `wildcount.rysh.dev/api/*` still takes precedence over Pages.
+/*    /index.html   200

@@ -1,11 +1,14 @@
 # Cloudflare Pages headers — keep entrypoints fresh so deploys are visible.
-# Hashed /assets/* can be cached long-term; SW + HTML must revalidate.
+# Hashed /assets/* can be cached long-term; SW + HTML + version probe must revalidate.
 
 /index.html
   Cache-Control: no-cache
 
 /
   Cache-Control: no-cache
+
+/version.json
+  Cache-Control: no-cache, no-store, must-revalidate
 
 /sw.js
   Cache-Control: no-cache, no-store, must-revalidate
